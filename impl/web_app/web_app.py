@@ -773,7 +773,8 @@ async def conv_ai_console_post(req: Request):
             for doc in rdr.get_rag_docs():
                 logging.debug("doc: {}".format(doc))
                 line_parts = list()
-                for attr in ["id", "fileName", "text"]:
+                # TO DO - Should we include the filename in the contract_chunk in addition to the IQ ID?
+                for attr in ["id", "fileName", "text", "chunk_text"]:
                     if attr in doc.keys():
                         value = doc[attr].strip()
                         if len(value) > 0:

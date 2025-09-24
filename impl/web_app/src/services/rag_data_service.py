@@ -99,7 +99,9 @@ class RAGDataService:
                 )
             )
             self.nosql_svc.set_db(ConfigService.graph_source_db())
-            self.nosql_svc.set_container(ConfigService.graph_source_container())
+            self.nosql_svc.set_container(ConfigService.graph_vector_container())
+            # TO DO - DETERMINE WHICH ATRIBUTES TO USE FOR A DATABASE QUERY. COULD BE MULTIPLE OPTIONS
+            # TO DO - DETERMNE IF WE ALSO WANT A CLAUSE DATABASE CALL, BASED ON QUERY TYPE 
             rag_docs_list = await self.nosql_svc.get_documents_by_name([name])
             #pertinent_attributes = "libtype,name, summary, documentation_summary"
             for doc in rag_docs_list:
@@ -132,7 +134,9 @@ class RAGDataService:
             create_embedding_response = self.ai_svc.generate_embeddings(user_text)
             embedding = create_embedding_response.data[0].embedding
             self.nosql_svc.set_db(ConfigService.graph_source_db())
-            self.nosql_svc.set_container(ConfigService.graph_source_container())
+            #Use the new GRAPH_VECTOR_CONTAINER for Contract related Vector Searches
+            # To Do - When doing Clause Searches, we should use the CLAUSE Vector Container
+            self.nosql_svc.set_container(ConfigService.graph_vector_container())
             vs_result = await self.nosql_svc.vector_search(
                 embedding_value=embedding, search_text=user_text, search_method="rrf", embedding_attr="embedding", limit=max_doc_count
             )

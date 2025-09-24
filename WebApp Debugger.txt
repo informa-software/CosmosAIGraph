@@ -1,0 +1,189 @@
+ For debugging the Python Web App, you have several excellent options. The code is already set up for debugging
+  with debugpy. Here's how to connect a debugger:
+
+  Option 1: VS Code (Recommended)
+
+  Setup VS Code Debugging
+
+  1. Open the project in VS Code:
+  cd C:\Users\user\source\Informa\ContractAnalysis\CosmosAIGraph\impl
+  code .
+
+  2. Create a launch configuration:
+  Create or update .vscode/launch.json:
+
+● Write(.vscode\launch.json)
+  ⎿  Wrote 1 lines to .vscode\launch.json
+     {
+         "version": "0.2.0",
+         "configurations": [
+             {
+                 "name": "Python: FastAPI Web App",
+                 "type": "python",
+                 "request": "launch",
+                 "module": "uvicorn",
+                 "args": [
+                     "web_app:app",
+
+● Method A: Launch with Debugger
+
+  1. Open VS Code
+  2. Go to Run and Debug (Ctrl+Shift+D)
+  3. Select "Python: FastAPI Web App" from dropdown
+  4. Press F5 to start with debugger attached
+  5. Set breakpoints by clicking left of line numbers
+
+  Method B: Attach to Running Process
+
+  The web app is already configured with debugpy! Look at line 55-56 in web_app.py:
+
+  import debugpy
+
+  To enable remote debugging, modify the web_app.py:
+
+● Read(web_app\web_app.py)
+  ⎿  Read 30 lines (ctrl+r to expand)
+
+● Great! The app already has debugpy configured. Here's how to use it:
+
+  Enable Debug Mode:
+
+  1. Set environment variable (before starting the app):
+  # In PowerShell
+  $env:CAIG_WAIT_FOR_DEBUGGER = "true"
+
+  # Or add to your .env file
+  echo "CAIG_WAIT_FOR_DEBUGGER=true" >> web_app\.env
+
+  2. Start the web app:
+  cd web_app
+  python web_app.py
+  # It will print: "Waiting for debugger attach..."
+
+  3. In VS Code:
+    - Go to Run and Debug (Ctrl+Shift+D)
+    - Select "Python: Attach to Running Web App"
+    - Press F5
+    - The app will continue running once attached
+
+  Option 2: PyCharm Professional
+
+  1. Create a Run Configuration:
+    - Run → Edit Configurations
+    - Add New → Python
+    - Script path: C:\...\web_app\web_app.py
+    - Working directory: C:\...\web_app
+    - Environment variables: Add from .env file
+  2. Debug:
+    - Set breakpoints
+    - Click Debug button (Shift+F9)
+
+  Option 3: Visual Studio 2022
+
+  1. Open the project:
+    - File → Open → Folder
+    - Select the web_app folder
+  2. Configure Python environment:
+    - View → Other Windows → Python Environments
+    - Select your virtual environment
+  3. Debug:
+    - Debug → Start Debugging (F5)
+    - Or attach to process
+
+  Option 4: Command Line with pdb
+
+  For quick debugging without IDE:
+
+● Write(web_app\debug_helper.py)
+  ⎿  Wrote 1 lines to web_app\debug_helper.py
+     """
+     Debug helper for quick debugging without IDE
+     Add breakpoints in your code with:
+         from debug_helper import bp
+         bp()  # Breakpoint here
+     """
+     import pdb
+     import sys
+
+● Quick Debugging Setup Script
+
+● Write(web_app\start_debug.ps1)
+  ⎿  Wrote 1 lines to web_app\start_debug.ps1
+     # PowerShell script to start web app in debug mode
+     Write-Host "Starting Web App in Debug Mode..." -ForegroundColor Cyan
+     Write-Host "The app will wait for debugger attachment on port 5678" -ForegroundColor Yellow
+     # Set debug environment variable
+     $env:CAIG_WAIT_FOR_DEBUGGER = "true"
+     Write-Host "`nTo attach debugger:" -ForegroundColor Green
+     Write-Host "1. Open VS Code" -ForegroundColor White
+     Write-Host "2. Go to Run and Debug (Ctrl+Shift+D)" -ForegroundColor White
+
+● Common Debugging Scenarios
+
+  1. Debug a specific endpoint:
+
+  @app.post("/ai_completion")
+  async def post_ai_completion(req_model: AiCompletionRequestModel):
+      import pdb; pdb.set_trace()  # Add breakpoint
+      # Your code here
+
+  2. Debug async functions:
+
+  async def get_rag_data(self, user_text):
+      # For async debugging in VS Code
+      await asyncio.sleep(0)  # Allow debugger to catch up
+      breakpoint()  # Python 3.7+ built-in
+
+  3. Debug with logging:
+
+  import logging
+  logging.warning(f"DEBUG: Variable value = {variable}")
+
+  Recommended Tools Summary
+
+  | Tool        | Best For                                  | Setup Difficulty |
+  |-------------|-------------------------------------------|------------------|
+  | VS Code     | Full-featured debugging, best integration | Easy             |
+  | PyCharm Pro | Advanced debugging features               | Easy             |
+  | debugpy     | Remote debugging, production debugging    | Medium           |
+  | pdb         | Quick command-line debugging              | Easy             |
+
+  Quick Start
+
+  The fastest way to start debugging:
+
+  # Terminal 1: Start app in debug mode
+  cd web_app
+  .\start_debug.ps1
+
+  # Terminal 2: Or without waiting
+  python web_app.py
+
+  Then in VS Code:
+  1. Open the project
+  2. Set breakpoints
+  3. Press F5 with "Python: Attach to Running Web App" selected
+
+  The debugger will attach and stop at your breakpoints!
+
+  Testing Your Debug Setup
+
+  Add a test breakpoint:
+
+● Write(web_app\test_debug.py)
+  ⎿  Wrote 1 lines to web_app\test_debug.py
+     """
+     Test script to verify debugging is working
+     Run this to test your debug setup
+     """
+     def test_function(x, y):
+         result = x + y
+         breakpoint()  # Should stop here
+         print(f"Result: {result}")
+         return result
+
+● Run this test:
+  cd web_app
+  python test_debug.py
+
+  If the debugger stops at the breakpoint, your setup is working!

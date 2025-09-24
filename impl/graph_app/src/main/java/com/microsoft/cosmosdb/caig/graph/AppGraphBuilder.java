@@ -67,6 +67,8 @@ public class AppGraphBuilder {
      */
     public static AppGraph build(String overridePostLoadquery) {
         logger.warn("build() start, overridePostLoadquery: " + overridePostLoadquery);
+        logger.warn("STARTING TO BUILD THE GRAPH DATA MODEL...");
+        logger.warn("This may take a few minutes depending on the size of the source data...");    
         AppGraph appGraph = null;
         Model model = null;
 
@@ -77,7 +79,7 @@ public class AppGraphBuilder {
             if (overridePostLoadquery != null) {
                 postLoadQuery = overridePostLoadquery;
             }
-            logger.info("build() - source: " + source);
+            logger.info("XXXXXX build() - source: " + source);
 
             switch(source) {
                 case GRAPH_SOURCE_JSON_DOCS_FILE:
@@ -87,8 +89,11 @@ public class AppGraphBuilder {
                     populateFromJsonDocsFile(appGraph);
                     break;
                 case GRAPH_SOURCE_COSMOSDB_NOSQL:
+                    logger.info("PROCESSNG COSMOSDB GRAPH source");    
                     model = initializeModel(true);
+                    logger.info("MODEL INITIALIZED");
                     appGraph.setModel(model);
+                    logger.info("CALLING POPULATE_FROM_COSMOS");
                     populateFromCosmosDbNoSQL(appGraph);
                     break;
                 case GRAPH_SOURCE_RDF_FILE:
@@ -196,13 +201,23 @@ public class AppGraphBuilder {
             ArrayList<Map<String, Object>>  documents = fileUtil.readJsonMapArray(infile);
             logger.warn("populateFromJsonDocsFile, documents read: " + documents.size());
 
-            LibrariesGraphTriplesBuilder triplesBuilder = new LibrariesGraphTriplesBuilder(g);
-
-            for (int i = 0; i < documents.size(); i++) {
-                Map<String, Object> doc = documents.get(i);
-                triplesBuilder.ingestDocument(doc);
+            // Check if we're in contracts mode
+            String graphMode = AppConfig.getGraphMode();
+            if ("contracts".equalsIgnoreCase(graphMode)) {
+                ContractsGraphTriplesBuilder triplesBuilder = new ContractsGraphTriplesBuilder(g);
+                for (int i = 0; i < documents.size(); i++) {
+                    Map<String, Object> doc = documents.get(i);
+                    triplesBuilder.ingestDocument(doc);
+                }
+                logger.warn("documentsIngested (contracts): " + triplesBuilder.getDocumentsIngested());
+            } else {
+                LibrariesGraphTriplesBuilder triplesBuilder = new LibrariesGraphTriplesBuilder(g);
+                for (int i = 0; i < documents.size(); i++) {
+                    Map<String, Object> doc = documents.get(i);
+                    triplesBuilder.ingestDocument(doc);
+                }
+                logger.warn("documentsIngested (libraries): " + triplesBuilder.getDocumentsIngested());
             }
-            logger.warn("documentsIngested: " + triplesBuilder.getDocumentsIngested());
         }
         catch (Exception e) {
             e.printStackTrace();
@@ -221,16 +236,22 @@ public class AppGraphBuilder {
         String sql = cosmosdbSourceSqlQuery();
         AtomicLong docCounter = new AtomicLong(0);
         ArrayList<Map> allDocuments = new ArrayList<>();
-        LibrariesGraphTriplesBuilder triplesBuilder = new LibrariesGraphTriplesBuilder(g);
-
+        
+        // Check if we're in contracts mode
+        String graphMode = AppConfig.getGraphMode();
+        boolean isContractsMode = "contracts".equalsIgnoreCase(graphMode);
+        
         logger.warn("populateFromCosmosDbNoSQL, uri: " + uri);
         logger.warn("populateFromCosmosDbNoSQL, key: " + key);
         logger.warn("populateFromCosmosDbNoSQL, dbname: " + dbname);
         logger.warn("populateFromCosmosDbNoSQL, cname:  " + cname);
+        logger.warn("populateFromCosmosDbNoSQL, mode: " + (isContractsMode ? "contracts" : "libraries"));
 
         CosmosAsyncClient cosmosAsyncClient = new CosmosClientBuilder()
                 .endpoint(uri)
                 .key(key)
+                .gatewayMode()  // Use Gateway mode instead of Direct mode
+                .endpointDiscoveryEnabled(false)
                 .buildAsyncClient();
 
         CosmosAsyncDatabase database = cosmosAsyncClient.getDatabase(dbname);
@@ -240,18 +261,62 @@ public class AppGraphBuilder {
         logger.warn("populateFromCosmosDbNoSQL, container id: " + container.getId());
 
         CosmosQueryRequestOptions queryOptions = new CosmosQueryRequestOptions();
-        CosmosPagedFlux<Map> flux = container.queryItems(sql, queryOptions, Map.class);
-
-        flux.byPage(100).flatMap(fluxResponse -> {
-            List<Map> results = fluxResponse.getResults().stream().collect(Collectors.toList());
-            for (int r = 0; r < results.size(); r++) {
-                Map doc = results.get(r);
-                docCounter.incrementAndGet();
-                triplesBuilder.ingestDocument(doc);
-                // allDocuments.add(doc);
-            }
+        
+        // TEST QUERY - Simple count to verify connectivity
+        logger.warn("===== RUNNING TEST QUERIES =====");
+        String testSql = "SELECT COUNT(1) as count FROM c";
+        logger.warn("Test Query 1: {}", testSql);
+        CosmosPagedFlux<Map> testFlux = container.queryItems(testSql, queryOptions, Map.class);
+        testFlux.byPage(10).flatMap(response -> {
+            logger.warn("Test Query Result: {}", response.getResults());
             return Flux.empty();
         }).blockLast();
+        
+        // TEST QUERY 2 - Check doctypes
+        String testSql2 = "SELECT c.doctype, COUNT(1) as count FROM c GROUP BY c.doctype";
+        logger.warn("Test Query 2: {}", testSql2);
+        CosmosPagedFlux<Map> testFlux2 = container.queryItems(testSql2, queryOptions, Map.class);
+        testFlux2.byPage(10).flatMap(response -> {
+            logger.warn("Document types found: {}", response.getResults());
+            return Flux.empty();
+        }).blockLast();
+        
+        // Now run the actual query
+        logger.warn("===== RUNNING ACTUAL QUERY =====");
+        logger.warn("Actual SQL: {}", sql);
+        CosmosPagedFlux<Map> flux = container.queryItems(sql, queryOptions, Map.class);
+        logger.warn("Query created (not yet executed)");
+
+        if (isContractsMode) {
+            logger.info("IS CONTRACT MODE = TRUE");
+            ContractsGraphTriplesBuilder triplesBuilder = new ContractsGraphTriplesBuilder(g);
+            logger.info("CREATED TRIPLESBUILDER");
+            flux.byPage(100).flatMap(fluxResponse -> {
+                List<Map> results = fluxResponse.getResults().stream().collect(Collectors.toList());
+                logger.warn("GOT FLUX RESPONSE, results.size(): " + results.size());
+                for (int r = 0; r < results.size(); r++) {
+                    Map doc = results.get(r);
+                    docCounter.incrementAndGet();
+                    triplesBuilder.ingestDocument(doc);
+                    // allDocuments.add(doc);
+                }
+                return Flux.empty();
+            }).blockLast();
+            logger.warn("populateFromCosmosDbNoSQL (contracts), documentsIngested: " + triplesBuilder.getDocumentsIngested());
+        } else {
+            LibrariesGraphTriplesBuilder triplesBuilder = new LibrariesGraphTriplesBuilder(g);
+            flux.byPage(100).flatMap(fluxResponse -> {
+                List<Map> results = fluxResponse.getResults().stream().collect(Collectors.toList());
+                for (int r = 0; r < results.size(); r++) {
+                    Map doc = results.get(r);
+                    docCounter.incrementAndGet();
+                    triplesBuilder.ingestDocument(doc);
+                    // allDocuments.add(doc);
+                }
+                return Flux.empty();
+            }).blockLast();
+            logger.warn("populateFromCosmosDbNoSQL (libraries), documentsIngested: " + triplesBuilder.getDocumentsIngested());
+        }
 
         g.setDocsRead(docCounter.get());
         logger.warn("populateFromCosmosDbNoSQL, docCount:  " + docCounter.get());
@@ -326,9 +391,24 @@ public class AppGraphBuilder {
      * "embeddings" attribute and large text value attributes.
      */
     private static String cosmosdbSourceSqlQuery() {
-        return """
-        select c._id, c.name, c.libtype, c.kwds, c.developers, c.dependency_ids, c.release_count from c offset 0 limit 999999
-        """.strip();
+        String graphMode = AppConfig.getGraphMode();
+        if ("contracts".equalsIgnoreCase(graphMode)) {
+            // For contracts, only fetch parent contract documents for the graph
+            // Clauses and chunks are not added as separate graph entities
+            return """
+            select c.id, c.doctype, c.contractor_party, c.contracting_party, 
+                   c.effective_date, c.expiration_date, c.contract_type, 
+                   c.contract_value, c.governing_law, c.filename, c.clause_ids
+            from c 
+            where c.doctype = 'contract_parent'
+            offset 0 limit 999999
+            """.strip();
+        } else {
+            // Original query for libraries
+            return """
+            select c._id, c.name, c.libtype, c.kwds, c.developers, c.dependency_ids, c.release_count from c offset 0 limit 999999
+            """.strip();
+        }
     }
 
     private static String docAsJson(Map doc, boolean pretty) {

@@ -1,0 +1,167 @@
+Clone the repo:
+git clone https://github.com/jaliyaudagedara/CosmosAIGraph.git `
+    --branch fix-vector-search
+cd .\CosmosAIGraph 
+Copy/Paste and run the following on Terminal/PowerShell
+echo "Setting CAIG environment variables"
+echo 'setting CAIG_AZURE_OPENAI_COMPLETIONS_DEP'
+[Environment]::SetEnvironmentVariable("CAIG_AZURE_OPENAI_COMPLETIONS_DEP", "gpt-4.1", "User")
+echo 'setting CAIG_AZURE_OPENAI_EMBEDDINGS_DEP'
+[Environment]::SetEnvironmentVariable("CAIG_AZURE_OPENAI_EMBEDDINGS_DEP", "text-embedding-3-small", "User")
+echo 'setting CAIG_AZURE_OPENAI_KEY'
+[Environment]::SetEnvironmentVariable("CAIG_AZURE_OPENAI_KEY", "2pVSZScbZQTq0d6PrQW6PhtL5S4PgE9Q43eDNeW8DkAHxQBxXYfqJQQJ99BIACYeBjFXJ3w3AAABACOG0FZP", "User")
+echo 'setting CAIG_AZURE_OPENAI_URL'
+[Environment]::SetEnvironmentVariable("CAIG_AZURE_OPENAI_URL", "https://oai-inf-ai-graph-demo.openai.azure.com/", "User")
+echo 'setting CAIG_AZURE_OPENAI_VERSION'
+[Environment]::SetEnvironmentVariable("CAIG_AZURE_OPENAI_VERSION", "2025-01-01-preview", "User")
+echo 'setting CAIG_CONFIG_CONTAINER'
+[Environment]::SetEnvironmentVariable("CAIG_CONFIG_CONTAINER", "config", "User")
+echo 'setting CAIG_CONVERSATIONS_CONTAINER'
+[Environment]::SetEnvironmentVariable("CAIG_CONVERSATIONS_CONTAINER", "conversations", "User")
+echo 'setting CAIG_COSMOSDB_NOSQL_ACCT'
+[Environment]::SetEnvironmentVariable("CAIG_COSMOSDB_NOSQL_ACCT", "cosno-inf-ai-graph-demo", "User")
+echo 'setting CAIG_COSMOSDB_NOSQL_AUTH_MECHANISM'
+[Environment]::SetEnvironmentVariable("CAIG_COSMOSDB_NOSQL_AUTH_MECHANISM", "key", "User")
+echo 'setting CAIG_COSMOSDB_NOSQL_KEY'
+[Environment]::SetEnvironmentVariable("CAIG_COSMOSDB_NOSQL_KEY", "05Rmw7TUWnE7PoH0lxnLAHOOXsbGSemlvDQOn1q0jkygtRxOqdDOiy2rzKfnzZ8Ncsm9wTjJ5JklACDbe1I9jA==", "User")
+echo 'setting CAIG_COSMOSDB_NOSQL_RG'
+[Environment]::SetEnvironmentVariable("CAIG_COSMOSDB_NOSQL_RG", "rg-cosmos-ai-graph-demo", "User")
+echo 'setting CAIG_COSMOSDB_NOSQL_URI'
+[Environment]::SetEnvironmentVariable("CAIG_COSMOSDB_NOSQL_URI", "https://cosno-inf-ai-graph-demo.documents.azure.com:443/", "User")
+echo 'setting CAIG_FEEDBACK_CONTAINER'
+[Environment]::SetEnvironmentVariable("CAIG_FEEDBACK_CONTAINER", "feedback", "User")
+echo 'setting CAIG_GRAPH_DUMP_OUTFILE'
+[Environment]::SetEnvironmentVariable("CAIG_GRAPH_DUMP_OUTFILE", "tmp/model_dump.nt", "User")
+echo 'setting CAIG_GRAPH_DUMP_UPON_BUILD'
+[Environment]::SetEnvironmentVariable("CAIG_GRAPH_DUMP_UPON_BUILD", "false", "User")
+echo 'setting CAIG_GRAPH_NAMESPACE'
+[Environment]::SetEnvironmentVariable("CAIG_GRAPH_NAMESPACE", "http://cosmosdb.com/caig#", "User")
+echo 'setting CAIG_GRAPH_SERVICE_NAME'
+[Environment]::SetEnvironmentVariable("CAIG_GRAPH_SERVICE_NAME", "caig-graph", "User")
+echo 'setting CAIG_GRAPH_SERVICE_PORT'
+[Environment]::SetEnvironmentVariable("CAIG_GRAPH_SERVICE_PORT", "8001", "User")
+echo 'setting CAIG_GRAPH_SERVICE_URL'
+[Environment]::SetEnvironmentVariable("CAIG_GRAPH_SERVICE_URL", "http://127.0.0.1", "User")
+echo 'setting CAIG_GRAPH_SOURCE_CONTAINER'
+[Environment]::SetEnvironmentVariable("CAIG_GRAPH_SOURCE_CONTAINER", "libraries", "User")
+echo 'setting CAIG_GRAPH_SOURCE_DB'
+[Environment]::SetEnvironmentVariable("CAIG_GRAPH_SOURCE_DB", "caig", "User")
+echo 'setting CAIG_GRAPH_SOURCE_OWL_FILENAME'
+[Environment]::SetEnvironmentVariable("CAIG_GRAPH_SOURCE_OWL_FILENAME", "ontologies/libraries.owl", "User")
+echo 'setting CAIG_GRAPH_SOURCE_PATH'
+[Environment]::SetEnvironmentVariable("CAIG_GRAPH_SOURCE_PATH", "rdf/libraries-graph.nt", "User")
+echo 'setting CAIG_GRAPH_SOURCE_TYPE'
+[Environment]::SetEnvironmentVariable("CAIG_GRAPH_SOURCE_TYPE", "cosmos_nosql", "User")
+echo 'setting CAIG_HOME'
+[Environment]::SetEnvironmentVariable("CAIG_HOME", "C:\<YOUR_PATH>\CosmosAIGraph", "User")
+echo 'setting CAIG_LOG_LEVEL'
+[Environment]::SetEnvironmentVariable("CAIG_LOG_LEVEL", "info", "User")
+echo 'setting CAIG_WEBSVC_AUTH_HEADER'
+[Environment]::SetEnvironmentVariable("CAIG_WEBSVC_AUTH_HEADER", "xxx", "User")
+echo 'setting CAIG_WEBSVC_AUTH_VALUE'
+[Environment]::SetEnvironmentVariable("CAIG_WEBSVC_AUTH_VALUE", "xxx", "User")
+echo 'setting CAIG_WEB_APP_NAME'
+[Environment]::SetEnvironmentVariable("CAIG_WEB_APP_NAME", "caig-web", "User")
+echo 'setting CAIG_WEB_APP_PORT'
+[Environment]::SetEnvironmentVariable("CAIG_WEB_APP_PORT", "8000", "User")
+echo 'setting CAIG_WEB_APP_URL'
+[Environment]::SetEnvironmentVariable("CAIG_WEB_APP_URL", "http://127.0.0.1", "User")
+Ensure variables are set under User Variables (Windows Search -> Environment Variables).
+
+
+Clone the repo:
+git clone https://github.com/jaliyaudagedara/CosmosAIGraph.git `
+    --branch fix-vector-search
+cd .\CosmosAIGraph 
+Copy/Paste and run the following on Terminal/PowerShell
+echo "Setting CAIG environment variables"
+echo 'setting CAIG_AZURE_OPENAI_COMPLETIONS_DEP'
+[Environment]::SetEnvironmentVariable("CAIG_AZURE_OPENAI_COMPLETIONS_DEP", "gpt-4.1", "User")
+echo 'setting CAIG_AZURE_OPENAI_EMBEDDINGS_DEP'
+[Environment]::SetEnvironmentVariable("CAIG_AZURE_OPENAI_EMBEDDINGS_DEP", "text-embedding-3-small", "User")
+echo 'setting CAIG_AZURE_OPENAI_KEY'
+[Environment]::SetEnvironmentVariable("CAIG_AZURE_OPENAI_KEY", "2pVSZScbZQTq0d6PrQW6PhtL5S4PgE9Q43eDNeW8DkAHxQBxXYfqJQQJ99BIACYeBjFXJ3w3AAABACOG0FZP", "User")
+echo 'setting CAIG_AZURE_OPENAI_URL'
+[Environment]::SetEnvironmentVariable("CAIG_AZURE_OPENAI_URL", "https://oai-inf-ai-graph-demo.openai.azure.com/", "User")
+echo 'setting CAIG_AZURE_OPENAI_VERSION'
+[Environment]::SetEnvironmentVariable("CAIG_AZURE_OPENAI_VERSION", "2025-01-01-preview", "User")
+echo 'setting CAIG_CONFIG_CONTAINER'
+[Environment]::SetEnvironmentVariable("CAIG_CONFIG_CONTAINER", "config", "User")
+echo 'setting CAIG_CONVERSATIONS_CONTAINER'
+[Environment]::SetEnvironmentVariable("CAIG_CONVERSATIONS_CONTAINER", "conversations", "User")
+echo 'setting CAIG_COSMOSDB_NOSQL_ACCT'
+[Environment]::SetEnvironmentVariable("CAIG_COSMOSDB_NOSQL_ACCT", "cosno-inf-ai-graph-demo", "User")
+echo 'setting CAIG_COSMOSDB_NOSQL_AUTH_MECHANISM'
+[Environment]::SetEnvironmentVariable("CAIG_COSMOSDB_NOSQL_AUTH_MECHANISM", "key", "User")
+echo 'setting CAIG_COSMOSDB_NOSQL_KEY'
+[Environment]::SetEnvironmentVariable("CAIG_COSMOSDB_NOSQL_KEY", "05Rmw7TUWnE7PoH0lxnLAHOOXsbGSemlvDQOn1q0jkygtRxOqdDOiy2rzKfnzZ8Ncsm9wTjJ5JklACDbe1I9jA==", "User")
+echo 'setting CAIG_COSMOSDB_NOSQL_RG'
+[Environment]::SetEnvironmentVariable("CAIG_COSMOSDB_NOSQL_RG", "rg-cosmos-ai-graph-demo", "User")
+echo 'setting CAIG_COSMOSDB_NOSQL_URI'
+[Environment]::SetEnvironmentVariable("CAIG_COSMOSDB_NOSQL_URI", "https://cosno-inf-ai-graph-demo.documents.azure.com:443/", "User")
+echo 'setting CAIG_FEEDBACK_CONTAINER'
+[Environment]::SetEnvironmentVariable("CAIG_FEEDBACK_CONTAINER", "feedback", "User")
+echo 'setting CAIG_GRAPH_DUMP_OUTFILE'
+[Environment]::SetEnvironmentVariable("CAIG_GRAPH_DUMP_OUTFILE", "tmp/model_dump.nt", "User")
+echo 'setting CAIG_GRAPH_DUMP_UPON_BUILD'
+[Environment]::SetEnvironmentVariable("CAIG_GRAPH_DUMP_UPON_BUILD", "false", "User")
+echo 'setting CAIG_GRAPH_NAMESPACE'
+[Environment]::SetEnvironmentVariable("CAIG_GRAPH_NAMESPACE", "http://cosmosdb.com/caig#", "User")
+echo 'setting CAIG_GRAPH_SERVICE_NAME'
+[Environment]::SetEnvironmentVariable("CAIG_GRAPH_SERVICE_NAME", "caig-graph", "User")
+echo 'setting CAIG_GRAPH_SERVICE_PORT'
+[Environment]::SetEnvironmentVariable("CAIG_GRAPH_SERVICE_PORT", "8001", "User")
+echo 'setting CAIG_GRAPH_SERVICE_URL'
+[Environment]::SetEnvironmentVariable("CAIG_GRAPH_SERVICE_URL", "http://127.0.0.1", "User")
+echo 'setting CAIG_GRAPH_SOURCE_CONTAINER'
+[Environment]::SetEnvironmentVariable("CAIG_GRAPH_SOURCE_CONTAINER", "contracts", "User")
+echo 'setting CAIG_GRAPH_SOURCE_DB'
+[Environment]::SetEnvironmentVariable("CAIG_GRAPH_VECTOR_CONTAINER", "contract_chunks", "User")
+echo 'setting CAIG_GRAPH_SOURCE_DB'
+[Environment]::SetEnvironmentVariable("CAIG_GRAPH_SOURCE_DB", "caig", "User")
+echo 'setting CAIG_GRAPH_SOURCE_OWL_FILENAME'
+[Environment]::SetEnvironmentVariable("CAIG_GRAPH_SOURCE_OWL_FILENAME", "ontologies/libraries.owl", "User")
+echo 'setting CAIG_GRAPH_SOURCE_PATH'
+[Environment]::SetEnvironmentVariable("CAIG_GRAPH_SOURCE_PATH", "rdf/libraries-graph.nt", "User")
+echo 'setting CAIG_GRAPH_SOURCE_TYPE'
+[Environment]::SetEnvironmentVariable("CAIG_GRAPH_SOURCE_TYPE", "cosmos_nosql", "User")
+echo 'setting CAIG_HOME'
+[Environment]::SetEnvironmentVariable("CAIG_HOME", "C:\<YOUR_PATH>\CosmosAIGraph", "User")
+echo 'setting CAIG_LOG_LEVEL'
+[Environment]::SetEnvironmentVariable("CAIG_LOG_LEVEL", "info", "User")
+echo 'setting CAIG_WEBSVC_AUTH_HEADER'
+[Environment]::SetEnvironmentVariable("CAIG_WEBSVC_AUTH_HEADER", "xxx", "User")
+echo 'setting CAIG_WEBSVC_AUTH_VALUE'
+[Environment]::SetEnvironmentVariable("CAIG_WEBSVC_AUTH_VALUE", "xxx", "User")
+echo 'setting CAIG_WEB_APP_NAME'
+[Environment]::SetEnvironmentVariable("CAIG_WEB_APP_NAME", "caig-web", "User")
+echo 'setting CAIG_WEB_APP_PORT'
+[Environment]::SetEnvironmentVariable("CAIG_WEB_APP_PORT", "8000", "User")
+echo 'setting CAIG_WEB_APP_URL'
+[Environment]::SetEnvironmentVariable("CAIG_WEB_APP_URL", "http://127.0.0.1", "User")
+
+CAIG_GRAPH_MODE = "contracts"
+
+Ensure variables are set under User Variables (Windows Search -> Environment Variables).
+Restart the terminal/PowerShell after setting environment variables. Open a new terminal and cd to CosmosAIGraph folder
+Run the following create/activate VENV
+cd .\impl\web_app\
+.\venv.ps1
+.\venv\Scripts\Activate.ps1
+Build the Java App
+ cd ..\graph_app\ 
+ .\build.ps1
+ 
+You may need to create a gradel-wrapper.jar file by running gradle wrapper in the graph_app folder
+Navigate back to root directory and run the apps
+cd ..\..
+.\run.ps1
+If error running the run.ps1 saying it's not signed or something, update the policy to Unrestricted and try again.
+# Check current policy
+Get-ExecutionPolicy
+# Update
+Set-ExecutionPolicy -ExecutionPolicy Unrestricted -Scope CurrentUser 
+ 
+go to:
+http://127.0.0.1:8000
+ 

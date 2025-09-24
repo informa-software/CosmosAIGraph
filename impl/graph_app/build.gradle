@@ -77,3 +77,9 @@ task consoleAppPostSparqlAddDocuments(type: JavaExec) {
 	mainClass = 'com.microsoft.cosmosdb.caig.ConsoleApp'
 	args 'postSparqlAddDocuments', 'rdf/postSparqlAddDocuments.txt', '10'
 }
+
+// gradle testCosmosConnection
+task testCosmosConnection(type: JavaExec) {
+	classpath = sourceSets.main.runtimeClasspath
+	mainClass = 'com.microsoft.cosmosdb.caig.util.CosmosTestQuery'
+}

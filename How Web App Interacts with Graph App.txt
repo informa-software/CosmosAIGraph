@@ -1,0 +1,112 @@
+How Web App Interacts with Graph App
+
+  Based on the code analysis, here's how the two applications interact:
+
+  1. Communication Protocol
+
+  - HTTP REST API: Web App (Python on port 8000) makes HTTP POST requests to Graph App (Java on port 8001)
+  - JSON Format: Data exchanged in JSON format
+  - Authentication: Shared secret headers for inter-service authentication
+
+  2. Main Integration Points
+
+  A. SPARQL Query Execution
+
+  # Web App sends SPARQL queries to Graph App
+  async def post_sparql_to_graph_microsvc(sparql: str):
+      url = "http://graph-service:8001/sparql_query"
+      postdata = {"sparql": sparql}
+      response = await client.post(url, json=postdata)
+      return SparqlQueryResponse(response)
+
+  B. RAG Data Service Integration
+
+  The RAG (Retrieval Augmented Generation) pattern uses three strategies:
+
+  1. Database Strategy (db): Direct CosmosDB lookup
+  2. Vector Strategy (vector): Semantic search in CosmosDB
+  3. Graph Strategy (graph): SPARQL queries to Graph App
+
+  # Strategy determination based on user query
+  if strategy == "graph":
+      # Generate SPARQL from natural language
+      sparql = ai_svc.generate_sparql_from_user_prompt(user_text)
+
+      # Send to Graph App for execution
+      response = await post_sparql_to_graph_microsvc(sparql)
+
+      # Process results for RAG context
+      for doc in response.binding_values():
+          rag_data.add_doc(doc)
+
+  3. Key Endpoints Used
+
+  Graph App Endpoints (Java)
+
+  - POST /sparql_query - Execute SPARQL SELECT queries
+  - POST /sparql_update - Execute SPARQL UPDATE operations
+  - POST /sparql_bom_query - Bill of Materials queries for visualization
+  - GET /ontology - Get OWL ontology
+  - POST /add_documents - Add documents to graph
+
+  Web App Routes (Python)
+
+  - /sparql_console - UI for SPARQL queries (forwards to Graph App)
+  - /ai_completion - Uses graph data as context for AI responses
+  - /sparql_generator - Generates SPARQL from natural language
+
+  4. Data Flow Examples
+
+  Example 1: Natural Language to Graph Query
+
+  User Input: "Show all contracts between Company A and Company B"
+       ↓
+  Web App: Generate SPARQL using AI
+       ↓
+  SPARQL: SELECT ?contract WHERE {
+            ?contract c:hasParty "Company A" .
+            ?contract c:hasParty "Company B"
+          }
+       ↓
+  Web App: POST to Graph App /sparql_query
+       ↓
+  Graph App: Execute on in-memory Jena graph
+       ↓
+  Graph App: Return JSON results
+       ↓
+  Web App: Format and display to user
+
+  Example 2: RAG Pattern with Graph Data
+
+  User Question: "What contracts expire this month?"
+       ↓
+  Web App: Determine strategy = "graph"
+       ↓
+  Web App: Generate SPARQL for expiring contracts
+       ↓
+  Graph App: Execute SPARQL, return contract data
+       ↓
+  Web App: Use contract data as context for AI
+       ↓
+  AI Service: Generate natural language response
+       ↓
+  User: Receives AI-generated answer with citations
+
+  5. Configuration
+
+  The Web App knows how to reach the Graph App via environment variables:
+  # In config_service.py
+  CAIG_GRAPH_SERVICE_URL = "http://localhost"  # or http://graph-service in Docker
+  CAIG_GRAPH_SERVICE_PORT = "8001"
+
+  6. Error Handling
+
+  - Timeout: 30-120 seconds for graph queries
+  - Fallback: If graph strategy fails, falls back to vector search
+  - Logging: Both apps log interactions for debugging
+
+  This architecture provides:
+  - Separation of Concerns: Python handles AI/web, Java handles graph operations
+  - Scalability: Services can scale independently
+  - Flexibility: Multiple data access strategies (DB, Vector, Graph)
+  - Resilience: Fallback mechanisms when graph service unavailable

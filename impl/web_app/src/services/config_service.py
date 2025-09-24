@@ -216,10 +216,11 @@ class ConfigService:
         d["CAIG_AZURE_REGION"] = "eastus"
         d["CAIG_GRAPH_NAMESPACE"] = ""
         d["CAIG_GRAPH_SOURCE_TYPE"] = "cosmos_nosql"
-        d["CAIG_GRAPH_SOURCE_OWL_FILENAME"] = "ontologies/extracted_ontology.ttl"
+        d["CAIG_GRAPH_SOURCE_OWL_FILENAME"] = "ontologies/contracts.owl"
         # d["CAIG_GRAPH_SOURCE_PATH"] = ""
         d["CAIG_GRAPH_SOURCE_DB"] = "caig"
-        d["CAIG_GRAPH_SOURCE_CONTAINER"] = "libraries"
+        d["CAIG_GRAPH_SOURCE_CONTAINER"] = "contracts"
+        d["CAIG_GRAPH_VECTOR_CONTAINER"] = "contract_chunks"
         d["CAIG_GRAPH_DUMP_UPON_BUILD"] = "false"
         d["CAIG_GRAPH_DUMP_OUTFILE"] = ""
         d["CAIG_CONFIG_CONTAINER"] = "config"
@@ -290,11 +291,7 @@ class ConfigService:
 
     @classmethod
     def graph_source_owl_filename(cls) -> str:
-        return cls.envvar("CAIG_GRAPH_SOURCE_OWL_FILENAME", "ontologies/extracted_ontology.ttl")
-
-    # @classmethod
-    # def graph_source_rdf_filename(cls) -> str:
-    #     return cls.envvar("CAIG_GRAPH_SOURCE_PATH", "")
+        return cls.envvar("CAIG_GRAPH_SOURCE_OWL_FILENAME", "ontologies/contracts.owl")
 
     @classmethod
     def graph_source_db(cls) -> str:
@@ -302,7 +299,11 @@ class ConfigService:
 
     @classmethod
     def graph_source_container(cls) -> str:
-        return cls.envvar("CAIG_GRAPH_SOURCE_CONTAINER", "libraries")
+        return cls.envvar("CAIG_GRAPH_SOURCE_CONTAINER", "contracts")
+
+    @classmethod
+    def graph_vector_container(cls) -> str:
+        return cls.envvar("CAIG_GRAPH_VECTOR_CONTAINER", "contract_chunks")
 
     @classmethod
     def config_container(cls) -> str:
@@ -423,7 +424,7 @@ class ConfigService:
     def set_standard_unit_test_env_vars(cls):
         """Set environment variables for use in unit tests"""
         os.environ["CAIG_GRAPH_SOURCE_TYPE"] = "rdf_file"
-        os.environ["CAIG_GRAPH_SOURCE_OWL_FILENAME"] = "ontologies/extracted_ontology.ttl"
+        os.environ["CAIG_GRAPH_SOURCE_OWL_FILENAME"] = "ontologies/extracted_oncontracts.owl"
         # os.environ["CAIG_GRAPH_SOURCE_PATH"] = ""
         os.environ["CAIG_WEBSVC_AUTH_VALUE"] = "123go"
         os.environ["SAMPLE_INT_VAR"] = "98"

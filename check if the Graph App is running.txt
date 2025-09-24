@@ -1,0 +1,141 @@
+Here are several ways to check if the Graph App is running:
+
+  1. Direct HTTP Health Check
+
+  # Check the ping endpoint
+  curl http://localhost:8001/ping
+
+  # Check the detailed health endpoint
+  curl http://localhost:8001/health
+
+  # Check if the ontology endpoint responds
+  curl http://localhost:8001/ontology
+
+  2. Check Running Java Processes
+
+  # Windows PowerShell
+  Get-Process java | Select-Object ProcessName, Id, StartTime, CommandLine
+
+  # Or check for the specific port
+  netstat -an | findstr :8001
+
+  # Windows Command Prompt
+  tasklist | findstr java
+
+  3. Test SPARQL Query Endpoint
+
+  # Test with a simple SPARQL query to count triples
+  curl -X POST http://localhost:8001/sparql_query \
+    -H "Content-Type: application/json" \
+    -d '{"sparql": "SELECT (COUNT(*) as ?count) WHERE { ?s ?p ?o }"}'
+
+  4. Check Application Logs
+
+  # If running via Gradle
+  # Look in the console output or:
+  cd graph_app
+  cat tmp/*.log
+
+  # Check for the startup message
+  # Should see: "Started WebApp in X seconds"
+
+  5. Via the Web App UI
+
+  If the Web App is running, you can:
+  1. Navigate to http://localhost:8000
+  2. Go to the SPARQL Console page
+  3. If it loads without errors, the Graph App is reachable
+
+  6. Docker Status (if using Docker)
+
+  # Check if container is running
+  docker ps | grep graph
+
+  # Check container logs
+  docker logs cosmosaidb-graph-1
+
+  # Or with docker-compose
+  docker-compose ps
+
+  7. PowerShell Script to Check
+
+  # Save as check-graph-app.ps1
+  $url = "http://localhost:8001/ping"
+  try {
+      $response = Invoke-WebRequest -Uri $url -UseBasicParsing -TimeoutSec 5
+      if ($response.StatusCode -eq 200) {
+          Write-Host "✓ Graph App is running" -ForegroundColor Green
+          Write-Host "Response: $($response.Content)"
+      }
+  } catch {
+      Write-Host "✗ Graph App is not responding" -ForegroundColor Red
+      Write-Host "Error: $_"
+  }
+
+  # Also check the port
+  $connection = Test-NetConnection -ComputerName localhost -Port 8001
+  if ($connection.TcpTestSucceeded) {
+      Write-Host "✓ Port 8001 is open" -ForegroundColor Green
+  } else {
+      Write-Host "✗ Port 8001 is not accessible" -ForegroundColor Yellow
+  }
+
+  8. Start the Graph App if Not Running
+
+  If it's not running, start it with:
+
+  # Navigate to graph_app directory
+  cd graph_app
+
+  # Windows
+  .\gradlew.bat bootRun
+  # or
+  .\graph_app.ps1
+
+  # Linux/Mac
+  ./gradlew bootRun
+  # or
+  ./graph_app.sh
+
+  9. Check Configuration
+
+  Verify the app has proper configuration:
+
+  # Check if config file exists
+  cd graph_app
+  ls .override.properties
+
+  # Verify environment variables are set
+  # PowerShell
+  $env:CAIG_GRAPH_SOURCE_TYPE
+  $env:CAIG_GRAPH_MODE
+
+  10. Expected Startup Log Messages
+
+  When the Graph App starts successfully, you should see messages like:
+
+  INFO  AppConfig - initialize reading infile: .../.override.properties
+  WARN  AppGraphBuilder - build() start
+  WARN  AppGraphBuilder - populateFromCosmosDbNoSQL, mode: contracts
+  INFO  AppGraph - query() executing SPARQL
+  WARN  AppGraphBuilder - build() finish
+  INFO  WebApp - Started WebApp in X seconds (JVM running for Y)
+
+  Common Issues and Solutions
+
+  If Graph App is not running:
+
+  1. Port already in use:
+  # Find what's using port 8001
+  netstat -ano | findstr :8001
+  2. Missing configuration:
+    - Ensure .override.properties exists
+    - Check CosmosDB connection settings
+  3. Java not installed:
+  java -version  # Should be Java 21
+  4. Build issues:
+  cd graph_app
+  .\gradlew.bat clean build
+
+  The most reliable quick check is the ping endpoint - if curl http://localhost:8001/ping returns a response, the
+  Graph App is running properly.

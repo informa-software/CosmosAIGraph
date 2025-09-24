@@ -27,14 +27,17 @@ class CosmosDocFilter:
     
     def general_attributes(self):
         return [
-            "name",
-            "description",
-            "summary",
-            "documentation_summary",
-            "kwds",
-            "dependency_ids",
-            "developers",
-            "release_count",
+            "chunk_text",
+            "doctype",
+            "filename",
+            "contractor_party",
+            "contracting_party",
+            "effective_date",
+            "expiration_date",
+            "contract_value",
+            "contract_type",
+            "governing_law",
+            "jurisdiction",
             "embedding"
         ]
     
@@ -61,15 +64,19 @@ class CosmosDocFilter:
         return filtered
 
     def rag_attributes(self):
-        return [
-            "name",
-            "description",
-            "summary",
-            "documentation_summary",
-            "kwds",
-            "dependency_ids",
-            "developers",
-            "release_count",
+         return [
+            "chunk_text",
+            "doctype",
+            "filename",
+            "contractor_party",
+            "contracting_party",
+            "effective_date",
+            "expiration_date",
+            "contract_value",
+            "contract_type",
+            "governing_law",
+            "jurisdiction",
+            "embedding"
         ]
 
     def filter_out_embedding(self, embedding_attr = "embedding"):
@@ -87,8 +94,8 @@ class CosmosDocFilter:
                             filtered[attr].append(
                                 dep_id[5:]
                             )  # 'pypi_jinja2' becomes 'jinja2'
-                    elif attr == "description":
-                        filtered[attr] = self.cosmos_doc[attr][:255]#.replace("\n", " ")
+                    elif attr == "chunk_text":
+                        filtered[attr] = self.cosmos_doc[attr][:1024]#.replace("\n", " ")
                     elif attr == "summary":
                         filtered[attr] = self.cosmos_doc[attr][:255]#.replace("\n", " ")
                     elif attr == "documentation_summary":
@@ -112,14 +119,22 @@ class CosmosDocFilter:
         return filtered
 
     def vector_search_attributes(self):
+        """
+        List the pertinant attributes in the CONTRACT_CHUNK documents that should be returned
+        """
+        # TO DO - Should this be different for contract vs clause?
+        # Should this include the filename in addition to the IQ ID and other properties?
         return [
-            "name",
-            "description",
-            "summary",
-            "documentation_summary",
-            "kwds",
-            "dependency_ids",
-            "developers",
-            "release_count",
-            "embedding",
+            "chunk_text",
+            "doctype",
+            "filename",
+            "contractor_party",
+            "contracting_party",
+            "effective_date",
+            "expiration_date",
+            "contract_value",
+            "contract_type",
+            "governing_law",
+            "jurisdiction",
+            "embedding"
         ]

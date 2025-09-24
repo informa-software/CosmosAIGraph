@@ -1,0 +1,253 @@
+<?xml version="1.0"?>
+
+<rdf:RDF
+  xmlns      = "http://cosmosdb.com/caig#"
+  xmlns:owl  = "http://www.w3.org/2002/07/owl#"
+  xmlns:rdf  = "http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+  xmlns:rdfs = "http://www.w3.org/2000/01/rdf-schema#"
+  xmlns:xsd  = "http://www.w3.org/2001/XMLSchema#">
+
+  <owl:Ontology rdf:about="">
+    <rdfs:comment>
+      A custom ontology for the Intelligent Contracts reference graph
+    </rdfs:comment>
+    <rdfs:label>Contract Intelligence Ontology</rdfs:label>
+  </owl:Ontology>
+
+  <owl:Class rdf:ID="Contract">
+    <rdfs:label xml:lang="en">Contract</rdfs:label>
+    <rdfs:comment xml:lang="en">A Legally Binding Agreement</rdfs:comment>
+  </owl:Class>
+
+  <owl:Class rdf:ID="ContractorParty">
+    <rdfs:label xml:lang="en">ContractorParty</rdfs:label>
+    <rdfs:comment xml:lang="en">The contractor Party in the Contract</rdfs:comment>
+  </owl:Class>
+
+  <owl:Class rdf:ID="ContractingParty">
+    <rdfs:label xml:lang="en">ContractingParty</rdfs:label>
+    <rdfs:comment xml:lang="en">The contracting Party in the Contract</rdfs:comment>
+  </owl:Class>
+
+  <owl:Class rdf:ID="GoverningLaw">
+    <rdfs:label xml:lang="en">GoverningLaw</rdfs:label>
+    <rdfs:comment xml:lang="en">The Governing Law for the Contract</rdfs:comment>
+  </owl:Class>
+
+  <!-- Base Clause Class -->
+  <owl:Class rdf:ID="Clause">
+    <rdfs:label xml:lang="en">Clause</rdfs:label>
+    <rdfs:comment xml:lang="en">A contractual clause or provision within a Contract</rdfs:comment>
+  </owl:Class>
+
+  <!-- Specific Clause Classes -->
+  <owl:Class rdf:ID="Indemnification">
+    <rdfs:subClassOf rdf:resource="#Clause"/>
+    <rdfs:label xml:lang="en">Indemnification</rdfs:label>
+    <rdfs:comment xml:lang="en">Indemnification clause</rdfs:comment>
+  </owl:Class>
+
+  <owl:Class rdf:ID="IndemnificationObligations">
+    <rdfs:subClassOf rdf:resource="#Clause"/>
+    <rdfs:label xml:lang="en">IndemnificationObligations</rdfs:label>
+    <rdfs:comment xml:lang="en">Indemnification obligations clause</rdfs:comment>
+  </owl:Class>
+
+  <owl:Class rdf:ID="WorkersCompensationInsurance">
+    <rdfs:subClassOf rdf:resource="#Clause"/>
+    <rdfs:label xml:lang="en">WorkersCompensationInsurance</rdfs:label>
+    <rdfs:comment xml:lang="en">Workers compensation insurance clause</rdfs:comment>
+  </owl:Class>
+
+  <owl:Class rdf:ID="CommercialPublicLiability">
+    <rdfs:subClassOf rdf:resource="#Clause"/>
+    <rdfs:label xml:lang="en">CommercialPublicLiability</rdfs:label>
+    <rdfs:comment xml:lang="en">Commercial public liability clause</rdfs:comment>
+  </owl:Class>
+
+  <owl:Class rdf:ID="AutomobileInsurance">
+    <rdfs:subClassOf rdf:resource="#Clause"/>
+    <rdfs:label xml:lang="en">AutomobileInsurance</rdfs:label>
+    <rdfs:comment xml:lang="en">Automobile insurance clause</rdfs:comment>
+  </owl:Class>
+
+  <owl:Class rdf:ID="UmbrellaInsurance">
+    <rdfs:subClassOf rdf:resource="#Clause"/>
+    <rdfs:label xml:lang="en">UmbrellaInsurance</rdfs:label>
+    <rdfs:comment xml:lang="en">Umbrella insurance clause</rdfs:comment>
+  </owl:Class>
+
+  <owl:Class rdf:ID="Assignability">
+    <rdfs:subClassOf rdf:resource="#Clause"/>
+    <rdfs:label xml:lang="en">Assignability</rdfs:label>
+    <rdfs:comment xml:lang="en">Assignability clause</rdfs:comment>
+  </owl:Class>
+
+  <owl:Class rdf:ID="DataBreachObligations">
+    <rdfs:subClassOf rdf:resource="#Clause"/>
+    <rdfs:label xml:lang="en">DataBreachObligations</rdfs:label>
+    <rdfs:comment xml:lang="en">Data breach obligations clause</rdfs:comment>
+  </owl:Class>
+
+  <owl:Class rdf:ID="ComplianceObligations">
+    <rdfs:subClassOf rdf:resource="#Clause"/>
+    <rdfs:label xml:lang="en">ComplianceObligations</rdfs:label>
+    <rdfs:comment xml:lang="en">Compliance obligations clause</rdfs:comment>
+  </owl:Class>
+
+  <owl:Class rdf:ID="ConfidentialityObligations">
+    <rdfs:subClassOf rdf:resource="#Clause"/>
+    <rdfs:label xml:lang="en">ConfidentialityObligations</rdfs:label>
+    <rdfs:comment xml:lang="en">Confidentiality obligations clause</rdfs:comment>
+  </owl:Class>
+
+  <owl:Class rdf:ID="EscalationObligations">
+    <rdfs:subClassOf rdf:resource="#Clause"/>
+    <rdfs:label xml:lang="en">EscalationObligations</rdfs:label>
+    <rdfs:comment xml:lang="en">Escalation obligations clause</rdfs:comment>
+  </owl:Class>
+
+  <owl:Class rdf:ID="LimitationOfLiabilityObligations">
+    <rdfs:subClassOf rdf:resource="#Clause"/>
+    <rdfs:label xml:lang="en">LimitationOfLiabilityObligations</rdfs:label>
+    <rdfs:comment xml:lang="en">Limitation of liability obligations clause</rdfs:comment>
+  </owl:Class>
+
+  <owl:Class rdf:ID="PaymentObligations">
+    <rdfs:subClassOf rdf:resource="#Clause"/>
+    <rdfs:label xml:lang="en">PaymentObligations</rdfs:label>
+    <rdfs:comment xml:lang="en">Payment obligations clause</rdfs:comment>
+  </owl:Class>
+
+  <owl:Class rdf:ID="RenewalNotification">
+    <rdfs:subClassOf rdf:resource="#Clause"/>
+    <rdfs:label xml:lang="en">RenewalNotification</rdfs:label>
+    <rdfs:comment xml:lang="en">Renewal notification clause</rdfs:comment>
+  </owl:Class>
+
+  <owl:Class rdf:ID="ServiceLevelAgreement">
+    <rdfs:subClassOf rdf:resource="#Clause"/>
+    <rdfs:label xml:lang="en">ServiceLevelAgreement</rdfs:label>
+    <rdfs:comment xml:lang="en">Service level agreement clause</rdfs:comment>
+  </owl:Class>
+
+  <owl:Class rdf:ID="TerminationObligations">
+    <rdfs:subClassOf rdf:resource="#Clause"/>
+    <rdfs:label xml:lang="en">TerminationObligations</rdfs:label>
+    <rdfs:comment xml:lang="en">Termination obligations clause</rdfs:comment>
+  </owl:Class>
+
+  <owl:Class rdf:ID="WarrantyObligations">
+    <rdfs:subClassOf rdf:resource="#Clause"/>
+    <rdfs:label xml:lang="en">WarrantyObligations</rdfs:label>
+    <rdfs:comment xml:lang="en">Warranty obligations clause</rdfs:comment>
+  </owl:Class>
+
+  <!-- Object Properties -->
+  <owl:ObjectProperty rdf:ID="performs">
+	<rdfs:label xml:lang="en">performs</rdfs:label>
+	<rdfs:comment xml:lang="en">Contractor Party performs a Contract</rdfs:comment>
+    <rdfs:domain rdf:resource="#ContractorParty" />
+    <rdfs:range  rdf:resource="#Contract" />
+  </owl:ObjectProperty>
+
+  <owl:ObjectProperty rdf:ID="is_performed_by">
+	<rdfs:label xml:lang="en">is_performed_by</rdfs:label>
+	<rdfs:comment xml:lang="en">Contract is performed by a Contractor Party</rdfs:comment>
+    <rdfs:domain rdf:resource="#Contract" />
+    <rdfs:range  rdf:resource="#ContractorParty" />
+  </owl:ObjectProperty>
+
+  <owl:ObjectProperty rdf:ID="initiates">
+	<rdfs:label xml:lang="en">initiates</rdfs:label>
+	<rdfs:comment xml:lang="en">Contracting Party initiates a Contract</rdfs:comment>
+    <rdfs:domain rdf:resource="#ContractingParty" />
+    <rdfs:range  rdf:resource="#Contract" />
+  </owl:ObjectProperty>
+
+  <owl:ObjectProperty rdf:ID="is_initiated_by">
+	<rdfs:label xml:lang="en">is_initiated_by</rdfs:label>
+	<rdfs:comment xml:lang="en">Contract is initiated by a Contracting Party</rdfs:comment>
+    <rdfs:domain rdf:resource="#Contract" />
+    <rdfs:range  rdf:resource="#ContractingParty" />
+  </owl:ObjectProperty>
+
+  <owl:ObjectProperty rdf:ID="is_governed_by">
+	<rdfs:label xml:lang="en">is_governed_by</rdfs:label>
+	<rdfs:comment xml:lang="en">Contract is governed by a Governing Law</rdfs:comment>
+    <rdfs:domain rdf:resource="#Contract" />
+    <rdfs:range  rdf:resource="#GoverningLaw" />
+  </owl:ObjectProperty>
+
+  <owl:ObjectProperty rdf:ID="governs">
+	<rdfs:label xml:lang="en">governs</rdfs:label>
+	<rdfs:comment xml:lang="en">Governing Law governs a Contract</rdfs:comment>
+    <rdfs:domain rdf:resource="#GoverningLaw" />
+    <rdfs:range  rdf:resource="#Contract" />
+  </owl:ObjectProperty>
+
+  <owl:ObjectProperty rdf:ID="contains">
+	<rdfs:label xml:lang="en">contains</rdfs:label>
+	<rdfs:comment xml:lang="en">Contract contains a Clause</rdfs:comment>
+    <rdfs:domain rdf:resource="#Contract" />
+    <rdfs:range  rdf:resource="#Clause" />
+  </owl:ObjectProperty>
+
+  <owl:ObjectProperty rdf:ID="is_contained_in">
+	<rdfs:label xml:lang="en">is_contained_in</rdfs:label>
+	<rdfs:comment xml:lang="en">Clause is contained in a Contract</rdfs:comment>
+    <rdfs:domain rdf:resource="#Clause" />
+    <rdfs:range  rdf:resource="#Contract" />
+  </owl:ObjectProperty>
+
+  <!-- Datatype Properties -->
+  <owl:DatatypeProperty rdf:ID="contractorPartyName">
+    <rdfs:label xml:lang="en">contractorPartyName</rdfs:label>
+    <rdfs:comment xml:lang="en">The name of a Contractor Party</rdfs:comment>
+    <rdfs:domain rdf:resource="#ContractorParty" />
+    <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string" />
+  </owl:DatatypeProperty>
+
+  <owl:DatatypeProperty rdf:ID="contractingPartyName">
+    <rdfs:label xml:lang="en">contractingPartyName</rdfs:label>
+    <rdfs:comment xml:lang="en">The name of a Contracting Party</rdfs:comment>
+    <rdfs:domain rdf:resource="#ContractingParty" />
+    <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string" />
+  </owl:DatatypeProperty>
+
+  <owl:DatatypeProperty rdf:ID="effectiveDate">
+    <rdfs:label xml:lang="en">effectiveDate</rdfs:label>
+    <rdfs:comment xml:lang="en">The Effective Date of a Contract</rdfs:comment>
+    <rdfs:domain rdf:resource="#Contract" />
+    <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string" />
+  </owl:DatatypeProperty>
+
+  <owl:DatatypeProperty rdf:ID="expirationDate">
+    <rdfs:label xml:lang="en">expirationDate</rdfs:label>
+    <rdfs:comment xml:lang="en">The Expiration Date of a Contract</rdfs:comment>
+    <rdfs:domain rdf:resource="#Contract" />
+    <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string" />
+  </owl:DatatypeProperty>
+
+  <owl:DatatypeProperty rdf:ID="contractType">
+    <rdfs:label xml:lang="en">contractType</rdfs:label>
+    <rdfs:comment xml:lang="en">The type of a Contract</rdfs:comment>
+    <rdfs:domain rdf:resource="#Contract" />
+    <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string" />
+  </owl:DatatypeProperty>
+
+  <owl:DatatypeProperty rdf:ID="maximumContractValue">
+    <rdfs:label xml:lang="en">maximumContractValue</rdfs:label>
+    <rdfs:comment xml:lang="en">The Maximum value payable under the Contract</rdfs:comment>
+    <rdfs:domain rdf:resource="#Contract" />
+    <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#decimal" />
+  </owl:DatatypeProperty>
+
+  <owl:DatatypeProperty rdf:ID="contractClauseID">
+    <rdfs:label xml:lang="en">contractClauseID</rdfs:label>
+    <rdfs:comment xml:lang="en">The unique identifier for a clause in CosmosDB</rdfs:comment>
+    <rdfs:domain rdf:resource="#Clause" />
+    <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string" />
+  </owl:DatatypeProperty>
+
+</rdf:RDF>

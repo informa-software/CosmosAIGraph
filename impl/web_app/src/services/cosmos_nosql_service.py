@@ -335,11 +335,11 @@ class CosmosNoSQLService:
         # Combine tokens into a single string separated by commas
         search_expr = ','.join(f'"{token}"' for token in tokens)
 
-        # Simplified query using just the description field
+        # Simplified query using just the chunk_text field
         sql = f"""
         SELECT TOP {limit} * 
         FROM c 
-        ORDER BY RANK FullTextScore(c.description, {search_expr})
+        ORDER BY RANK FullTextScore(c.chunk_text, {search_expr})
         """
 
         logging.debug(f"Full-text search SQL: {sql}")
@@ -351,22 +351,22 @@ class CosmosNoSQLService:
                 docs.append(cdf.filter_out_embedding("embedding"))
         except Exception as e:
             # If description field doesn't support FullTextScore, try summary field
-            logging.error(f"Full-text search on description failed: {e}")
-            try:
-                sql = f"""
-                SELECT TOP {limit} * 
-                FROM c 
-                ORDER BY RANK FullTextScore(c.summary, {search_expr})
-                """
-                logging.debug(f"Full-text search SQL: {sql}")
-                items_paged = self._ctrproxy.query_items(query=sql, parameters=[])
-                async for item in items_paged:
-                    cdf = CosmosDocFilter(item)
-                    docs.append(cdf.filter_out_embedding("embedding"))
-            except Exception as e2:
+            #logging.error(f"Full-text search on description failed: {e}")
+            #try:
+            #    sql = f"""
+            #    SELECT TOP {limit} * 
+            #    FROM c 
+            #    ORDER BY RANK FullTextScore(c.summary, {search_expr})
+            #    """
+            #    logging.debug(f"Full-text search SQL: {sql}")
+            #    items_paged = self._ctrproxy.query_items(query=sql, parameters=[])
+            #    async for item in items_paged:
+            #        cdf = CosmosDocFilter(item)
+            #        docs.append(cdf.filter_out_embedding("embedding"))
+            #except Exception as e2:
                 # If FullTextScore is not supported, fall back to CONTAINS
-                logging.error(f"Full-text search on summary also failed: {e2}")
-                docs = await self._fallback_text_search(search_text, limit)
+            logging.error(f"Full-text search on chunk_text failed: {e}")
+            docs = await self._fallback_text_search(search_text, limit)
 
         return docs
     
@@ -381,9 +381,8 @@ class CosmosNoSQLService:
             sql = f"""
             SELECT TOP {limit} *
             FROM c 
-            WHERE CONTAINS(c.description, @search_text) OR 
-                  CONTAINS(c.summary, @search_text) OR 
-                  CONTAINS(c.name, @search_text)
+            WHERE CONTAINS(c.chunk_text, @earch_text) 
+
             """
 
             params = [dict(name="@search_text", value=search_text)]
@@ -416,11 +415,12 @@ class CosmosNoSQLService:
         docs = list()
         try:
             # Build the RRF query using FullTextScore and VectorDistance; use proper RANK(...) syntax
+            # Search will be against the text_chunk property instead of the default description property
             sql = f"""
             SELECT TOP {limit} *
             FROM c
             ORDER BY RANK(RRF(
-                FullTextScore(c.description, {search_expr}), 
+                FullTextScore(c.chunk_text, {search_expr}), 
                 VectorDistance(c.{embedding_attr}, {str(embedding_value)})
             ))
             """

@@ -339,8 +339,11 @@ python main_common.py owl_visualizer ontologies/libraries.owl
 
       if (!graph.nodes.length) {
         graph = {
-          nodes: [{ id: 'Dev', label: 'Dev' }, { id: 'Doc', label: 'Doc' }, { id: 'Lib', label: 'Lib' }],
-          edges: [{ from: 'Dev', to: 'Lib', title: 'developer_of' }, { from: 'Lib', to: 'Dev', title: 'developed_by' }, { from: 'Lib', to: 'Lib', title: 'used_by_lib, uses_lib' }]
+          nodes: [ {id: "Contract", label: "Contract" },{ id: "ContractingParty", label: "ContractingParty" },{ id: "ContractorParty", label: "ContractorParty" },{ id: "GoverningLaw", label: "GoverningLaw" }],
+          //nodes: [{ id: 'Dev', label: 'Developer' }, { id: 'Doc', label: 'Doc' }, { id: 'Lib', label: 'Lib' }],
+          edges: [ { from: "ContractingParty", to: "Contract", title: "initiates" },{ from: "ContractorParty", to: "Contract", title: "performs" },{ from: "Contract", to: "ContractingParty", title: "is_initiated_by" },
+                   { from: "Contract", to: "ContractorParty", title: "is_performed_by" },{ from: "Contract", to: "GoverningLaw", title: "is_governed_by" },{ from: "GoverningLaw", to: "Contract", title: "governs" }]
+          //edges: [{ from: 'Dev', to: 'Lib', title: 'developer_of' }, { from: 'Lib', to: 'Dev', title: 'developed_by' }, { from: 'Lib', to: 'Lib', title: 'used_by_lib, uses_lib' }]
         };
         displayEdges = graph.edges;
       }
