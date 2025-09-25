@@ -29,6 +29,7 @@ from dotenv import load_dotenv
 from src.services.ai_service import AiService
 from src.services.config_service import ConfigService
 from src.services.cosmos_nosql_service import CosmosNoSQLService
+from src.services.contract_entities_service import ContractEntitiesService
 from src.util.counter import Counter
 from src.util.fs import FS
 
@@ -88,6 +89,9 @@ async def load_contracts(dbname, cname, contracts_dir, max_docs):
         nosql_svc = CosmosNoSQLService(opts)
         await nosql_svc.initialize()
         
+        # Initialize contract entities service
+        await ContractEntitiesService.initialize(force_reinitialize=True)
+        
         # Set up database and containers
         nosql_svc.set_db(dbname)
         
@@ -126,6 +130,16 @@ async def load_contracts(dbname, cname, contracts_dir, max_docs):
                 logging.error(traceback.format_exc())
                 load_counter.increment("contracts_failed")
                 
+        # Persist all entities to CosmosDB after loading contracts
+        logging.info("Persisting contract entities to CosmosDB...")
+        await ContractEntitiesService.persist_entities()
+        
+        # Log entity statistics
+        entity_stats = ContractEntitiesService.get_statistics()
+        logging.info(
+            "Entity statistics: {}".format(json.dumps(entity_stats, indent=2))
+        )
+        
         # Log final statistics
         logging.info(
             "load_contracts completed; results: {}".format(
@@ -274,6 +288,9 @@ def create_parent_contract_doc(contract_data, contract_id):
         doc["governing_law"] = doc["metadata"]["GoverningLawState"]["value"]
     if "Jurisdiction" in doc["metadata"]:
         doc["jurisdiction"] = doc["metadata"]["Jurisdiction"]["value"]
+    
+    # Update entity catalogs with this contract's entities
+    asyncio.create_task(update_contract_entities(doc))
         
     return doc
 
@@ -579,6 +596,55 @@ def extract_field_value(field_data):
     else:
         # Default to string value
         return field_data.get("valueString", "")
+
+
+async def update_contract_entities(parent_doc):
+    """
+    Update entity catalogs based on contract metadata.
+    This runs asynchronously to avoid blocking contract loading.
+    """
+    try:
+        contract_id = parent_doc.get("id", "")
+        
+        # Extract contract value for statistics
+        contract_value = 0.0
+        try:
+            value_field = parent_doc.get("contract_value")
+            if value_field:
+                contract_value = float(value_field)
+        except (ValueError, TypeError):
+            pass
+        
+        # Update contractor party entity
+        contractor_party = parent_doc.get("contractor_party")
+        if contractor_party:
+            await ContractEntitiesService.update_or_create_contractor_party(
+                contractor_party, contract_id, contract_value
+            )
+        
+        # Update contracting party entity
+        contracting_party = parent_doc.get("contracting_party")
+        if contracting_party:
+            await ContractEntitiesService.update_or_create_contracting_party(
+                contracting_party, contract_id, contract_value
+            )
+        
+        # Update governing law entity
+        governing_law = parent_doc.get("governing_law")
+        if governing_law:
+            await ContractEntitiesService.update_or_create_governing_law(
+                governing_law, contract_id
+            )
+        
+        # Update contract type entity
+        contract_type = parent_doc.get("contract_type")
+        if contract_type:
+            await ContractEntitiesService.update_or_create_contract_type(
+                contract_type, contract_id
+            )
+            
+    except Exception as e:
+        logging.error(f"Error updating contract entities for {contract_id}: {str(e)}")
 
 
 async def preprocess_contracts(input_dir, output_dir):

@@ -8,6 +8,7 @@ from typing import Optional
 from src.services.ai_service import AiService
 from src.services.cosmos_nosql_service import CosmosNoSQLService
 from src.services.config_service import ConfigService
+from src.services.contract_strategy_builder import ContractStrategyBuilder
 from src.services.ontology_service import OntologyService
 from src.services.rag_data_result import RAGDataResult
 from src.services.strategy_builder import StrategyBuilder
@@ -59,7 +60,12 @@ class RAGDataService:
         rdr.set_user_text(user_text)
         rdr.set_attr("max_doc_count", max_doc_count)
 
-        sb = StrategyBuilder(self.ai_svc)
+        # Use appropriate strategy builder based on graph mode
+        graph_mode = ConfigService.envvar("CAIG_GRAPH_MODE", "libraries").lower()
+        if graph_mode == "contracts" and ContractStrategyBuilder.is_contract_query(user_text):
+            sb = ContractStrategyBuilder(self.ai_svc)
+        else:
+            sb = StrategyBuilder(self.ai_svc)
         strategy_obj = sb.determine(user_text)
         # honor explicit user choice when provided and valid; still use name/context from builder
         valid_choices = {"db", "vector", "graph"}

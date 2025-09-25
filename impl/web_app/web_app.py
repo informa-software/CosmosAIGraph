@@ -43,9 +43,12 @@ from src.services.ai_service import AiService
 from src.services.cosmos_nosql_service import CosmosNoSQLService
 from src.services.config_service import ConfigService
 from src.services.entities_service import EntitiesService
+from src.services.contract_entities_service import ContractEntitiesService
+from src.services.contract_strategy_builder import ContractStrategyBuilder
 from src.services.logging_level_service import LoggingLevelService
 from src.services.ontology_service import OntologyService
 from src.services.rag_data_service import RAGDataService
+from src.services.strategy_builder import StrategyBuilder
 from src.services.rag_data_result import RAGDataResult
 from src.util.fs import FS
 from src.util.sparql_formatter import SparqlFormatter
@@ -112,12 +115,24 @@ async def lifespan(app: FastAPI):
         logging.error("FastAPI lifespan - AiService initialized")
         await nosql_svc.initialize()
         logging.error("FastAPI lifespan - CosmosNoSQLService initialized")
-        await EntitiesService.initialize()
-        logging.error(
-            "FastAPI lifespan - EntitiesService initialized, libraries_count: {}".format(
-                EntitiesService.libraries_count()
+        
+        # Initialize entities based on graph mode
+        graph_mode = ConfigService.envvar("CAIG_GRAPH_MODE", "libraries").lower()
+        if graph_mode == "contracts":
+            await ContractEntitiesService.initialize()
+            entity_stats = ContractEntitiesService.get_statistics()
+            logging.error(
+                "FastAPI lifespan - ContractEntitiesService initialized, stats: {}".format(
+                    json.dumps(entity_stats)
+                )
             )
-        )
+        else:
+            await EntitiesService.initialize()
+            logging.error(
+                "FastAPI lifespan - EntitiesService initialized, libraries_count: {}".format(
+                    EntitiesService.libraries_count()
+                )
+            )
         logging.error("ConfigService.graph_service_url():  {}".format(ConfigService.graph_service_url()))
         logging.error("ConfigService.graph_service_port(): {}".format(ConfigService.graph_service_port()))                  
                     

@@ -49,6 +49,61 @@ gradle consoleAppGenerateArtifacts     # Generate ontology artifacts
 gradle consoleAppPostSparqlAddDocuments # Add documents via SPARQL
 ```
 
+### Contract Entity System
+
+#### Overview
+The contract entity system manages and tracks entities extracted from contracts:
+- **Contractor Parties**: Companies/individuals performing work
+- **Contracting Parties**: Companies/individuals initiating contracts
+- **Governing Laws**: Jurisdictions that govern contracts
+- **Contract Types**: MSA, NDA, SOW, etc.
+
+#### Architecture: Option 2 - Separate Entity Collections
+Uses separate CosmosDB containers for each entity type:
+- `contractor_parties` container
+- `contracting_parties` container
+- `governing_laws` container
+- `contract_types` container
+- `config` container holds the reference document
+
+#### Key Components
+
+**ContractEntitiesService** (`web_app/src/services/contract_entities_service.py`):
+- Manages entity catalogs with in-memory caching
+- Provides fuzzy matching (85% threshold) for entity identification
+- Tracks entity statistics (contract counts, total values)
+- TODO: Implement sophisticated matching (phonetic, n-gram, ML-based)
+
+**ContractStrategyBuilder** (`web_app/src/services/contract_strategy_builder.py`):
+- Determines query strategy (db/vector/graph) for contract queries
+- Identifies entities in natural language queries
+- TODO: Implement NER, semantic similarity, query templates
+
+**Entity Building During Contract Loading**:
+- `main_contracts.py` automatically builds entity catalogs during ingestion
+- Entities are updated in real-time as contracts are loaded
+- Statistics are tracked per entity (contract count, total value)
+
+#### Entity Normalization
+- Converts to lowercase
+- Removes special characters
+- Replaces spaces with underscores
+- Removes common suffixes (LLC, Inc, Corp) for matching
+
+#### Usage
+
+```bash
+# Load contracts with entity building
+python main_contracts.py load_contracts caig contracts data/contracts 999999
+```
+
+Entities are automatically:
+1. Extracted from contract metadata
+2. Normalized for consistent storage
+3. Stored in separate containers
+4. Cached in memory for fast lookup
+5. Persisted after all contracts are loaded
+
 ### Python Web App (web_app/)
 
 #### Setup Virtual Environment
@@ -80,6 +135,11 @@ pytest -v tests/test_config_service.py
 # With coverage
 pytest -v --cov=src/ --cov-report html tests/
 ```
+
+#### Entity Initialization
+The web app automatically initializes the appropriate entity service based on `CAIG_GRAPH_MODE`:
+- `libraries` mode: Uses `EntitiesService` for library entities
+- `contracts` mode: Uses `ContractEntitiesService` for contract entities
 
 #### Contract Data Loading
 ```bash

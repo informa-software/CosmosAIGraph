@@ -43,4 +43,7 @@ requests>=2.30.0
 #for utils only
 rdflib
 
+# For advanced string matching (Jaro-Winkler, Soundex, etc.)
+jellyfish
+
 debugpy
