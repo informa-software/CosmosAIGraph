@@ -1,0 +1,257 @@
+.query-builder-container {
+  min-height: 100vh;
+  background: #f5f5f5;
+}
+
+mat-toolbar {
+  mat-icon {
+    margin-right: 8px;
+  }
+  
+  .spacer {
+    flex: 1 1 auto;
+  }
+}
+
+.stepper-header {
+  display: flex;
+  justify-content: center;
+  padding: 32px 16px;
+  background: white;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  
+  .step-indicator {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    cursor: pointer;
+    margin: 0 24px;
+    position: relative;
+    
+    &:not(:last-child)::after {
+      content: '';
+      position: absolute;
+      top: 20px;
+      left: calc(100% + 24px);
+      width: 48px;
+      height: 2px;
+      background: #e0e0e0;
+    }
+    
+    &.completed:not(:last-child)::after {
+      background: #4caf50;
+    }
+    
+    .step-circle {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: #e0e0e0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 500;
+      transition: all 0.3s;
+      
+      mat-icon {
+        color: white;
+      }
+    }
+    
+    .step-label {
+      margin-top: 8px;
+      font-size: 12px;
+      color: rgba(0, 0, 0, 0.6);
+      text-align: center;
+      white-space: nowrap;
+    }
+    
+    &.active {
+      .step-circle {
+        background: #3f51b5;
+        color: white;
+        transform: scale(1.1);
+      }
+      
+      .step-label {
+        color: #3f51b5;
+        font-weight: 500;
+      }
+    }
+    
+    &.completed {
+      .step-circle {
+        background: #4caf50;
+      }
+      
+      .step-label {
+        color: rgba(0, 0, 0, 0.87);
+      }
+    }
+  }
+}
+
+.step-content {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 32px;
+}
+
+.configuration-step,
+.review-step,
+.results-step {
+  h2 {
+    margin: 0 0 8px 0;
+    font-size: 24px;
+    font-weight: 400;
+  }
+  
+  .subtitle {
+    color: rgba(0, 0, 0, 0.6);
+    margin-bottom: 24px;
+  }
+}
+
+.query-form {
+  background: white;
+  padding: 24px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  
+  .full-width {
+    width: 100%;
+    margin-bottom: 24px;
+  }
+  
+  app-entity-selector {
+    display: block;
+    margin-bottom: 24px;
+  }
+}
+
+.validation-messages {
+  margin: 16px 0;
+  padding: 16px;
+  background: #fff3e0;
+  border-radius: 4px;
+  
+  mat-error,
+  .warning {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+    
+    &:last-child {
+      margin-bottom: 0;
+    }
+    
+    mat-icon {
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+    }
+  }
+  
+  mat-error {
+    color: #f44336;
+  }
+  
+  .warning {
+    color: #ff9800;
+  }
+}
+
+.step-actions {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 32px;
+  padding: 24px;
+  background: white;
+  border-radius: 8px;
+  
+  button {
+    mat-icon {
+      margin: 0 4px;
+      vertical-align: middle;
+    }
+  }
+  
+  mat-spinner {
+    display: inline-block;
+    margin-right: 8px;
+  }
+}
+
+.results-summary {
+  mat-card-header {
+    mat-card-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      
+      mat-icon {
+        font-size: 28px;
+        width: 28px;
+        height: 28px;
+      }
+    }
+  }
+  
+  .metadata-chips {
+    margin: 16px 0;
+    
+    mat-chip {
+      mat-icon {
+        margin-right: 4px;
+        font-size: 16px;
+        width: 16px;
+        height: 16px;
+        vertical-align: middle;
+      }
+    }
+  }
+  
+  .results-content {
+    .result-context {
+      padding: 16px;
+      background: #e3f2fd;
+      border-radius: 4px;
+      margin-bottom: 16px;
+      
+      p {
+        margin: 0;
+        color: rgba(0, 0, 0, 0.7);
+      }
+    }
+    
+    mat-accordion {
+      margin-top: 16px;
+      
+      .result-detail {
+        padding: 16px;
+        
+        pre {
+          margin: 0;
+          font-size: 12px;
+          background: #f5f5f5;
+          padding: 16px;
+          border-radius: 4px;
+          overflow-x: auto;
+        }
+      }
+    }
+  }
+}
+
+// Animations
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}

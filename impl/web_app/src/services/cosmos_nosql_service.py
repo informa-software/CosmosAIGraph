@@ -206,6 +206,79 @@ class CosmosNoSQLService:
             #docs.append(item)
         return docs
 
+    async def get_documents_by_entity(self, entity_type: str, entity_values: list, container_name: str = None):
+        """
+        Query documents by specific entity fields.
+        
+        Args:
+            entity_type: Type of entity (contractor_parties, contracting_parties, etc.)
+            entity_values: List of normalized entity values to search for
+            container_name: Optional specific container to query
+        
+        Returns:
+            List of documents matching the entity criteria
+        """
+        # Map entity types to document fields
+        field_map = {
+            'contractor_parties': 'contractor_party',
+            'contracting_parties': 'contracting_party',
+            'governing_laws': 'governing_law',
+            'contract_types': 'contract_type'
+        }
+        
+        field = field_map.get(entity_type)
+        if not field:
+            logging.error(f"Unknown entity type: {entity_type}")
+            return []
+        
+        # Build quoted values for SQL query
+        quoted_values = [f"'{val}'" for val in entity_values]
+        
+        # Set container
+        if container_name:
+            self.set_container(container_name)
+        else:
+            # Default to contracts container for entity lookups
+            self.set_container("contracts")
+        
+        # Build and execute query
+        sql = f"SELECT * FROM c WHERE c.{field} IN ({','.join(quoted_values)})"
+        
+        docs = []
+        items_paged = self._ctrproxy.query_items(query=sql, parameters=[])
+        async for item in items_paged:
+            cdf = CosmosDocFilter(item)
+            docs.append(cdf.filter_out_embedding())
+        
+        return docs
+
+    async def get_documents_by_ids(self, doc_ids: list):
+        """
+        Query documents by their IDs.
+        
+        Args:
+            doc_ids: List of document IDs to retrieve
+        
+        Returns:
+            List of documents matching the IDs
+        """
+        if not doc_ids:
+            return []
+        
+        # Build quoted IDs for SQL query
+        quoted_ids = [f"'{doc_id}'" for doc_id in doc_ids]
+        
+        # Build and execute query
+        sql = f"SELECT * FROM c WHERE c.id IN ({','.join(quoted_ids)})"
+        
+        docs = []
+        items_paged = self._ctrproxy.query_items(query=sql, parameters=[])
+        async for item in items_paged:
+            cdf = CosmosDocFilter(item)
+            docs.append(cdf.filter_out_embedding())
+        
+        return docs
+
     async def save_conversation(self, conv: AiConversation | None):
         resp = None
         if conv is not None:

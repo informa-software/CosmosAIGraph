@@ -241,8 +241,6 @@ public class ContractsGraphTriplesBuilder {
                 }
             }
         }
-
-        
         logger.info("Ingested contract: {} with {} triples", contractId, getTripleCount());
     }
 

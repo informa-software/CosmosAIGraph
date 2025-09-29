@@ -1,0 +1,38 @@
+<div class="template-selector">
+  <h2>Select a Query Template</h2>
+  <p class="subtitle">Choose how you want to analyze your contracts</p>
+  
+  <div class="template-grid">
+    <mat-card *ngFor="let template of templates" 
+              class="template-card"
+              [class.selected]="selectedTemplate?.id === template.id"
+              (click)="selectTemplate(template)">
+      <mat-card-header>
+        <mat-icon class="template-icon" [style.color]="getIconColor(template.operation)">
+          {{ template.icon }}
+        </mat-icon>
+      </mat-card-header>
+      
+      <mat-card-content>
+        <h3>{{ template.name }}</h3>
+        <p>{{ template.description }}</p>
+        
+        <div class="template-meta">
+          <mat-chip-set>
+            <mat-chip [highlighted]="true">
+              {{ template.operation }}
+            </mat-chip>
+            <mat-chip>{{ template.target }}</mat-chip>
+          </mat-chip-set>
+        </div>
+      </mat-card-content>
+      
+      <mat-card-actions>
+        <button mat-button color="primary">
+          Select
+          <mat-icon>arrow_forward</mat-icon>
+        </button>
+      </mat-card-actions>
+    </mat-card>
+  </div>
+</div>

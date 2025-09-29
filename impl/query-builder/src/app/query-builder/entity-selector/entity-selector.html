@@ -1,0 +1,69 @@
+<div class="entity-selector">
+  <mat-form-field appearance="outline" class="entity-input">
+    <mat-label>
+      <mat-icon>{{ getEntityIcon() }}</mat-icon>
+      {{ label }}
+    </mat-label>
+    
+    <input matInput
+           [formControl]="entityControl"
+           [matAutocomplete]="auto"
+           [placeholder]="multiple ? 'Type to search and add multiple...' : 'Type to search...'"
+           [required]="required"
+           (focus)="onInputFocus()">
+    
+    <button mat-icon-button matSuffix 
+            *ngIf="entityControl.value || selectedEntities.length > 0"
+            (click)="clearSelection()">
+      <mat-icon>clear</mat-icon>
+    </button>
+    
+    <mat-autocomplete #auto="matAutocomplete" 
+                      [displayWith]="displayEntity"
+                      (optionSelected)="onEntitySelected($event.option.value)">
+      <mat-optgroup *ngFor="let group of filteredEntityGroups | async" 
+                    [label]="group.type">
+        <mat-option *ngFor="let entity of group.entities" 
+                    [value]="entity"
+                    class="entity-option">
+          <div class="entity-option-content">
+            <span class="entity-display">{{ entity.displayName }}</span>
+            <span class="entity-normalized">({{ entity.normalizedName }})</span>
+            <span class="entity-stats">{{ getEntityStatistics(entity) }}</span>
+          </div>
+        </mat-option>
+      </mat-optgroup>
+      
+      <mat-option *ngIf="(filteredEntityGroups | async)?.length === 0" disabled>
+        No matching entities found
+      </mat-option>
+    </mat-autocomplete>
+    
+    <mat-hint *ngIf="hint">{{ hint }}</mat-hint>
+    <mat-error *ngIf="required && !entityControl.value && !selectedEntities.length">
+      This field is required
+    </mat-error>
+  </mat-form-field>
+  
+  <mat-chip-set *ngIf="multiple && selectedEntities.length > 0" class="selected-entities">
+    <mat-chip *ngFor="let entity of selectedEntities"
+              (removed)="removeEntity(entity)"
+              [highlighted]="true">
+      <mat-icon class="chip-icon">{{ getEntityIcon() }}</mat-icon>
+      {{ entity.displayName }}
+      <button matChipRemove>
+        <mat-icon>cancel</mat-icon>
+      </button>
+    </mat-chip>
+  </mat-chip-set>
+  
+  <div *ngIf="selectedEntities.length > 0" class="selection-stats">
+    <mat-icon>info</mat-icon>
+    <span>
+      {{ selectedEntities.length }} selected
+      <span *ngIf="selectedEntities.length >= 2 && entityType === 'contractor'">
+        • Ready for comparison
+      </span>
+    </span>
+  </div>
+</div>

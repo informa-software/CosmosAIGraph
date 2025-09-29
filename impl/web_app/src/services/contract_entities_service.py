@@ -43,6 +43,7 @@ class ContractEntitiesService:
     static_contracting_parties = dict()  # normalized_name -> entity_doc
     static_governing_laws = dict()  # state_name -> entity_doc
     static_contract_types = dict()  # type_name -> entity_doc
+    static_clause_types = dict()  # normalized_name -> entity_doc
     static_entity_reference = dict()  # The reference document with all entity lists
     static_initialized = False
     
@@ -79,6 +80,7 @@ class ContractEntitiesService:
         cls.static_contracting_parties = dict()
         cls.static_governing_laws = dict()
         cls.static_contract_types = dict()
+        cls.static_clause_types = dict()
         cls.static_entity_reference = dict()
         
         try:
@@ -131,12 +133,24 @@ class ContractEntitiesService:
                 nosql_svc, cls.static_contract_types, "contract_types"
             )
             
+            # Load clause types from their container
+            nosql_svc.set_container("clause_types")
+            clause_count = await cls._load_entities_from_container(
+                nosql_svc, cls.static_clause_types, "clause_types"
+            )
+            
+            # If no clause types exist, initialize with defaults
+            if clause_count == 0:
+                await cls._initialize_clause_types(nosql_svc)
+                clause_count = len(cls.static_clause_types)
+            
             logging.warning(
                 f"ContractEntitiesService initialized - "
                 f"Contractor Parties: {contractor_count}, "
                 f"Contracting Parties: {contracting_count}, "
                 f"Governing Laws: {governing_count}, "
-                f"Contract Types: {types_count}"
+                f"Contract Types: {types_count}, "
+                f"Clause Types: {clause_count}"
             )
             
             cls.static_initialized = True
@@ -596,6 +610,9 @@ class ContractEntitiesService:
             for entity in cls.static_contract_types.values():
                 await nosql_svc.upsert_item(entity)
             
+            # Note: Clause types are NOT persisted here as they are static reference data
+            # They are only initialized once and don't change during contract processing
+            
             # Persist the reference document
             nosql_svc.set_container(ConfigService.config_container())
             cls.static_entity_reference["updated_at"] = time.time()
@@ -631,5 +648,207 @@ class ContractEntitiesService:
             "contract_types": {
                 "count": len(cls.static_contract_types),
                 "total_contracts": sum(e.get("contract_count", 0) for e in cls.static_contract_types.values())
+            },
+            "clause_types": {
+                "count": len(cls.static_clause_types),
+                "categories": len(set(e.get("category", "") for e in cls.static_clause_types.values()))
             }
         }
+    
+    @classmethod
+    def get_contractor_parties_catalog(cls) -> Dict:
+        """
+        Get the catalog of contractor parties.
+        Returns a dictionary of normalized_name -> entity_doc.
+        """
+        return cls.static_contractor_parties.copy()
+    
+    @classmethod
+    def get_contracting_parties_catalog(cls) -> Dict:
+        """
+        Get the catalog of contracting parties.
+        Returns a dictionary of normalized_name -> entity_doc.
+        """
+        return cls.static_contracting_parties.copy()
+    
+    @classmethod
+    def get_governing_laws_catalog(cls) -> Dict:
+        """
+        Get the catalog of governing laws.
+        Returns a dictionary of normalized_name -> entity_doc.
+        """
+        return cls.static_governing_laws.copy()
+    
+    @classmethod
+    def get_contract_types_catalog(cls) -> Dict:
+        """
+        Get the catalog of contract types.
+        Returns a dictionary of normalized_name -> entity_doc.
+        """
+        return cls.static_contract_types.copy()
+    
+    @classmethod
+    def get_clause_types_catalog(cls) -> Dict:
+        """
+        Get the catalog of clause types.
+        Returns a dictionary of normalized_name -> entity_doc.
+        """
+        return cls.static_clause_types.copy()
+    
+    @classmethod
+    async def _initialize_clause_types(cls, nosql_svc):
+        """
+        Initialize the default clause types in the database.
+        These are static reference data that don't change during contract processing.
+        """
+        logging.info("Initializing default clause types")
+        
+        # Define default clause types matching CLAUSE_FIELDS from main_contracts.py
+        default_clause_types = [
+            {
+                "type": "Indemnification",
+                "displayName": "Indemnification",
+                "icon": "shield",
+                "description": "Protection against losses and damages",
+                "category": "liability"
+            },
+            {
+                "type": "IndemnificationObligations",
+                "displayName": "Indemnification Obligations",
+                "icon": "security",
+                "description": "Specific indemnity obligations",
+                "category": "liability"
+            },
+            {
+                "type": "WorkersCompensationInsurance",
+                "displayName": "Workers Compensation Insurance",
+                "icon": "medical_services",
+                "description": "Workers compensation insurance requirements",
+                "category": "insurance"
+            },
+            {
+                "type": "CommercialPublicLiability",
+                "displayName": "Commercial Public Liability",
+                "icon": "public",
+                "description": "Commercial public liability insurance",
+                "category": "insurance"
+            },
+            {
+                "type": "AutomobileInsurance",
+                "displayName": "Automobile Insurance",
+                "icon": "directions_car",
+                "description": "Vehicle and automobile insurance requirements",
+                "category": "insurance"
+            },
+            {
+                "type": "UmbrellaInsurance",
+                "displayName": "Umbrella Insurance",
+                "icon": "umbrella",
+                "description": "Excess liability umbrella insurance coverage",
+                "category": "insurance"
+            },
+            {
+                "type": "Assignability",
+                "displayName": "Assignability",
+                "icon": "swap_horiz",
+                "description": "Assignment and transfer rights",
+                "category": "rights"
+            },
+            {
+                "type": "DataBreachObligations",
+                "displayName": "Data Breach Obligations",
+                "icon": "security_update_warning",
+                "description": "Data breach notification and response obligations",
+                "category": "security"
+            },
+            {
+                "type": "ComplianceObligations",
+                "displayName": "Compliance Obligations",
+                "icon": "gavel",
+                "description": "Regulatory compliance requirements",
+                "category": "regulatory"
+            },
+            {
+                "type": "ConfidentialityObligations",
+                "displayName": "Confidentiality Obligations",
+                "icon": "lock",
+                "description": "Confidentiality and NDA terms",
+                "category": "security"
+            },
+            {
+                "type": "EscalationObligations",
+                "displayName": "Escalation Obligations",
+                "icon": "arrow_upward",
+                "description": "Escalation procedures and obligations",
+                "category": "process"
+            },
+            {
+                "type": "LimitationOfLiabilityObligations",
+                "displayName": "Limitation of Liability Obligations",
+                "icon": "warning",
+                "description": "Liability limitations and caps",
+                "category": "liability"
+            },
+            {
+                "type": "PaymentObligations",
+                "displayName": "Payment Obligations",
+                "icon": "payment",
+                "description": "Payment schedules and terms",
+                "category": "financial"
+            },
+            {
+                "type": "RenewalNotification",
+                "displayName": "Renewal Notification",
+                "icon": "refresh",
+                "description": "Renewal notification requirements",
+                "category": "lifecycle"
+            },
+            {
+                "type": "ServiceLevelAgreement",
+                "displayName": "Service Level Agreement",
+                "icon": "trending_up",
+                "description": "Service level requirements and SLAs",
+                "category": "performance"
+            },
+            {
+                "type": "TerminationObligations",
+                "displayName": "Termination Obligations",
+                "icon": "cancel",
+                "description": "Contract termination conditions",
+                "category": "lifecycle"
+            },
+            {
+                "type": "WarrantyObligations",
+                "displayName": "Warranty Obligations",
+                "icon": "verified",
+                "description": "Warranty terms and conditions",
+                "category": "quality"
+            }
+        ]
+        
+        # Set the clause_types container
+        nosql_svc.set_container("clause_types")
+        
+        for clause_type in default_clause_types:
+            # Normalize the name
+            normalized_name = cls.normalize_entity_name(clause_type["type"])
+            
+            # Create the document
+            doc = {
+                "id": normalized_name,
+                "pk": "clause_types",
+                "normalized_name": normalized_name,
+                **clause_type
+            }
+            
+            # Store in memory cache
+            cls.static_clause_types[normalized_name] = doc
+            
+            # Persist to database
+            try:
+                await nosql_svc.upsert_item(doc)
+                logging.debug(f"Initialized clause type: {clause_type['displayName']}")
+            except Exception as e:
+                logging.error(f"Error initializing clause type {clause_type['type']}: {e}")
+        
+        logging.info(f"Initialized {len(cls.static_clause_types)} clause types")

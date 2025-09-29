@@ -1,0 +1,77 @@
+<mat-card class="query-preview">
+  <mat-card-header>
+    <mat-card-title>
+      <mat-icon>preview</mat-icon>
+      Query Preview
+    </mat-card-title>
+  </mat-card-header>
+  
+  <mat-card-content>
+    <mat-tab-group [(selectedIndex)]="selectedTabIndex">
+      <mat-tab>
+        <ng-template mat-tab-label>
+          <mat-icon>translate</mat-icon>
+          Natural Language
+        </ng-template>
+        
+        <div class="preview-content natural-language">
+          <div class="query-text">
+            <mat-icon>format_quote</mat-icon>
+            <p>{{ naturalLanguage || 'Build your query using the form above...' }}</p>
+          </div>
+          
+          <button mat-icon-button 
+                  class="copy-button"
+                  matTooltip="Copy to clipboard"
+                  (click)="copyToClipboard(naturalLanguage)">
+            <mat-icon>content_copy</mat-icon>
+          </button>
+        </div>
+      </mat-tab>
+      
+      <mat-tab>
+        <ng-template mat-tab-label>
+          <mat-icon>code</mat-icon>
+          Structured Query
+        </ng-template>
+        
+        <div class="preview-content json-preview">
+          <pre><code>{{ formattedJson }}</code></pre>
+          
+          <button mat-icon-button 
+                  class="copy-button"
+                  matTooltip="Copy JSON"
+                  (click)="copyToClipboard(formattedJson)">
+            <mat-icon>content_copy</mat-icon>
+          </button>
+        </div>
+      </mat-tab>
+      
+      <mat-tab>
+        <ng-template mat-tab-label>
+          <mat-icon>lightbulb</mat-icon>
+          Expected Results
+        </ng-template>
+        
+        <div class="preview-content expectations">
+          <div class="expectations-header">
+            <mat-icon>info</mat-icon>
+            <h3>This query will:</h3>
+          </div>
+          
+          <mat-list>
+            <mat-list-item *ngFor="let expectation of expectations">
+              <mat-icon matListItemIcon>check_circle</mat-icon>
+              <span matListItemTitle>{{ expectation }}</span>
+            </mat-list-item>
+          </mat-list>
+          
+          <div class="strategy-info" *ngIf="getStrategyDescription()">
+            <mat-icon>psychology</mat-icon>
+            <p>{{ getStrategyDescription() }}</p>
+          </div>
+        </div>
+      </mat-tab>
+    </mat-tab-group>
+  </mat-card-content>
+</mat-card>

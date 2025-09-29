@@ -22,8 +22,10 @@ from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 
 from fastapi import FastAPI, Request, Response, Form, status
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from fastapi.middleware.cors import CORSMiddleware
 from markdown import markdown
 from jinja2 import Environment
 
@@ -157,6 +159,22 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 views = Jinja2Templates(directory="views")
 views.env.filters['markdown'] = markdown_filter
 views.env.filters['tojson'] = tojson_pretty
+
+# Add CORS middleware to allow Angular app to access the API
+origins = [
+    "http://localhost:4200",  # Angular dev server
+    "http://localhost:4201",  # Alternative port
+    "http://127.0.0.1:4200",
+    "http://127.0.0.1:4201",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Enable server-side session to persist conversation_id across posts
 try:
@@ -1348,21 +1366,306 @@ def textformat_conversation(conv: AiConversation) -> None:
         logging.critical((str(e)))
         logging.exception(e, stack_info=True, exc_info=True)
 
-from azure.cosmos.exceptions import CosmosResourceNotFoundError
-import os
-from fastapi import Request
-from fastapi.responses import JSONResponse
+# ============================================================================
+# Contract Query Builder API Endpoints
+# ============================================================================
 
-@app.post("/api/save_ontology")
-async def save_ontology(request: Request):
-    data = await request.json()
-    content = data.get("content", "")
-    path = os.environ.get("CAIG_GRAPH_SOURCE_OWL_FILENAME")
-    if not path:
-        return JSONResponse({"success": False, "error": "Ontology path not configured."})
+# IMPORTANT: The /api/entities/search route must be defined BEFORE /api/entities/{entity_type}
+# Otherwise FastAPI will match "search" as an entity_type parameter
+
+@app.get("/api/entities/search")
+async def search_entities(
+    q: str,
+    entity_type: Optional[str] = None,
+    limit: int = 20
+):
+    """
+    Search entities with fuzzy matching.
+    Query params:
+    - q: search query
+    - entity_type: optional filter by type
+    - limit: max results (default 20)
+    """
     try:
-        with open(path, "w", encoding="utf-8") as f:
-            f.write(content)
-        return JSONResponse({"success": True})
+        # Check if contracts mode is enabled
+        graph_mode = ConfigService.envvar("CAIG_GRAPH_MODE", "libraries").lower()
+        if graph_mode != "contracts":
+            return JSONResponse(
+                status_code=400,
+                content={"error": "Contract entities are only available in contracts mode"}
+            )
+        
+        # If no query, return all entities grouped by type
+        if not q or len(q.strip()) == 0:
+            # Return all entities when no search query
+            all_results = []
+            entity_catalogs = []
+            
+            if not entity_type or entity_type == "contractor_parties":
+                entity_catalogs.append(("contractor_parties", ContractEntitiesService.get_contractor_parties_catalog()))
+            if not entity_type or entity_type == "contracting_parties":
+                entity_catalogs.append(("contracting_parties", ContractEntitiesService.get_contracting_parties_catalog()))
+            if not entity_type or entity_type == "governing_laws":
+                entity_catalogs.append(("governing_laws", ContractEntitiesService.get_governing_laws_catalog()))
+            if not entity_type or entity_type == "contract_types":
+                entity_catalogs.append(("contract_types", ContractEntitiesService.get_contract_types_catalog()))
+            
+            grouped_results = {}
+            for catalog_type, catalog in entity_catalogs:
+                # Get top entities by contract count
+                entities_list = []
+                for normalized_name, entity_data in catalog.items():
+                    entities_list.append({
+                        "normalizedName": normalized_name,
+                        "displayName": entity_data.get("display_name", normalized_name),
+                        "contractCount": entity_data.get("contract_count", 0),
+                        "totalValue": entity_data.get("total_value", 0),
+                        "type": catalog_type,
+                        "score": 1.0
+                    })
+                
+                # Sort by contract count and take top N
+                entities_list.sort(key=lambda x: x["contractCount"], reverse=True)
+                entities_list = entities_list[:limit]
+                
+                if entities_list:
+                    grouped_results[catalog_type] = {
+                        "type": catalog_type,
+                        "displayName": get_entity_type_display_name(catalog_type),
+                        "entities": entities_list
+                    }
+            
+            return JSONResponse(content={
+                "results": list(grouped_results.values()),
+                "query": q,
+                "total": sum(len(g["entities"]) for g in grouped_results.values())
+            })
+        
+        # Normalize the search query
+        search_query = q.strip().lower()
+        results = []
+        
+        # Define entity catalogs to search
+        entity_catalogs = []
+        if not entity_type or entity_type == "contractor_parties":
+            entity_catalogs.append(("contractor_parties", ContractEntitiesService.get_contractor_parties_catalog()))
+        if not entity_type or entity_type == "contracting_parties":
+            entity_catalogs.append(("contracting_parties", ContractEntitiesService.get_contracting_parties_catalog()))
+        if not entity_type or entity_type == "governing_laws":
+            entity_catalogs.append(("governing_laws", ContractEntitiesService.get_governing_laws_catalog()))
+        if not entity_type or entity_type == "contract_types":
+            entity_catalogs.append(("contract_types", ContractEntitiesService.get_contract_types_catalog()))
+        
+        # Search through each catalog
+        for catalog_type, catalog in entity_catalogs:
+            for normalized_name, entity_data in catalog.items():
+                display_name = entity_data.get("display_name", normalized_name)
+                
+                # Calculate match score (simple substring matching for now)
+                score = 0
+                if search_query in normalized_name:
+                    score = 0.9
+                elif search_query in display_name.lower():
+                    score = 0.85
+                elif any(word in normalized_name for word in search_query.split()):
+                    score = 0.7
+                elif any(word in display_name.lower() for word in search_query.split()):
+                    score = 0.65
+                
+                # Add to results if score is above threshold
+                if score >= 0.65:
+                    results.append({
+                        "normalizedName": normalized_name,
+                        "displayName": display_name,
+                        "contractCount": entity_data.get("contract_count", 0),
+                        "totalValue": entity_data.get("total_value", 0),
+                        "type": catalog_type,
+                        "score": score
+                    })
+        
+        # Sort by score and contract count
+        results.sort(key=lambda x: (x["score"], x["contractCount"]), reverse=True)
+        
+        # Apply limit
+        results = results[:limit]
+        
+        # Group results by type for frontend
+        grouped_results = {}
+        for result in results:
+            entity_type = result["type"]
+            if entity_type not in grouped_results:
+                grouped_results[entity_type] = {
+                    "type": entity_type,
+                    "displayName": get_entity_type_display_name(entity_type),
+                    "entities": []
+                }
+            grouped_results[entity_type]["entities"].append(result)
+        
+        return JSONResponse(content={
+            "results": list(grouped_results.values()),
+            "query": q,
+            "total": len(results)
+        })
+        
     except Exception as e:
-        return JSONResponse({"success": False, "error": str(e)})
+        logging.error(f"Error searching entities: {str(e)}")
+        logging.error(traceback.format_exc())
+        return JSONResponse(
+            status_code=500,
+            content={"error": f"Failed to search entities: {str(e)}"}
+        )
+
+
+@app.get("/api/entities/{entity_type}")
+async def get_entities(entity_type: str):
+    """
+    Get all entities of a specific type with their statistics.
+    Entity types: contractor_parties, contracting_parties, governing_laws, contract_types, clause_types
+    """
+    try:
+        # Check if contracts mode is enabled
+        graph_mode = ConfigService.envvar("CAIG_GRAPH_MODE", "libraries").lower()
+        if graph_mode != "contracts":
+            return JSONResponse(
+                status_code=400,
+                content={"error": "Contract entities are only available in contracts mode"}
+            )
+        
+        # Map entity type to catalog method
+        entity_methods = {
+            "contractor_parties": ContractEntitiesService.get_contractor_parties_catalog,
+            "contracting_parties": ContractEntitiesService.get_contracting_parties_catalog,
+            "governing_laws": ContractEntitiesService.get_governing_laws_catalog,
+            "contract_types": ContractEntitiesService.get_contract_types_catalog,
+            "clause_types": ContractEntitiesService.get_clause_types_catalog
+        }
+        
+        if entity_type not in entity_methods:
+            return JSONResponse(
+                status_code=400,
+                content={"error": f"Invalid entity type: {entity_type}"}
+            )
+        
+        # Get entities from the cache
+        entities = entity_methods[entity_type]()
+        
+        # Format response with normalized and display names
+        result = []
+        for normalized_name, entity_data in entities.items():
+            # Handle clause_types differently as they have different fields
+            if entity_type == "clause_types":
+                result.append({
+                    "normalizedName": normalized_name,
+                    "displayName": entity_data.get("displayName", entity_data.get("display_name", normalized_name)),
+                    "type": entity_data.get("type", normalized_name),
+                    "icon": entity_data.get("icon", "description"),
+                    "description": entity_data.get("description", ""),
+                    "category": entity_data.get("category", ""),
+                    "entityType": entity_type
+                })
+            else:
+                result.append({
+                    "normalizedName": normalized_name,
+                    "displayName": entity_data.get("display_name", normalized_name),
+                    "contractCount": entity_data.get("contract_count", 0),
+                    "totalValue": entity_data.get("total_value", 0),
+                    "type": entity_type
+                })
+        
+        # Sort by contract count descending (or by displayName for clause_types)
+        if entity_type == "clause_types":
+            result.sort(key=lambda x: x["displayName"])
+        else:
+            result.sort(key=lambda x: x["contractCount"], reverse=True)
+        
+        return JSONResponse(content={
+            "entities": result,
+            "total": len(result),
+            "type": entity_type
+        })
+        
+    except Exception as e:
+        logging.error(f"Error getting entities: {str(e)}")
+        logging.error(traceback.format_exc())
+        return JSONResponse(
+            status_code=500,
+            content={"error": f"Failed to get entities: {str(e)}"}
+        )
+
+
+
+
+
+
+@app.get("/api/query-templates")
+async def get_query_templates():
+    """
+    Get available query templates with their configurations.
+    """
+    templates = [
+        {
+            "id": "COMPARE_CLAUSES",
+            "name": "Compare Clauses",
+            "description": "Compare specific clauses across multiple contractors",
+            "operation": "compare",
+            "target": "clauses",
+            "icon": "compare_arrows",
+            "requiredFields": ["clauseTypes", "contractorParties"],
+            "optionalFields": ["contractingParty"],
+            "supportedClauseTypes": [
+                {"type": "payment_terms", "displayName": "Payment Terms", "icon": "payment"},
+                {"type": "termination", "displayName": "Termination", "icon": "cancel"},
+                {"type": "liability", "displayName": "Liability", "icon": "warning"},
+                {"type": "ip_ownership", "displayName": "IP Ownership", "icon": "copyright"},
+                {"type": "confidentiality", "displayName": "Confidentiality", "icon": "lock"},
+                {"type": "warranty", "displayName": "Warranty", "icon": "verified_user"},
+                {"type": "indemnification", "displayName": "Indemnification", "icon": "shield"},
+                {"type": "force_majeure", "displayName": "Force Majeure", "icon": "report_problem"},
+                {"type": "dispute_resolution", "displayName": "Dispute Resolution", "icon": "gavel"},
+                {"type": "governing_law", "displayName": "Governing Law", "icon": "account_balance"}
+            ]
+        },
+        {
+            "id": "FIND_CONTRACTS",
+            "name": "Find Contracts",
+            "description": "Search for contracts based on entities",
+            "operation": "search",
+            "target": "contracts",
+            "icon": "search",
+            "requiredFields": [],
+            "optionalFields": ["contractingParty", "contractorParty", "governingLaw", "contractType"]
+        },
+        {
+            "id": "ANALYZE_CONTRACT",
+            "name": "Analyze Contract",
+            "description": "Deep analysis of a single contract",
+            "operation": "analyze",
+            "target": "contract",
+            "icon": "analytics",
+            "requiredFields": ["contractId"],
+            "optionalFields": ["analysisType"]
+        },
+        {
+            "id": "COMPARE_CONTRACTS",
+            "name": "Compare Contracts",
+            "description": "Compare multiple contracts comprehensively",
+            "operation": "compare",
+            "target": "contracts",
+            "icon": "difference",
+            "requiredFields": ["contractIds"],
+            "optionalFields": []
+        }
+    ]
+    
+    return JSONResponse(content={"templates": templates})
+
+
+def get_entity_type_display_name(entity_type: str) -> str:
+    """Helper function to get display names for entity types"""
+    display_names = {
+        "contractor_parties": "Contractor Parties",
+        "contracting_parties": "Contracting Parties",
+        "governing_laws": "Governing Laws",
+        "contract_types": "Contract Types"
+    }
+    return display_names.get(entity_type, entity_type)

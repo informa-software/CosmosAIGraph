@@ -243,6 +243,13 @@
     <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#decimal" />
   </owl:DatatypeProperty>
 
+  <owl:DatatypeProperty rdf:ID="filename">
+    <rdfs:label xml:lang="en">filename</rdfs:label>
+    <rdfs:comment xml:lang="en">The name of the file containing the Contract document</rdfs:comment>
+    <rdfs:domain rdf:resource="#Contract" />
+    <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string" />
+  </owl:DatatypeProperty>
+
   <owl:DatatypeProperty rdf:ID="contractClauseID">
     <rdfs:label xml:lang="en">contractClauseID</rdfs:label>
     <rdfs:comment xml:lang="en">The unique identifier for a clause in CosmosDB</rdfs:comment>

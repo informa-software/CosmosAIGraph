@@ -1,0 +1,163 @@
+.query-builder-container {
+  min-height: 100vh;
+  background-color: #f5f5f5;
+}
+
+.spacer {
+  flex: 1 1 auto;
+}
+
+.stepper-header {
+  display: flex;
+  justify-content: center;
+  padding: 24px 16px;
+  background: white;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  margin-bottom: 24px;
+  gap: 48px;
+}
+
+.step-indicator {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: pointer;
+  opacity: 0.5;
+  transition: opacity 0.3s;
+  
+  &.active,
+  &.completed {
+    opacity: 1;
+  }
+}
+
+.step-circle {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #e0e0e0;
+  margin-bottom: 8px;
+  font-weight: 500;
+  
+  .step-indicator.active & {
+    background: #3f51b5;
+    color: white;
+  }
+  
+  .step-indicator.completed & {
+    background: #4caf50;
+    color: white;
+  }
+  
+  mat-icon {
+    font-size: 20px;
+  }
+}
+
+.step-label {
+  font-size: 14px;
+  color: #666;
+  
+  .step-indicator.active & {
+    color: #3f51b5;
+    font-weight: 500;
+  }
+}
+
+.step-content {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 16px 48px;
+}
+
+.configuration-step,
+.review-step,
+.results-step {
+  h2 {
+    margin-bottom: 8px;
+  }
+  
+  .subtitle {
+    color: #666;
+    margin-bottom: 24px;
+  }
+}
+
+.query-form {
+  .full-width {
+    width: 100%;
+  }
+  
+  app-entity-selector {
+    display: block;
+    margin-bottom: 16px;
+  }
+}
+
+.validation-messages {
+  margin-top: 16px;
+  
+  mat-error {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+    
+    mat-icon {
+      font-size: 18px;
+    }
+  }
+}
+
+.step-actions {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 1px solid #e0e0e0;
+  
+  button {
+    mat-icon {
+      margin: 0 4px;
+    }
+  }
+}
+
+.results-summary {
+  mat-card-header {
+    mat-card-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      
+      mat-icon {
+        font-size: 28px;
+        height: 28px;
+        width: 28px;
+      }
+    }
+  }
+}
+
+.results-content {
+  margin-top: 16px;
+  
+  .result-context {
+    padding: 16px;
+    background: #f5f5f5;
+    border-radius: 4px;
+    margin-bottom: 16px;
+  }
+  
+  .result-detail {
+    pre {
+      background: #f5f5f5;
+      padding: 12px;
+      border-radius: 4px;
+      overflow-x: auto;
+    }
+  }
+}

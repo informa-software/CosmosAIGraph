@@ -1,0 +1,227 @@
+<div class="query-builder-container">
+  <!-- Header -->
+  <mat-toolbar color="primary">
+    <mat-icon>query_builder</mat-icon>
+    <span>Contract Query Builder</span>
+    <span class="spacer"></span>
+    <button mat-icon-button (click)="resetQuery()" matTooltip="Start Over">
+      <mat-icon>refresh</mat-icon>
+    </button>
+  </mat-toolbar>
+
+  <!-- Stepper Progress -->
+  <div class="stepper-header">
+    <div *ngFor="let step of [0, 1, 2, 3]; let i = index" 
+         class="step-indicator"
+         [class.active]="currentStep === i"
+         [class.completed]="currentStep > i"
+         (click)="goToStep(i)">
+      <div class="step-circle">
+        <mat-icon *ngIf="currentStep > i">check</mat-icon>
+        <span *ngIf="currentStep <= i">{{ i + 1 }}</span>
+      </div>
+      <span class="step-label">{{ getStepLabel(i) }}</span>
+    </div>
+  </div>
+
+  <!-- Step Content -->
+  <div class="step-content">
+    <!-- Step 0: Template Selection -->
+    <div *ngIf="currentStep === 0" [@slideIn]>
+      <app-template-selector (templateSelected)="onTemplateSelected($event)">
+      </app-template-selector>
+    </div>
+
+    <!-- Step 1: Query Configuration -->
+    <div *ngIf="currentStep === 1 && selectedTemplate" [@slideIn] class="configuration-step">
+      <h2>Configure Your Query</h2>
+      <p class="subtitle">{{ selectedTemplate.description }}</p>
+
+      <!-- Compare Clauses Template -->
+      <div *ngIf="selectedTemplate.id === 'COMPARE_CLAUSES'" class="query-form">
+        <!-- Clause Type Selection -->
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Select Clause Type</mat-label>
+          <mat-select [(value)]="queryForm.value.clauseType" 
+                      (selectionChange)="onClauseTypeChange($event.value)">
+            <mat-option *ngFor="let clause of clauseTypes" [value]="clause.type">
+              <mat-icon>{{ clause.icon }}</mat-icon>
+              {{ clause.displayName }}
+            </mat-option>
+          </mat-select>
+          <mat-hint>{{ clauseTypes.find(c => c.type === queryForm.value.clauseType)?.description }}</mat-hint>
+        </mat-form-field>
+
+        <!-- Contracting Party (Optional) -->
+        <app-entity-selector
+          entityType="contracting"
+          label="Contracting Party (Optional)"
+          hint="Leave blank to compare across all contracting parties"
+          [multiple]="false"
+          (entitySelected)="onEntitySelected('contractingParty', $event)">
+        </app-entity-selector>
+
+        <!-- Contractor Selection -->
+        <app-entity-selector
+          entityType="contractor"
+          label="Select Contractors to Compare"
+          hint="Select at least 2 contractors for comparison"
+          [multiple]="true"
+          [required]="true"
+          (entitiesSelected)="onEntitySelected('contractorParties', $event)">
+        </app-entity-selector>
+      </div>
+
+      <!-- Find Contracts Template -->
+      <div *ngIf="selectedTemplate.id === 'FIND_CONTRACTS'" class="query-form">
+        <app-entity-selector
+          entityType="contracting"
+          label="Contracting Party"
+          hint="Filter by contracting party"
+          [multiple]="false"
+          (entitySelected)="onEntitySelected('contractingParty', $event)">
+        </app-entity-selector>
+
+        <app-entity-selector
+          entityType="contractor"
+          label="Contractor Party"
+          hint="Filter by contractor"
+          [multiple]="false"
+          (entitySelected)="onEntitySelected('contractorParty', $event)">
+        </app-entity-selector>
+
+        <app-entity-selector
+          entityType="governing_law"
+          label="Governing Law"
+          hint="Filter by jurisdiction"
+          [multiple]="false"
+          (entitySelected)="onEntitySelected('governingLaw', $event)">
+        </app-entity-selector>
+
+        <app-entity-selector
+          entityType="contract_type"
+          label="Contract Type"
+          hint="Filter by contract type"
+          [multiple]="false"
+          (entitySelected)="onEntitySelected('contractType', $event)">
+        </app-entity-selector>
+      </div>
+
+      <!-- Validation Messages -->
+      <div class="validation-messages" *ngIf="validationResult.errors.length > 0 || validationResult.warnings.length > 0">
+        <mat-error *ngFor="let error of validationResult.errors">
+          <mat-icon>error</mat-icon>
+          {{ error }}
+        </mat-error>
+        <div class="warning" *ngFor="let warning of validationResult.warnings">
+          <mat-icon>warning</mat-icon>
+          {{ warning }}
+        </div>
+      </div>
+
+      <!-- Navigation Buttons -->
+      <div class="step-actions">
+        <button mat-button (click)="currentStep = 0">
+          <mat-icon>arrow_back</mat-icon>
+          Back
+        </button>
+        <button mat-raised-button color="primary" 
+                [disabled]="!canProceedToReview()"
+                (click)="currentStep = 2">
+          Review Query
+          <mat-icon>arrow_forward</mat-icon>
+        </button>
+      </div>
+    </div>
+
+    <!-- Step 2: Review & Execute -->
+    <div *ngIf="currentStep === 2 && currentQuery" [@slideIn] class="review-step">
+      <h2>Review Your Query</h2>
+      
+      <app-query-preview [query]="currentQuery"></app-query-preview>
+
+      <div class="step-actions">
+        <button mat-button (click)="currentStep = 1">
+          <mat-icon>arrow_back</mat-icon>
+          Back
+        </button>
+        <button mat-raised-button color="accent" 
+                [disabled]="isExecuting || !validationResult.valid"
+                (click)="executeQuery()">
+          <mat-spinner diameter="20" *ngIf="isExecuting"></mat-spinner>
+          <mat-icon *ngIf="!isExecuting">play_arrow</mat-icon>
+          {{ isExecuting ? 'Executing...' : 'Execute Query' }}
+        </button>
+      </div>
+    </div>
+
+    <!-- Step 3: Results -->
+    <div *ngIf="currentStep === 3 && queryResult" [@slideIn] class="results-step">
+      <h2>Query Results</h2>
+      
+      <mat-card class="results-summary">
+        <mat-card-header>
+          <mat-card-title>
+            <mat-icon color="primary">{{ queryResult.success ? 'check_circle' : 'error' }}</mat-icon>
+            {{ queryResult.success ? 'Query Successful' : 'Query Failed' }}
+          </mat-card-title>
+        </mat-card-header>
+        
+        <mat-card-content>
+          <!-- Execution Metadata -->
+          <div class="metadata-chips">
+            <mat-chip-list>
+              <mat-chip>
+                <mat-icon>timer</mat-icon>
+                {{ queryResult.metadata.executionTime }}ms
+              </mat-chip>
+              <mat-chip>
+                <mat-icon>description</mat-icon>
+                {{ queryResult.metadata.documentsScanned }} documents
+              </mat-chip>
+              <mat-chip>
+                <mat-icon>search</mat-icon>
+                {{ queryResult.metadata.strategy }} strategy
+              </mat-chip>
+            </mat-chip-list>
+          </div>
+
+          <!-- Results Display -->
+          <div class="results-content">
+            <div *ngIf="queryResult.context" class="result-context">
+              <p>{{ queryResult.context }}</p>
+            </div>
+            
+            <mat-accordion>
+              <mat-expansion-panel *ngFor="let result of queryResult.results; let i = index">
+                <mat-expansion-panel-header>
+                  <mat-panel-title>
+                    Result {{ i + 1 }}
+                  </mat-panel-title>
+                  <mat-panel-description>
+                    {{ result.parties || result.contractId || 'View Details' }}
+                  </mat-panel-description>
+                </mat-expansion-panel-header>
+                
+                <div class="result-detail">
+                  <pre>{{ result | json }}</pre>
+                </div>
+              </mat-expansion-panel>
+            </mat-accordion>
+          </div>
+        </mat-card-content>
+      </mat-card>
+
+      <div class="step-actions">
+        <button mat-button (click)="currentStep = 2">
+          <mat-icon>arrow_back</mat-icon>
+          Back to Query
+        </button>
+        <button mat-raised-button color="primary" (click)="resetQuery()">
+          <mat-icon>add</mat-icon>
+          New Query
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

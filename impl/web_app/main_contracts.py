@@ -266,16 +266,32 @@ def create_parent_contract_doc(contract_data, contract_id):
             # Store metadata fields with their values and confidence
             for field_name, field_data in metadata_fields.items():
                 if field_data:
-                    doc["metadata"][field_name] = {
-                        "value": extract_field_value(field_data),
-                        "confidence": field_data.get("confidence", 0)
-                    }
+                    value = extract_field_value(field_data)
+                    if value:
+                        doc["metadata"][field_name] = {
+                            "value": value,
+                            "confidence": field_data.get("confidence", 0)
+                        }
+                        
+                        # Add normalized values for entity fields
+                        if field_name == "ContractorPartyName":
+                            normalized = ContractEntitiesService.normalize_entity_name(value)
+                            doc["metadata"][field_name]["normalizedValue"] = normalized
+                        elif field_name == "ContractingPartyName":
+                            normalized = ContractEntitiesService.normalize_entity_name(value)
+                            doc["metadata"][field_name]["normalizedValue"] = normalized
+                        elif field_name == "GoverningLawState":
+                            normalized = ContractEntitiesService.normalize_entity_name(value)
+                            doc["metadata"][field_name]["normalizedValue"] = normalized
+                        elif field_name == "ContractType":
+                            normalized = ContractEntitiesService.normalize_entity_name(value)
+                            doc["metadata"][field_name]["normalizedValue"] = normalized
     
-    # Add extracted values as top-level fields for easier querying
+    # Add normalized values as top-level fields for easier querying
     if "ContractorPartyName" in doc["metadata"]:
-        doc["contractor_party"] = doc["metadata"]["ContractorPartyName"]["value"]
+        doc["contractor_party"] = doc["metadata"]["ContractorPartyName"].get("normalizedValue", doc["metadata"]["ContractorPartyName"]["value"])
     if "ContractingPartyName" in doc["metadata"]:
-        doc["contracting_party"] = doc["metadata"]["ContractingPartyName"]["value"]
+        doc["contracting_party"] = doc["metadata"]["ContractingPartyName"].get("normalizedValue", doc["metadata"]["ContractingPartyName"]["value"])
     if "EffectiveDate" in doc["metadata"]:
         doc["effective_date"] = doc["metadata"]["EffectiveDate"]["value"]
     if "ExpirationDate" in doc["metadata"]:
@@ -283,9 +299,9 @@ def create_parent_contract_doc(contract_data, contract_id):
     if "MaximumContractValue" in doc["metadata"]:
         doc["contract_value"] = doc["metadata"]["MaximumContractValue"]["value"]
     if "ContractType" in doc["metadata"]:
-        doc["contract_type"] = doc["metadata"]["ContractType"]["value"]
+        doc["contract_type"] = doc["metadata"]["ContractType"].get("normalizedValue", doc["metadata"]["ContractType"]["value"])
     if "GoverningLawState" in doc["metadata"]:
-        doc["governing_law"] = doc["metadata"]["GoverningLawState"]["value"]
+        doc["governing_law"] = doc["metadata"]["GoverningLawState"].get("normalizedValue", doc["metadata"]["GoverningLawState"]["value"])
     if "Jurisdiction" in doc["metadata"]:
         doc["jurisdiction"] = doc["metadata"]["Jurisdiction"]["value"]
     
@@ -298,16 +314,17 @@ def create_parent_contract_doc(contract_data, contract_id):
 def extract_contract_metadata(parent_doc):
     """
     Extract contract metadata fields that should be included in clause and chunk documents.
+    Uses normalized values for searchable entity fields.
     """
     metadata = {
         "filename": parent_doc.get("filename", ""),
-        "contractor_party": parent_doc.get("contractor_party", ""),
-        "contracting_party": parent_doc.get("contracting_party", ""),
+        "contractor_party": parent_doc.get("contractor_party", ""),  # Already normalized
+        "contracting_party": parent_doc.get("contracting_party", ""),  # Already normalized
         "effective_date": parent_doc.get("effective_date", ""),
         "expiration_date": parent_doc.get("expiration_date", ""),
         "contract_value": parent_doc.get("contract_value", ""),
-        "governing_law": parent_doc.get("governing_law", ""),
-        "contract_type": parent_doc.get("contract_type", ""),
+        "governing_law": parent_doc.get("governing_law", ""),  # Already normalized
+        "contract_type": parent_doc.get("contract_type", ""),  # Already normalized
         "jurisdiction": parent_doc.get("jurisdiction", "")
     }
     return metadata
@@ -601,47 +618,54 @@ def extract_field_value(field_data):
 async def update_contract_entities(parent_doc):
     """
     Update entity catalogs based on contract metadata.
+    Uses the ORIGINAL values from metadata to create/update entities (for display names).
     This runs asynchronously to avoid blocking contract loading.
     """
     try:
         contract_id = parent_doc.get("id", "")
+        metadata = parent_doc.get("metadata", {})
         
-        # Extract contract value for statistics
+        # Extract contract value for statistics from metadata
         contract_value = 0.0
         try:
-            value_field = parent_doc.get("contract_value")
-            if value_field:
-                contract_value = float(value_field)
+            if "MaximumContractValue" in metadata:
+                value_field = metadata["MaximumContractValue"].get("value")
+                if value_field:
+                    contract_value = float(value_field)
         except (ValueError, TypeError):
             pass
         
-        # Update contractor party entity
-        contractor_party = parent_doc.get("contractor_party")
-        if contractor_party:
-            await ContractEntitiesService.update_or_create_contractor_party(
-                contractor_party, contract_id, contract_value
-            )
+        # Update contractor party entity with ORIGINAL value
+        if "ContractorPartyName" in metadata:
+            original_value = metadata["ContractorPartyName"].get("value")
+            if original_value:
+                await ContractEntitiesService.update_or_create_contractor_party(
+                    original_value, contract_id, contract_value
+                )
         
-        # Update contracting party entity
-        contracting_party = parent_doc.get("contracting_party")
-        if contracting_party:
-            await ContractEntitiesService.update_or_create_contracting_party(
-                contracting_party, contract_id, contract_value
-            )
+        # Update contracting party entity with ORIGINAL value
+        if "ContractingPartyName" in metadata:
+            original_value = metadata["ContractingPartyName"].get("value")
+            if original_value:
+                await ContractEntitiesService.update_or_create_contracting_party(
+                    original_value, contract_id, contract_value
+                )
         
-        # Update governing law entity
-        governing_law = parent_doc.get("governing_law")
-        if governing_law:
-            await ContractEntitiesService.update_or_create_governing_law(
-                governing_law, contract_id
-            )
+        # Update governing law entity with ORIGINAL value
+        if "GoverningLawState" in metadata:
+            original_value = metadata["GoverningLawState"].get("value")
+            if original_value:
+                await ContractEntitiesService.update_or_create_governing_law(
+                    original_value, contract_id
+                )
         
-        # Update contract type entity
-        contract_type = parent_doc.get("contract_type")
-        if contract_type:
-            await ContractEntitiesService.update_or_create_contract_type(
-                contract_type, contract_id
-            )
+        # Update contract type entity with ORIGINAL value  
+        if "ContractType" in metadata:
+            original_value = metadata["ContractType"].get("value")
+            if original_value:
+                await ContractEntitiesService.update_or_create_contract_type(
+                    original_value, contract_id
+                )
             
     except Exception as e:
         logging.error(f"Error updating contract entities for {contract_id}: {str(e)}")

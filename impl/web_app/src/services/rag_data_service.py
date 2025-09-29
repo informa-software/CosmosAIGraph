@@ -76,9 +76,9 @@ class RAGDataService:
         rdr.set_context(strategy_obj["name"])
 
         if strategy == "db":
-            name = strategy_obj["name"]
+            name = strategy_obj.get("name", "")
             rdr.set_attr("name", name)
-            await self.get_database_rag_data(user_text, name, rdr, max_doc_count)
+            await self.get_database_rag_data(user_text, strategy_obj, rdr, max_doc_count)
             if rdr.has_no_docs():
                 rdr.add_strategy("vector")
                 await self.get_vector_rag_data(user_text, rdr, max_doc_count)
@@ -95,30 +95,64 @@ class RAGDataService:
         return rdr
 
     async def get_database_rag_data(
-        self, user_text: str, name: str, rdr: RAGDataResult, max_doc_count=10
+        self, user_text: str, strategy_obj: dict, rdr: RAGDataResult, max_doc_count=10
     ) -> None:
         rag_docs_list = list()
         try:
             logging.warning(
-                "RagDataService#get_database_rag_data, name: {}, user_text: {}".format(
-                    name, user_text
-                )
+                f"RagDataService#get_database_rag_data, user_text: {user_text}, strategy: {strategy_obj}"
             )
+            
             self.nosql_svc.set_db(ConfigService.graph_source_db())
-            self.nosql_svc.set_container(ConfigService.graph_vector_container())
-            # TO DO - DETERMINE WHICH ATRIBUTES TO USE FOR A DATABASE QUERY. COULD BE MULTIPLE OPTIONS
-            # TO DO - DETERMNE IF WE ALSO WANT A CLAUSE DATABASE CALL, BASED ON QUERY TYPE 
-            rag_docs_list = await self.nosql_svc.get_documents_by_name([name])
-            #pertinent_attributes = "libtype,name, summary, documentation_summary"
-            for doc in rag_docs_list:
-                #rdr.add_doc(self.filtered_cosmosdb_lib_doc(doc))
+            
+            # Check if we have entity information
+            if "primary_entity" in strategy_obj:
+                entity = strategy_obj["primary_entity"]
+                entity_type = entity.get("type")
+                entity_value = entity.get("value")
+                
+                # Use the new entity-aware method
+                rag_docs_list = await self.nosql_svc.get_documents_by_entity(
+                    entity_type=entity_type,
+                    entity_values=[entity_value],
+                    container_name="contracts"
+                )
+                
+                # If we need chunks too
+                if strategy_obj.get("query_config", {}).get("chunk_retrieval"):
+                    # Get chunk IDs from parent documents
+                    chunk_ids = []
+                    for doc in rag_docs_list:
+                        chunk_ids.extend(doc.get("chunk_ids", []))
+                    
+                    if chunk_ids:
+                        # Retrieve chunks
+                        self.nosql_svc.set_container("contract_chunks")
+                        chunks = await self.nosql_svc.get_documents_by_ids(chunk_ids[:max_doc_count])
+                        rag_docs_list.extend(chunks)
+            
+            elif "name" in strategy_obj:
+                # Fallback to old library behavior for backward compatibility
+                name = strategy_obj["name"]
+                logging.info(f"Using legacy library lookup for name: {name}")
+                self.nosql_svc.set_container(ConfigService.graph_vector_container())
+                rag_docs_list = await self.nosql_svc.get_documents_by_name([name])
+            
+            else:
+                # No entity or name detected, fallback to vector search
+                logging.warning("No entity detected, falling back to vector search")
+                rdr.add_strategy("vector")
+                return  # Let vector search handle it
+            
+            # Add documents to result
+            for doc in rag_docs_list[:max_doc_count]:
                 doc_copy = dict(doc)  # shallow copy
                 doc_copy.pop("embedding", None)
                 rdr.add_doc(doc_copy)
-
+                
         except Exception as e:
             logging.critical(
-                "Exception in RagDataService#get_database_rag_data: {}".format(str(e))
+                f"Exception in RagDataService#get_database_rag_data: {str(e)}"
             )
             logging.exception(e, stack_info=True, exc_info=True)
 
