@@ -1535,7 +1535,7 @@ async def get_entities(entity_type: str):
         entity_methods = {
             "contractor_parties": ContractEntitiesService.get_contractor_parties_catalog,
             "contracting_parties": ContractEntitiesService.get_contracting_parties_catalog,
-            "governing_laws": ContractEntitiesService.get_governing_laws_catalog,
+            "governing_laws": ContractEntitiesService.get_governing_law_states_catalog,
             "contract_types": ContractEntitiesService.get_contract_types_catalog,
             "clause_types": ContractEntitiesService.get_clause_types_catalog
         }
@@ -1669,3 +1669,1124 @@ def get_entity_type_display_name(entity_type: str) -> str:
         "contract_types": "Contract Types"
     }
     return display_names.get(entity_type, entity_type)
+
+
+# Contract Workbench Routes
+@app.get("/contract_workbench")
+async def get_contract_workbench(req: Request):
+    """Render the Contract Intelligence Workbench page"""
+    view_data = {
+        "current_page": "contract_workbench"
+    }
+    return views.TemplateResponse(
+        request=req, name="contract_workbench.html", context=view_data
+    )
+
+
+@app.get("/api/contracts")
+async def get_contracts(
+    contract_type: Optional[str] = None,
+    contractor_party: Optional[str] = None,
+    contracting_party: Optional[str] = None,
+    contracting_parties: Optional[str] = None,  # Comma-separated list
+    governing_law: Optional[str] = None,
+    governing_laws: Optional[str] = None,  # Comma-separated list
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None
+):
+    """
+    Get contracts with optional filtering.
+    Returns contract summaries for the workbench.
+    """
+    try:
+        # Check if we're in contracts mode
+        graph_mode = ConfigService.envvar("CAIG_GRAPH_MODE", "contracts").lower()
+        if graph_mode != "contracts":
+            return JSONResponse(
+                content={"error": "System not in contracts mode"},
+                status_code=400
+            )
+        
+        # Query CosmosDB for contracts
+        query = "SELECT * FROM c WHERE c.doctype = 'contract_parent'"
+        params = []
+        
+        # Add filters if provided
+        if contract_type and contract_type != "Any":
+            query += " AND c.contract_type = @contract_type"
+            params.append({"name": "@contract_type", "value": contract_type})
+            logging.info(f"Filtering by contract_type: {contract_type}")
+        
+        if contractor_party:
+            query += " AND c.contractor_party = @contractor_party"
+            params.append({"name": "@contractor_party", "value": contractor_party})
+            
+        # Handle single contracting_party or multiple contracting_parties
+        if contracting_parties:
+            # Split comma-separated values
+            parties_list = [p.strip() for p in contracting_parties.split(',')]
+            if len(parties_list) == 1:
+                query += " AND c.contracting_party = @contracting_party"
+                params.append({"name": "@contracting_party", "value": parties_list[0]})
+            else:
+                # Use IN clause for multiple values
+                in_clause_params = []
+                for i, party in enumerate(parties_list):
+                    param_name = f"@contracting_party_{i}"
+                    in_clause_params.append(param_name)
+                    params.append({"name": param_name, "value": party})
+                query += f" AND c.contracting_party IN ({','.join(in_clause_params)})"
+        elif contracting_party:
+            # Backward compatibility - single value
+            query += " AND c.contracting_party = @contracting_party"
+            params.append({"name": "@contracting_party", "value": contracting_party})
+            
+        # Handle single governing_law or multiple governing_laws
+        if governing_laws:
+            # Split comma-separated values
+            laws_list = [l.strip() for l in governing_laws.split(',')]
+            if len(laws_list) == 1:
+                query += " AND c.governing_law = @governing_law"
+                params.append({"name": "@governing_law", "value": laws_list[0]})
+            else:
+                # Use IN clause for multiple values
+                in_clause_params = []
+                for i, law in enumerate(laws_list):
+                    param_name = f"@governing_law_{i}"
+                    in_clause_params.append(param_name)
+                    params.append({"name": param_name, "value": law})
+                query += f" AND c.governing_law IN ({','.join(in_clause_params)})"
+        elif governing_law:
+            # Backward compatibility - single value
+            query += " AND c.governing_law = @governing_law"
+            params.append({"name": "@governing_law", "value": governing_law})
+            
+        if date_from:
+            query += " AND c.effective_date >= @date_from"
+            params.append({"name": "@date_from", "value": date_from})
+            
+        if date_to:
+            query += " AND c.effective_date <= @date_to"
+            params.append({"name": "@date_to", "value": date_to})
+        
+        # Execute query
+        nosql_svc.set_db("caig")
+        nosql_svc.set_container("contracts")
+        
+        logging.info(f"Executing query: {query}")
+        logging.info(f"With parameters: {params}")
+        
+        # Use parameterized_query to properly handle SQL parameters
+        items = await nosql_svc.parameterized_query(
+            sql_template=query,
+            sql_parameters=params if params else [],
+            cross_partition=True
+        )
+        
+        logging.info(f"Query returned {len(items)} items")
+        
+        # Log the first item to check structure
+        if items and len(items) > 0:
+            logging.info(f"First item keys: {list(items[0].keys())}")
+            logging.info(f"First item has clause_ids: {'clause_ids' in items[0]}")
+            if 'clause_ids' in items[0]:
+                logging.info(f"Number of clause_ids in first item: {len(items[0]['clause_ids'])}")
+        
+        # Transform contracts for UI
+        contracts = []
+        for item in items:
+            # Use the id field directly - it already has the "contract_" prefix
+            contract_id = item.get("id", "")
+            
+            contract = {
+                "id": contract_id,  # Use the full ID with "contract_" prefix
+                "title": item.get("filename", "Unknown"),
+                "counterparty": item.get("contractor_party", "Unknown"),
+                "contracting_party": item.get("contracting_party", "Unknown"),
+                "effective": item.get("effective_date", ""),
+                "expiration": item.get("expiration_date", ""),
+                "law": item.get("governing_law", "Unknown"),
+                "type": item.get("contract_type", "Unknown"),
+                "value": item.get("contract_value", ""),
+                "clauses": {}
+            }
+            
+            # Extract clause IDs to know what clauses are available
+            # The actual clause text is stored separately, but we can indicate
+            # which clauses are present in this contract
+            clause_ids = item.get("clause_ids", [])
+            
+            # Parse clause types from the clause IDs
+            # Format: contract_{contract_id}_clause_{clause_type}
+            for clause_id in clause_ids:
+                if "_clause_" in clause_id:
+                    # Get everything after the last "_clause_"
+                    clause_type = clause_id.split("_clause_")[-1]
+                    
+                    # Create a more readable version of the clause type
+                    # Convert from lowercase like "indemnification" or "workerscompensationinsurance"
+                    # to readable format like "Indemnification" or "Workers Compensation Insurance"
+                    
+                    # Map of known clause types to their display names
+                    clause_type_map = {
+                        "indemnification": "Indemnification",
+                        "indemnificationobligations": "Indemnification Obligations",
+                        "workerscompensationinsurance": "Workers Compensation Insurance",
+                        "commercialpublicliability": "Commercial Public Liability",
+                        "automobileinsurance": "Automobile Insurance",
+                        "umbrellainsurance": "Umbrella Insurance",
+                        "assignability": "Assignability",
+                        "databreachobligations": "Data Breach Obligations",
+                        "complianceobligations": "Compliance Obligations",
+                        "confidentialityobligations": "Confidentiality Obligations",
+                        "escalationobligations": "Escalation Obligations",
+                        "limitationofliabilityobligations": "Limitation of Liability Obligations",
+                        "paymentobligations": "Payment Obligations",
+                        "renewalnotification": "Renewal Notification",
+                        "servicelevelagreement": "Service Level Agreement",
+                        "terminationobligations": "Termination Obligations",
+                        "warrantyobligations": "Warranty Obligations",
+                        "governinglaw": "Governing Law"
+                    }
+                    
+                    # Use the mapped name if available, otherwise create a readable version
+                    readable_clause_type = clause_type_map.get(
+                        clause_type.lower(),
+                        clause_type.replace("_", " ").title()
+                    )
+                    
+                    # Just indicate the clause exists - actual text will be fetched separately
+                    contract["clauses"][readable_clause_type] = "present"
+            
+            # Include the contract markdown and token count if needed
+            if item.get("contract_text"):
+                contract["has_full_text"] = True
+                contract["text_tokens"] = item.get("contract_text_tokens", 0)
+            
+            contracts.append(contract)
+        
+        return JSONResponse(content={"contracts": contracts})
+        
+    except Exception as e:
+        logging.error(f"Error getting contracts: {str(e)}")
+        return JSONResponse(
+            content={"error": str(e)},
+            status_code=500
+        )
+
+
+@app.post("/api/contract_query")
+async def contract_query(req: Request):
+    """
+    Process natural language contract queries.
+    Combines graph search, vector search, and AI completion.
+    """
+    try:
+        data = await req.json()
+        question = data.get("question", "")
+        filters = data.get("filters", {})
+        selected_contracts = data.get("selected_contracts", [])
+        
+        # Check if we're in contracts mode
+        graph_mode = ConfigService.envvar("CAIG_GRAPH_MODE", "libraries").lower()
+        if graph_mode != "contracts":
+            return JSONResponse(
+                content={"error": "System not in contracts mode"},
+                status_code=400
+            )
+        
+        # Use ContractStrategyBuilder to determine query strategy
+        strategy_builder = ContractStrategyBuilder(question)
+        strategy = strategy_builder.get_strategy()
+        
+        answer_parts = []
+        
+        # Execute based on strategy
+        if strategy["use_db"]:
+            # Query CosmosDB directly for entity-based questions
+            db_results = await query_contracts_db(strategy["entities"], filters, selected_contracts)
+            answer_parts.append(db_results)
+        
+        if strategy["use_vector"]:
+            # Perform vector search for semantic queries
+            vector_results = await vector_search_contracts(question, filters, selected_contracts)
+            answer_parts.append(vector_results)
+        
+        if strategy["use_graph"]:
+            # Query graph for relationship-based questions
+            graph_results = await query_contract_graph(question, strategy["entities"])
+            answer_parts.append(graph_results)
+        
+        # Combine results and generate final answer using AI
+        context = "\n".join(answer_parts)
+        
+        if context:
+            # Use AI to synthesize the answer
+            prompt = f"""Based on the following contract information, answer this question: {question}
+            
+            Context:
+            {context}
+            
+            Provide a clear, concise answer that directly addresses the question."""
+            
+            ai_response = await ai_svc.generate_completion(prompt)
+            answer = ai_response.get("content", "Unable to generate answer.")
+        else:
+            # Fallback answer when no results found
+            answer = "No relevant contracts found matching your query criteria."
+        
+        return JSONResponse(content={
+            "answer": answer,
+            "strategy": strategy,
+            "context_used": len(context) if context else 0
+        })
+        
+    except Exception as e:
+        logging.error(f"Error processing contract query: {str(e)}")
+        return JSONResponse(
+            content={"error": str(e)},
+            status_code=500
+        )
+
+
+async def query_contracts_db(entities, filters, selected_contracts):
+    """Query CosmosDB for contracts based on entities"""
+    try:
+        nosql_svc.set_db("caig")
+        nosql_svc.set_container("contracts")
+        
+        query = "SELECT * FROM c WHERE c.doctype = 'contract_parent'"
+        params = []
+        
+        # Add entity filters
+        if entities.get("contractor_parties"):
+            query += " AND c.contractor_party IN (@contractors)"
+            params.append({
+                "name": "@contractors",
+                "value": entities["contractor_parties"]
+            })
+        
+        if entities.get("governing_laws"):
+            query += " AND c.governing_law IN (@laws)"
+            params.append({
+                "name": "@laws", 
+                "value": entities["governing_laws"]
+            })
+        
+        # Add selected contract filter if specified
+        if selected_contracts:
+            # Frontend now sends full IDs with "contract_" prefix
+            query += " AND c.id IN (@selected)"
+            params.append({
+                "name": "@selected",
+                "value": selected_contracts
+            })
+        
+        # Use parameterized_query to properly handle SQL parameters
+        items = await nosql_svc.parameterized_query(
+            sql_template=query,
+            sql_parameters=params if params else [],
+            cross_partition=True
+        )
+        
+        # Format results
+        results = []
+        for item in items:
+            results.append(f"Contract {item['id']}: {item.get('contractor_party', 'Unknown')} - Governed by {item.get('governing_law', 'Unknown')}")
+        
+        return "\n".join(results) if results else "No contracts found."
+        
+    except Exception as e:
+        logging.error(f"Error querying contracts DB: {str(e)}")
+        return ""
+
+
+async def vector_search_contracts(question, filters, selected_contracts):
+    """Perform vector search on contract clauses and chunks"""
+    try:
+        # Generate embedding for the question
+        embedding_response = ai_svc.generate_embeddings(question)
+        query_embedding = embedding_response.data[0].embedding
+        
+        # Search contract clauses
+        nosql_svc.set_db("caig")
+        nosql_svc.set_container("contract_clauses")
+        
+        # Build filter for selected contracts if specified
+        filter_clause = None
+        if selected_contracts:
+            # Frontend now sends full IDs with "contract_" prefix
+            filter_clause = f"c.parent_id IN ({','.join(['\"' + cid + '\"' for cid in selected_contracts])})"
+        
+        # Perform vector search
+        results = await nosql_svc.vector_search(
+            query_embedding,
+            limit=10,
+            filter_clause=filter_clause
+        )
+        
+        # Format results
+        clause_results = []
+        for result in results:
+            clause_results.append(
+                f"Clause from {result.get('parent_id', 'Unknown')}: "
+                f"{result.get('clause_type', 'Unknown')} - "
+                f"{result.get('clause_text', '')[:200]}..."
+            )
+        
+        return "\n".join(clause_results) if clause_results else "No relevant clauses found."
+        
+    except Exception as e:
+        logging.error(f"Error in vector search: {str(e)}")
+        return ""
+
+
+async def query_contract_graph(question, entities):
+    """Query the contract graph for relationships"""
+    try:
+        # Build SPARQL query based on entities
+        sparql_query = build_contract_sparql(question, entities)
+        
+        # Execute SPARQL query against graph service
+        graph_url = f"{ConfigService.graph_service_url()}/sparql_query"
+        
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(
+                graph_url,
+                json={"sparql": sparql_query},
+                headers=websvc_headers
+            )
+            
+        if response.status_code == 200:
+            data = response.json()
+            # Format graph results
+            results = []
+            for binding in data.get("results", {}).get("bindings", []):
+                result_line = []
+                for var, value in binding.items():
+                    result_line.append(f"{var}: {value.get('value', '')}")
+                results.append(" | ".join(result_line))
+            
+            return "\n".join(results) if results else "No graph relationships found."
+        else:
+            return "Unable to query graph."
+            
+    except Exception as e:
+        logging.error(f"Error querying contract graph: {str(e)}")
+        return ""
+
+
+def build_contract_sparql(question, entities):
+    """Build SPARQL query for contract graph based on question and entities"""
+    # This is a simplified version - would need more sophisticated query building
+    base_query = """
+    PREFIX caig: <http://cosmosdb.com/caig#>
+    SELECT ?contract ?contractor ?law
+    WHERE {
+        ?contract a caig:Contract .
+        ?contract caig:hasContractor ?contractor .
+        ?contract caig:governedBy ?law .
+    """
+    
+    filters = []
+    if entities.get("contractor_parties"):
+        contractors = " ".join([f'"{c}"' for c in entities["contractor_parties"]])
+        filters.append(f"FILTER(?contractor IN ({contractors}))")
+    
+    if entities.get("governing_laws"):
+        laws = " ".join([f'"{l}"' for l in entities["governing_laws"]])
+        filters.append(f"FILTER(?law IN ({laws}))")
+    
+    query = base_query + "\n".join(filters) + "\n} LIMIT 100"
+    return query
+
+
+# ============================================================================
+# Contract Clause Retrieval Functions for Comparison
+# ============================================================================
+
+async def get_clause_by_id(nosql_svc: CosmosNoSQLService, clause_id: str):
+    """
+    Retrieve a specific clause document by its ID from the contract_clauses collection.
+    
+    Args:
+        nosql_svc: The CosmosDB service instance
+        clause_id: The ID of the clause to retrieve
+    
+    Returns:
+        The clause document or None if not found
+    """
+    try:
+        nosql_svc.set_container("contract_clauses")
+        clause_doc = await nosql_svc.point_read(clause_id, "contract_clauses")
+        return clause_doc
+    except Exception as e:
+        logging.warning(f"Clause not found with ID {clause_id}: {e}")
+        return None
+
+
+async def get_clauses_for_contract(nosql_svc: CosmosNoSQLService, contract_id: str, clause_types: list = None):
+    """
+    Retrieve all clauses for a specific contract, optionally filtered by clause types.
+    
+    Args:
+        nosql_svc: The CosmosDB service instance
+        contract_id: The contract ID (format: "contract_xxxxxxxxxx")
+        clause_types: Optional list of clause types to filter by (if None, returns all)
+                     Can be display names that will be converted to normalized names
+    
+    Returns:
+        Dictionary mapping clause_type to clause document
+    """
+    # Reverse mapping of the clause_type_map from line 1831
+    # Maps display names back to their normalized database names
+    display_to_normalized = {
+        "Indemnification": "Indemnification",
+        "Indemnification Obligations": "IndemnificationObligations",
+        "Workers Compensation Insurance": "WorkersCompensationInsurance",
+        "Commercial Public Liability": "CommercialPublicLiability",
+        "Automobile Insurance": "AutomobileInsurance",
+        "Umbrella Insurance": "UmbrellaInsurance",
+        "Assignability": "Assignability",
+        "Data Breach Obligations": "DataBreachObligations",
+        "Compliance Obligations": "ComplianceObligations",
+        "Confidentiality Obligations": "ConfidentialityObligations",
+        "Escalation Obligations": "EscalationObligations",
+        "Limitation of Liability Obligations": "LimitationOfLiabilityObligations",
+        "Payment Obligations": "PaymentObligations",
+        "Renewal Notification": "RenewalNotification",
+        "Service Level Agreement": "ServiceLevelAgreement",
+        "Termination Obligations": "TerminationObligations",
+        "Warranty Obligations": "WarrantyObligations",
+        "Insurance Obligations": "InsuranceObligations",
+        "Governing Law": "GoverningLaw"
+    }
+    
+    # Normalize clause types if provided
+    normalized_clause_types = None
+    if clause_types is not None:
+        normalized_clause_types = []
+        for ct in clause_types:
+            # Convert display name to normalized name
+            normalized = display_to_normalized.get(ct, ct)  # Use ct as-is if not in mapping
+            normalized_clause_types.append(normalized)
+        logging.info(f"Normalized clause types from {clause_types} to {normalized_clause_types}")
+    
+    try:
+        # First get the contract document to get clause IDs
+        nosql_svc.set_container(ConfigService.graph_source_container())
+        
+        # Use point_read with the contract_id as document id and "contracts" as partition key
+        contract_doc = await nosql_svc.point_read(contract_id, "contracts")
+        
+        if not contract_doc:
+            logging.warning(f"Contract not found: {contract_id}")
+            return {}
+        
+        clause_ids = contract_doc.get("clause_ids", [])
+        clauses_by_type = {}
+        
+        # Retrieve each clause document
+        nosql_svc.set_container("contract_clauses")
+        for clause_id in clause_ids:
+            try:
+                clause_doc = await nosql_svc.point_read(clause_id, "contract_clauses")
+                if clause_doc:
+                    clause_type = clause_doc.get("clause_type", "")
+                    
+                    # If filtering by types, check if this type is included
+                    # Use normalized types for comparison
+                    if normalized_clause_types is None or clause_type in normalized_clause_types:
+                        clauses_by_type[clause_type] = {
+                            "clause_id": clause_id,
+                            "clause_text": clause_doc.get("clause_text", ""),
+                            "clause_type": clause_type,
+                            "confidence": clause_doc.get("confidence", 0),
+                            "parent_id": clause_doc.get("parent_id", "")
+                        }
+            except Exception as e:
+                logging.warning(f"Could not retrieve clause {clause_id}: {e}")
+                continue
+        
+        return clauses_by_type
+        
+    except Exception as e:
+        logging.error(f"Error retrieving clauses for contract {contract_id}: {e}")
+        return {}
+
+
+async def get_contract_full_text(nosql_svc: CosmosNoSQLService, contract_id: str):
+    """
+    Retrieve the full contract text from the contracts collection.
+    
+    Args:
+        nosql_svc: The CosmosDB service instance
+        contract_id: The contract ID (format: "contract_xxxxxxxxxx")
+    
+    Returns:
+        The contract text or None if not found
+    """
+    try:
+        nosql_svc.set_container(ConfigService.graph_source_container())
+        
+        # Use point_read with the contract_id as document id and "contracts" as partition key
+        contract_doc = await nosql_svc.point_read(contract_id, "contracts")
+        
+        if contract_doc:
+            return contract_doc.get("contract_text", None)
+        return None
+        
+    except Exception as e:
+        logging.error(f"Error retrieving full text for contract {contract_id}: {e}")
+        return None
+
+
+async def retrieve_comparison_data(
+    nosql_svc: CosmosNoSQLService,
+    standard_contract_id: str,
+    compare_contract_ids: list,
+    comparison_mode: str,
+    selected_clauses: list = None
+):
+    """
+    Retrieve all necessary data for contract comparison.
+    
+    Args:
+        nosql_svc: The CosmosDB service instance
+        standard_contract_id: The ID of the standard contract
+        compare_contract_ids: List of contract IDs to compare against
+        comparison_mode: Either "full" or "clauses"
+        selected_clauses: List of clause types to compare, or "all", or None for full mode
+    
+    Returns:
+        Tuple of (standard_data, comparison_data, clause_cache)
+    """
+    clause_cache = {}  # Cache for storing clause documents by ID
+    
+    if comparison_mode == "full":
+        # Get full contract texts
+        standard_text = await get_contract_full_text(nosql_svc, standard_contract_id)
+        standard_data = {
+            "contract_id": standard_contract_id,
+            "mode": "full",
+            "content": standard_text
+        }
+        
+        comparison_data = {}
+        for contract_id in compare_contract_ids:
+            contract_text = await get_contract_full_text(nosql_svc, contract_id)
+            comparison_data[contract_id] = {
+                "contract_id": contract_id,
+                "mode": "full",
+                "content": contract_text
+            }
+            
+    else:  # clauses mode
+        # Determine which clause types to retrieve
+        clause_types_to_retrieve = None
+        if selected_clauses and selected_clauses != "all":
+            clause_types_to_retrieve = selected_clauses
+        
+        # Get clauses for standard contract
+        standard_clauses = await get_clauses_for_contract(
+            nosql_svc, standard_contract_id, clause_types_to_retrieve
+        )
+        
+        # Store standard clauses in cache
+        for clause_type, clause_data in standard_clauses.items():
+            clause_cache[clause_data["clause_id"]] = clause_data
+        
+        standard_data = {
+            "contract_id": standard_contract_id,
+            "mode": "clauses",
+            "clauses": standard_clauses
+        }
+        
+        # Get clauses for comparison contracts
+        comparison_data = {}
+        for contract_id in compare_contract_ids:
+            # If "all" is selected, get all clauses from comparison contracts
+            # Otherwise, get the same clause types as the standard
+            if selected_clauses == "all":
+                contract_clauses = await get_clauses_for_contract(nosql_svc, contract_id, None)
+            else:
+                contract_clauses = await get_clauses_for_contract(
+                    nosql_svc, contract_id, clause_types_to_retrieve
+                )
+            
+            # Store comparison clauses in cache
+            for clause_type, clause_data in contract_clauses.items():
+                clause_cache[clause_data["clause_id"]] = clause_data
+            
+            comparison_data[contract_id] = {
+                "contract_id": contract_id,
+                "mode": "clauses",
+                "clauses": contract_clauses
+            }
+    
+    return standard_data, comparison_data, clause_cache
+
+
+def create_comparison_prompt(standard_data, comparison_data, comparison_mode, selected_clauses=None):
+    """
+    Create a structured prompt for the LLM to compare contracts.
+    Now delegates to specialized functions based on mode.
+    
+    Args:
+        standard_data: Dictionary with standard contract data
+        comparison_data: Dictionary with comparison contracts data
+        comparison_mode: Either "full" or "clauses"
+        selected_clauses: List of specific clause types to compare (for clauses mode)
+    
+    Returns:
+        Formatted prompt string for the LLM
+    """
+    if comparison_mode == "full":
+        return create_full_contract_comparison_prompt(standard_data, comparison_data)
+    else:
+        # For clauses mode, we need to know which specific clauses to compare
+        if not selected_clauses:
+            # If no specific clauses provided, use all clauses from standard contract
+            selected_clauses = list(standard_data.get('clauses', {}).keys())
+        return create_clause_comparison_prompt(standard_data, comparison_data, selected_clauses)
+
+
+def create_clause_comparison_prompt(standard_data, comparison_data, selected_clauses):
+    """
+    Create a prompt specifically for clause-by-clause comparison.
+    ONLY analyzes the specific clauses requested.
+    
+    Args:
+        standard_data: Dictionary with standard contract data
+        comparison_data: Dictionary with comparison contracts data
+        selected_clauses: List of specific clause types to compare
+    
+    Returns:
+        Formatted prompt string for the LLM
+    """
+    prompt = f"""
+You are a legal contract analyst performing a CLAUSE-SPECIFIC comparison.
+
+CRITICAL INSTRUCTIONS:
+1. ONLY analyze the specific clauses listed below: {', '.join(selected_clauses)}
+2. DO NOT analyze or mention any clauses not in this list
+3. DO NOT suggest missing clauses beyond those requested
+4. DO NOT provide critical findings about issues outside these specific clauses
+5. If a requested clause is missing, note it but don't analyze alternatives
+
+REQUESTED CLAUSES FOR COMPARISON: {', '.join(selected_clauses)}
+
+STANDARD CONTRACT (ID: {standard_data['contract_id']}):
+Requested Clauses:
+"""
+    
+    # Only include the requested clauses from standard contract
+    for clause_type in selected_clauses:
+        clause_data = standard_data.get('clauses', {}).get(clause_type)
+        if clause_data:
+            prompt += f"""
+- {clause_type} (ID: {clause_data.get('clause_id', 'N/A')}):
+  {clause_data.get('clause_text', 'Text not available')[:500]}...
+"""
+        else:
+            prompt += f"""
+- {clause_type}: NOT PRESENT IN STANDARD CONTRACT
+"""
+    
+    prompt += "\n\nCONTRACTS TO COMPARE:\n"
+    
+    # For each comparison contract, only show requested clauses
+    for contract_id, data in comparison_data.items():
+        prompt += f"\nCONTRACT ID: {contract_id}\nRequested Clauses:\n"
+        for clause_type in selected_clauses:
+            clause_data = data.get('clauses', {}).get(clause_type)
+            if clause_data:
+                prompt += f"""
+- {clause_type} (ID: {clause_data.get('clause_id', 'N/A')}):
+  {clause_data.get('clause_text', 'Text not available')[:500]}...
+"""
+            else:
+                prompt += f"""
+- {clause_type}: NOT PRESENT IN THIS CONTRACT
+"""
+    
+    prompt += f"""
+
+Provide your analysis in the following JSON structure:
+{{
+    "comparisons": [
+        {{
+            "contract_id": "<contract_id>",
+            "overall_similarity_score": <0.0-1.0 based ONLY on the {len(selected_clauses)} requested clauses>,
+            "risk_level": "<low|medium|high based ONLY on requested clauses>",
+            "clause_analyses": [
+                {{
+                    "clause_type": "<ONLY from: {', '.join(selected_clauses)}>",
+                    "standard_clause_id": "<clause_id or null>",
+                    "compared_clause_id": "<clause_id or null>",
+                    "exists_in_standard": <true|false>,
+                    "exists_in_compared": <true|false>,
+                    "similarity_score": <0.0-1.0, use 0.0 if missing>,
+                    "key_differences": ["<differences in THIS clause only>"],
+                    "risks": ["<risks for THIS clause only>"],
+                    "summary": "<comparison of THIS specific clause>"
+                }}
+            ],
+            "missing_clauses": ["<ONLY from requested list if missing>"],
+            "additional_clauses": [],
+            "critical_findings": ["<ONLY about the requested clauses>"]
+        }}
+    ]
+}}
+
+STRICT REQUIREMENTS:
+- ONLY analyze these clauses: {', '.join(selected_clauses)}
+- clause_analyses should have EXACTLY {len(selected_clauses)} entries (one per requested clause)
+- missing_clauses should ONLY list clauses from the requested list that don't exist
+- DO NOT mention any other clauses or contract sections
+- overall_similarity_score should reflect ONLY the requested clauses
+- critical_findings should be ONLY about the requested clauses
+
+Return ONLY valid JSON, no additional text.
+"""
+    
+    return prompt
+
+
+def create_full_contract_comparison_prompt(standard_data, comparison_data):
+    """
+    Create a prompt for comprehensive full contract comparison.
+    Analyzes the entire contract text and all aspects.
+    
+    Args:
+        standard_data: Dictionary with standard contract data
+        comparison_data: Dictionary with comparison contracts data
+    
+    Returns:
+        Formatted prompt string for the LLM
+    """
+    prompt = f"""
+You are a legal contract analyst performing a COMPREHENSIVE contract comparison.
+
+INSTRUCTIONS:
+1. Analyze the ENTIRE contracts comprehensively
+2. Identify ALL differences, risks, and issues across the full text
+3. Evaluate completeness and identify any missing standard provisions
+4. Consider all legal, commercial, and operational implications
+
+STANDARD CONTRACT (ID: {standard_data['contract_id']}):
+{standard_data.get('content', 'Full contract text not available')}
+
+CONTRACTS TO COMPARE:
+"""
+    
+    for contract_id, data in comparison_data.items():
+        prompt += f"""
+CONTRACT ID: {contract_id}
+{data.get('content', 'Full contract text not available')}
+"""
+    
+    prompt += """
+
+Provide your comprehensive analysis in the following JSON structure:
+{
+    "comparisons": [
+        {
+            "contract_id": "<contract_id>",
+            "overall_similarity_score": <0.0-1.0 for ENTIRE contract>,
+            "risk_level": "<low|medium|high overall assessment>",
+            "clause_analyses": [
+                {
+                    "clause_type": "<any clause or section identified>",
+                    "standard_clause_id": "<if applicable>",
+                    "compared_clause_id": "<if applicable>",
+                    "exists_in_standard": <true|false>,
+                    "exists_in_compared": <true|false>,
+                    "similarity_score": <0.0-1.0>,
+                    "key_differences": ["<difference1>", "<difference2>"],
+                    "risks": ["<risk1>", "<risk2>"],
+                    "summary": "<comparison summary>"
+                }
+            ],
+            "missing_clauses": ["<any important missing provisions>"],
+            "additional_clauses": ["<provisions in compared but not standard>"],
+            "critical_findings": ["<any critical issues found>"]
+        }
+    ]
+}
+
+Comprehensive Analysis Focus:
+1. Legal completeness and compliance
+2. Risk exposure across all terms
+3. Missing standard provisions
+4. Non-standard or unusual terms
+5. Payment and performance obligations
+6. Liability and indemnification
+7. Termination and remedies
+8. Intellectual property and confidentiality
+9. Insurance requirements
+10. Dispute resolution and governing law
+11. Warranties and representations
+12. Any other material terms
+
+Return ONLY valid JSON, no additional text.
+"""
+    
+    return prompt
+
+
+async def enhance_comparison_response(comparison_results, clause_cache):
+    """
+    Enhance the LLM response by adding the actual clause texts back.
+    
+    Args:
+        comparison_results: The parsed JSON response from the LLM
+        clause_cache: Dictionary of clause_id -> clause_data
+    
+    Returns:
+        Enhanced comparison results with clause texts
+    """
+    try:
+        # Add clause texts back to the response
+        for comparison in comparison_results.get("comparisons", []):
+            for clause_analysis in comparison.get("clause_analyses", []):
+                # Add standard clause text if available
+                standard_clause_id = clause_analysis.get("standard_clause_id")
+                if standard_clause_id and standard_clause_id in clause_cache:
+                    clause_analysis["standard_clause_text"] = clause_cache[standard_clause_id].get("clause_text", "")
+                
+                # Add compared clause text if available
+                compared_clause_id = clause_analysis.get("compared_clause_id")
+                if compared_clause_id and compared_clause_id in clause_cache:
+                    clause_analysis["compared_clause_text"] = clause_cache[compared_clause_id].get("clause_text", "")
+        
+        return comparison_results
+    except Exception as e:
+        logging.error(f"Error enhancing comparison response: {e}")
+        return comparison_results
+
+
+@app.post("/api/compare-contracts")
+async def compare_contracts(request: Request):
+    """
+    Compare contracts endpoint that analyzes differences between a standard contract
+    and one or more comparison contracts.
+    
+    Expected request body:
+    {
+        "standardContractId": "contract_xxx",
+        "compareContractIds": ["contract_yyy", "contract_zzz"],
+        "comparisonMode": "clauses" | "full",
+        "selectedClauses": ["ClauseType1", "ClauseType2"] | "all"
+    }
+    """
+    try:
+        body = await request.json()
+        
+        # Extract parameters
+        standard_contract_id = body.get("standardContractId")
+        compare_contract_ids = body.get("compareContractIds", [])
+        comparison_mode = body.get("comparisonMode", "clauses")
+        selected_clauses = body.get("selectedClauses", "all")
+        
+        if not standard_contract_id:
+            return JSONResponse(
+                content={"success": False, "error": "Standard contract ID is required"},
+                status_code=400
+            )
+        
+        if not compare_contract_ids:
+            return JSONResponse(
+                content={"success": False, "error": "At least one comparison contract ID is required"},
+                status_code=400
+            )
+        
+        # Initialize services
+        nosql_svc = CosmosNoSQLService()
+        await nosql_svc.initialize()
+        # Use the global ai_svc instance that was initialized at startup
+        
+        # Log the request for debugging
+        logging.info(f"Contract comparison request - Standard: {standard_contract_id}, Compare: {compare_contract_ids}, Mode: {comparison_mode}, Clauses: {selected_clauses}")
+        
+        # Retrieve comparison data
+        standard_data, comparison_data, clause_cache = await retrieve_comparison_data(
+            nosql_svc,
+            standard_contract_id,
+            compare_contract_ids,
+            comparison_mode,
+            selected_clauses if comparison_mode == "clauses" else None
+        )
+        
+        # Check if we got data
+        if comparison_mode == "clauses":
+            if not standard_data.get("clauses"):
+                logging.warning(f"No clauses found for standard contract {standard_contract_id}")
+                return JSONResponse(
+                    content={
+                        "success": False, 
+                        "error": f"No clauses found for standard contract {standard_contract_id}"
+                    },
+                    status_code=404
+                )
+        else:
+            if not standard_data.get("content"):
+                logging.warning(f"No contract text found for standard contract {standard_contract_id}")
+                return JSONResponse(
+                    content={
+                        "success": False,
+                        "error": f"No contract text found for standard contract {standard_contract_id}"
+                    },
+                    status_code=404
+                )
+        
+        # Create LLM prompt with selected clauses for clause mode
+        if comparison_mode == "clauses" and selected_clauses != "all":
+            # Pass the specific clauses requested
+            llm_prompt = create_comparison_prompt(standard_data, comparison_data, comparison_mode, selected_clauses)
+        else:
+            # For full mode or when all clauses requested, let the function determine
+            llm_prompt = create_comparison_prompt(standard_data, comparison_data, comparison_mode)
+        
+        # Log prompt length for monitoring
+        logging.info(f"LLM prompt length: {len(llm_prompt)} characters")
+        
+        # Send to LLM for analysis
+        system_prompt = "You are a legal contract analysis expert. Provide detailed, accurate comparisons in JSON format."
+        
+        # For full contract mode, we may need to truncate to avoid token limits
+        if comparison_mode == "full":
+            # Log token counts if available
+            logging.info(f"Full contract comparison - checking token limits")
+            # Truncate prompt if it's too long (rough estimate: 4 chars = 1 token)
+            # Increased limit to handle larger contracts
+            max_prompt_chars = 100000  # Approximately 25,000 tokens for input
+            if len(llm_prompt) > max_prompt_chars:
+                logging.warning(f"Prompt too long ({len(llm_prompt)} chars), truncating to {max_prompt_chars}")
+                # Keep the structure but truncate the contract texts
+                # This is a simple truncation - in production you'd want smarter truncation
+                llm_prompt = llm_prompt[:max_prompt_chars] + "\n... [TRUNCATED FOR LENGTH]" + llm_prompt[-2000:]
+        
+        # Use the special contract comparison method with higher token limit
+        llm_response = ai_svc.get_completion_for_contracts(
+            user_prompt=llm_prompt,
+            system_prompt=system_prompt,
+            max_tokens=4000  # Reasonable limit for contract comparisons
+        )
+        
+        # Parse LLM response as JSON
+        try:
+            # Extract JSON from the response (in case there's extra text)
+            import re
+            json_match = re.search(r'\{.*\}', llm_response, re.DOTALL)
+            if json_match:
+                json_str = json_match.group(0)
+                comparison_results = json.loads(json_str)
+            else:
+                # Try parsing the entire response
+                comparison_results = json.loads(llm_response)
+        except json.JSONDecodeError as e:
+            logging.error(f"Failed to parse LLM response as JSON: {e}")
+            logging.error(f"LLM response: {llm_response[:1000]}...")  # Log first 1000 chars
+            
+            # Return a structured error response
+            comparison_results = {
+                "comparisons": [{
+                    "contract_id": cid,
+                    "error": "Failed to parse comparison results",
+                    "raw_response": llm_response[:500]
+                } for cid in compare_contract_ids]
+            }
+        
+        # Enhance response with clause texts (if in clauses mode)
+        if comparison_mode == "clauses":
+            comparison_results = await enhance_comparison_response(comparison_results, clause_cache)
+        
+        # Add metadata to response
+        response = {
+            "success": True,
+            "standardContractId": standard_contract_id,
+            "compareContractIds": compare_contract_ids,
+            "comparisonMode": comparison_mode,
+            "selectedClauses": selected_clauses if comparison_mode == "clauses" else None,
+            "results": comparison_results
+        }
+        
+        await nosql_svc.close()
+        
+        return JSONResponse(content=response)
+        
+    except Exception as e:
+        logging.error(f"Contract comparison error: {str(e)}")
+        logging.error(traceback.format_exc())
+        return JSONResponse(
+            content={"success": False, "error": str(e)},
+            status_code=500
+        )
+
+
+# Test endpoint for clause retrieval
+@app.get("/api/test-clause-retrieval/{contract_id}")
+async def test_clause_retrieval(contract_id: str):
+    """
+    Test endpoint to verify clause retrieval functions work correctly.
+    This is temporary and should be removed after testing.
+    """
+    try:
+        nosql_svc = CosmosNoSQLService()
+        await nosql_svc.initialize()
+        
+        # First, let's check if we can find the contract document
+        nosql_svc.set_container(ConfigService.graph_source_container())
+        
+        # Try different ID formats
+        contract_doc = None
+        found_method = None
+        
+        # Try to read the contract document using the correct partition key
+        try:
+            contract_doc = await nosql_svc.point_read(contract_id, "contracts")
+            found_method = "point_read_with_contracts_pk"
+        except Exception as e:
+            logging.debug(f"Could not find contract with ID {contract_id}: {e}")
+        
+        contract_info = {
+            "found": contract_doc is not None,
+            "method": found_method,
+            "id": contract_doc.get("id") if contract_doc else None,
+            "imageQuestDocumentId": contract_doc.get("imageQuestDocumentId") if contract_doc else None,
+            "has_clause_ids": "clause_ids" in contract_doc if contract_doc else False,
+            "clause_ids_count": len(contract_doc.get("clause_ids", [])) if contract_doc else 0,
+            "sample_clause_ids": contract_doc.get("clause_ids", [])[:3] if contract_doc else []
+        }
+        
+        # Test 1: Get all clauses for the contract
+        all_clauses = await get_clauses_for_contract(nosql_svc, contract_id, None)
+        
+        # Test 2: Get specific clauses
+        specific_clauses = await get_clauses_for_contract(
+            nosql_svc, contract_id, ["Indemnification", "PaymentObligations"]
+        )
+        
+        # Test 3: Get full contract text
+        full_text = await get_contract_full_text(nosql_svc, contract_id)
+        
+        await nosql_svc.close()
+        
+        return {
+            "success": True,
+            "contract_id": contract_id,
+            "contract_info": contract_info,
+            "all_clauses_count": len(all_clauses),
+            "all_clauses_types": list(all_clauses.keys()),
+            "specific_clauses_count": len(specific_clauses),
+            "specific_clauses_types": list(specific_clauses.keys()),
+            "has_full_text": full_text is not None,
+            "full_text_length": len(full_text) if full_text else 0,
+            "sample_clause": list(all_clauses.values())[0] if all_clauses else None
+        }
+        
+    except Exception as e:
+        logging.error(f"Test clause retrieval error: {str(e)}")
+        logging.error(traceback.format_exc())
+        return {"success": False, "error": str(e)}

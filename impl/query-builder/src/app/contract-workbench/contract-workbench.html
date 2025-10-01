@@ -1,0 +1,896 @@
+<div class="contract-workbench">
+  <!-- Header -->
+  <header class="workbench-header">
+    <div class="header-content">
+      <div class="title-section">
+        <h1>✨ Contract Intelligence Workbench</h1>
+      </div>
+      <div class="search-section">
+        <div class="search-input-group">
+          <span class="search-icon">🔍</span>
+          <input 
+            type="text" 
+            [(ngModel)]="searchText"
+            placeholder="Search text inside clauses..."
+            class="search-input">
+          <button (click)="copyResults()" class="btn btn-secondary">
+            📋 Copy
+          </button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div class="workbench-container">
+    <!-- Left Sidebar -->
+    <aside class="sidebar left-sidebar">
+      <!-- Mode Selector Card -->
+      <div class="card">
+        <div class="card-header">
+          <h3>📋 Select Function</h3>
+        </div>
+        <div class="card-body">
+          <div class="btn-group full-width" style="margin-bottom: 1rem;">
+            <button 
+              [class.active]="workbenchMode === 'comparison'"
+              (click)="setWorkbenchMode('comparison')"
+              class="btn btn-toggle">
+              📊 Compare Contracts
+            </button>
+            <button 
+              [class.active]="workbenchMode === 'question'"
+              (click)="setWorkbenchMode('question')"
+              class="btn btn-toggle">
+              ✨ Ask a Question
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Generate Comparison Controls -->
+      <div class="card" *ngIf="workbenchMode === 'comparison'">
+        <div class="card-header">
+          <h3>📊 Comparison Criteria</h3>
+        </div>
+        <div class="card-body">
+          <!-- Standard Contract Selection -->
+          <div class="form-group">
+            <label>
+              Standard Contract
+              <span class="info-icon-container">
+                <span class="info-icon">ℹ️</span>
+                <span class="info-tooltip">Select a contract to use as the comparison standard</span>
+              </span>
+            </label>
+            <select [(ngModel)]="standardContractId" (ngModelChange)="onStandardContractChange()" class="form-control">
+              <option value="">Select a standard contract...</option>
+              <option *ngFor="let contract of allContracts" [ngValue]="contract.id">
+                {{ contract.title }}
+              </option>
+            </select>
+          </div>
+
+          <div class="section-separator">
+            <hr>
+            <span class="separator-label">Compare With</span>
+          </div>
+
+          <!-- Contract Type -->
+          <div class="form-group">
+            <label>Contract Type</label>
+            <select [(ngModel)]="filters.type" class="form-control">
+              <option value="Any">Any</option>
+              <option *ngFor="let type of availableContractTypes" [value]="type.normalizedName">
+                {{ type.displayName }}
+              </option>
+            </select>
+          </div>
+
+          <!-- Contracting Party -->
+          <div class="form-group">
+            <label>
+              Contracting Party
+              <span class="info-icon-container">
+                <span class="info-icon">ℹ️</span>
+                <span class="info-tooltip">Select the Party initiating the Contract</span>
+              </span>
+            </label>
+            <div class="dropdown">
+              <button class="btn btn-secondary full-width dropdown-toggle">
+                {{ filters.contractingParties && filters.contractingParties.length > 0 ? filters.contractingParties.length + ' selected' : 'Any' }}
+              </button>
+              <div class="dropdown-content">
+                <small class="help-text">Select the Party initiating the Contract</small>
+                <div class="checkbox-item">
+                  <input 
+                    type="checkbox"
+                    [checked]="!filters.contractingParties || filters.contractingParties.length === 0"
+                    (change)="toggleContractingParty('Any')">
+                  <label>Any</label>
+                </div>
+                <div *ngFor="let party of availableContractingParties" class="checkbox-item">
+                  <input 
+                    type="checkbox"
+                    [checked]="isContractingPartySelected(party.normalizedName)"
+                    (change)="toggleContractingParty(party.normalizedName)">
+                  <label>{{ party.displayName }}</label>
+                </div>
+              </div>
+            </div>
+            <div class="selected-items">
+              <span *ngFor="let party of filters.contractingParties" class="badge badge-secondary">
+                {{ getContractingPartyDisplayName(party) }}
+              </span>
+            </div>
+          </div>
+
+          <!-- Effective Date Range -->
+          <div class="form-group">
+            <label>
+              Effective Date
+              <span class="info-icon-container">
+                <span class="info-icon">ℹ️</span>
+                <span class="info-tooltip">Optional: Select a date range for the Contract Effective Date</span>
+              </span>
+            </label>
+            <div class="date-range">
+              <div class="date-input">
+                <label>From</label>
+                <input type="date" [(ngModel)]="filters.dateFrom" (ngModelChange)="validateDateRange()" class="form-control">
+              </div>
+              <div class="date-input">
+                <label>To</label>
+                <input type="date" [(ngModel)]="filters.dateTo" (ngModelChange)="validateDateRange()" class="form-control">
+              </div>
+            </div>
+            <small *ngIf="dateRangeError" class="warning-text">
+              {{ dateRangeError }}
+            </small>
+          </div>
+
+          <!-- Governing Law -->
+          <div class="form-group">
+            <label>
+              Governing Law
+              <span class="info-icon-container">
+                <span class="info-icon">ℹ️</span>
+                <span class="info-tooltip">Select contracts governed by specific laws</span>
+              </span>
+            </label>
+            <div class="dropdown">
+              <button class="btn btn-secondary full-width dropdown-toggle">
+                {{ filters.governingLaws && filters.governingLaws.length > 0 ? filters.governingLaws.length + ' selected' : 'Any' }}
+              </button>
+              <div class="dropdown-content">
+                <small class="help-text">Select governing laws to filter contracts</small>
+                <div class="checkbox-item">
+                  <input 
+                    type="checkbox"
+                    [checked]="!filters.governingLaws || filters.governingLaws.length === 0"
+                    (change)="toggleGoverningLaw('Any')">
+                  <label>Any</label>
+                </div>
+                <div *ngFor="let law of availableGoverningLaws" class="checkbox-item">
+                  <input 
+                    type="checkbox"
+                    [checked]="isGoverningLawSelected(law.normalizedName)"
+                    (change)="toggleGoverningLaw(law.normalizedName)">
+                  <label>{{ law.displayName }}</label>
+                </div>
+              </div>
+            </div>
+            <div class="selected-items">
+              <span *ngFor="let law of filters.governingLaws" class="badge badge-secondary">
+                {{ getGoverningLawDisplayName(law) }}
+              </span>
+            </div>
+          </div>
+
+          <!-- Contract Selection -->
+          <div class="form-group">
+            <button (click)="compareSelected()" class="btn btn-secondary full-width">
+              Select Contracts <span class="badge">{{ selectedContracts.length }}</span>
+            </button>
+          </div>
+
+          <!-- Comparison Mode Selector -->
+          <div class="form-group">
+            <label>
+              Comparison Mode
+              <span class="info-icon-container">
+                <span class="info-icon">ℹ️</span>
+                <span class="info-tooltip" style="white-space: normal; width: 250px;">
+                  Select if the comparison should be done at the Clause level or across the entire contract.
+                </span>
+              </span>
+            </label>
+            <div class="btn-group full-width">
+              <button 
+                [class.active]="filters.comparisonMode === 'clauses'"
+                (click)="filters.comparisonMode = 'clauses'"
+                class="btn btn-toggle">
+                Clauses
+              </button>
+              <button 
+                [class.active]="filters.comparisonMode === 'full'"
+                (click)="filters.comparisonMode = 'full'"
+                class="btn btn-toggle">
+                Full Contract
+              </button>
+            </div>
+          </div>
+
+          <hr>
+
+          <!-- Clauses -->
+          <div class="form-group" *ngIf="filters.comparisonMode === 'clauses'">
+            <label>
+              Clauses
+              <span class="info-icon-container">
+                <span class="info-icon">ℹ️</span>
+                <span class="info-tooltip" style="white-space: normal; width: 300px;">
+                  Select the clauses to compare in the standard contract against the selected contracts. Clauses in the selected contracts and not in the standard contract will be flagged.
+                </span>
+              </span>
+            </label>
+            <div *ngIf="!standardContractId" class="alert alert-info">
+              Please select a Standard Contract first to see available clauses.
+            </div>
+            <div *ngIf="standardContractId && availableClausesFromStandard.length === 0" class="alert alert-warning">
+              No clauses found in the selected standard contract.
+            </div>
+            <div *ngIf="standardContractId && availableClausesFromStandard.length > 0" class="dropdown">
+              <button 
+                class="btn btn-secondary full-width dropdown-toggle"
+                [disabled]="false">
+                {{ getClausesButtonText() }}
+              </button>
+              <div class="dropdown-content">
+                <small class="help-text">Choose clauses from the standard contract to compare</small>
+                <!-- All option -->
+                <div class="checkbox-item">
+                  <input 
+                    type="checkbox"
+                    [checked]="areAllClausesSelected()"
+                    (change)="toggleAllClauses()">
+                  <label><strong>All</strong></label>
+                </div>
+                <hr style="margin: 5px 0;">
+                <!-- Individual clause options -->
+                <div *ngFor="let clause of availableClausesFromStandard" class="checkbox-item">
+                  <input 
+                    type="checkbox"
+                    [checked]="isClauseSelected(clause)"
+                    (change)="toggleClause(clause)">
+                  <label>{{ clause }}</label>
+                </div>
+              </div>
+            </div>
+            <div class="selected-items" *ngIf="filters.clauses.length > 0 && !areAllClausesSelected()">
+              <span *ngFor="let clause of filters.clauses" class="badge badge-secondary">
+                {{ clause }}
+              </span>
+            </div>
+            <div class="selected-items" *ngIf="areAllClausesSelected()">
+              <span class="badge badge-primary">All Clauses Selected</span>
+            </div>
+          </div>
+
+          <!-- Risk Threshold -->
+          <div class="form-group">
+            <label>Risk Threshold</label>
+            <input 
+              type="range" 
+              min="0" 
+              max="100" 
+              [(ngModel)]="filters.risk"
+              class="range-slider">
+            <small class="help-text">Show ≥ {{ filters.risk }}% risk score</small>
+          </div>
+
+          <!-- Mode Selection -->
+          <div class="form-group">
+            <label>
+              Processing Mode
+              <span class="info-icon-container">
+                <span class="info-icon">ℹ️</span>
+                <span class="info-tooltip" style="white-space: normal; width: 250px;">
+                  Real Time: Application waits while results are processed (may take several minutes).<br><br>
+                  Batch: Process executes in background and notifies when complete.
+                </span>
+              </span>
+            </label>
+            <div class="btn-group full-width">
+              <button 
+                [class.active]="filters.mode === 'realtime'"
+                (click)="onModeChange('realtime')"
+                class="btn btn-toggle">
+                Real time
+              </button>
+              <button 
+                [class.active]="filters.mode === 'batch'"
+                (click)="onModeChange('batch')"
+                class="btn btn-toggle">
+                Batch
+              </button>
+            </div>
+          </div>
+
+          <!-- Generate Button -->
+          <div class="form-group">
+            <button 
+              (click)="generateComparison()" 
+              class="btn btn-primary full-width"
+              [disabled]="!standardContractId || selectedContracts.length === 0">
+              ⚡ Generate Comparison
+            </button>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Ask a Question Controls -->
+      <div class="card" *ngIf="workbenchMode === 'question'">
+        <div class="card-header">
+          <h3>✨ Question Settings</h3>
+        </div>
+        <div class="card-body">
+          <div class="form-group">
+            <label>Question Type</label>
+            <select class="form-control">
+              <option>General Contract Query</option>
+              <option>Clause Analysis</option>
+              <option>Risk Assessment</option>
+              <option>Compliance Check</option>
+            </select>
+          </div>
+          
+          <div class="form-group">
+            <label>Search Scope</label>
+            <div class="btn-group full-width">
+              <button class="btn btn-toggle active">All Contracts</button>
+              <button class="btn btn-toggle">Selected Only</button>
+            </div>
+          </div>
+
+          <hr>
+
+          <!-- Saved Queries -->
+          <label>Saved Queries</label>
+          <div class="saved-query">
+            <span>Non-Delaware contracts</span>
+            <button (click)="runSavedQuery('non-delaware')" class="btn btn-sm">Run</button>
+          </div>
+          <div class="saved-query">
+            <span>Indemnity by type</span>
+            <button (click)="runSavedQuery('indemnity-by-type')" class="btn btn-sm">Run</button>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <!-- Chat Interface Card (Only visible in question mode) -->
+      <div class="card chat-card" *ngIf="workbenchMode === 'question'">
+        <div class="card-header">
+          <h3>💬 Contract Questions</h3>
+          <button (click)="clearChatHistory()" class="btn btn-sm btn-secondary" *ngIf="chatHistory.length > 0">
+            Clear Chat
+          </button>
+        </div>
+        <div class="card-body chat-container">
+          <!-- Chat History -->
+          <div class="chat-history">
+            <div *ngIf="chatHistory.length === 0" class="chat-empty-state">
+              <p>Ask questions about your contracts using natural language.</p>
+              <p class="muted">Click an example to try:</p>
+              <ul>
+                <li (click)="askExampleQuestion('Which contracts have non-standard indemnification clauses?')">
+                  Which contracts have non-standard indemnification clauses?
+                </li>
+                <li (click)="askExampleQuestion('What are the payment terms variations across MSAs?')">
+                  What are the payment terms variations across MSAs?
+                </li>
+                <li (click)="askExampleQuestion('Show me all contracts governed by New York law')">
+                  Show me all contracts governed by New York law
+                </li>
+              </ul>
+            </div>
+            
+            <div *ngFor="let message of chatHistory" class="chat-message user-message">
+              <div class="message-bubble">
+                {{ message.text }}
+                <div *ngIf="message.isProcessing" class="processing-indicator">
+                  <span class="spinner-small"></span>
+                  <span>Analyzing...</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Chat Input -->
+          <div class="chat-input-container">
+            <input 
+              type="text"
+              [(ngModel)]="currentChatInput"
+              (keypress)="onChatKeyPress($event)"
+              placeholder="Type your question and press Enter..."
+              class="chat-input"
+              [disabled]="isLoadingAnswer">
+            <button 
+              (click)="sendChatMessage()" 
+              class="btn btn-primary send-button"
+              [disabled]="isLoadingAnswer || !currentChatInput.trim()">
+              <span *ngIf="!isLoadingAnswer">Send</span>
+              <span *ngIf="isLoadingAnswer">...</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tabs -->
+      <div class="card">
+        <div class="card-header tabs" *ngIf="workbenchMode === 'question'">
+          <button 
+            [class.active]="activeTab === 'answers'"
+            (click)="activeTab = 'answers'"
+            class="tab">
+            Answers
+          </button>
+          <button 
+            [class.active]="activeTab === 'contracts'"
+            (click)="activeTab = 'contracts'"
+            class="tab">
+            Contracts
+          </button>
+        </div>
+        <div class="card-header tabs" *ngIf="workbenchMode === 'comparison'">
+          <button 
+            [class.active]="activeTab === 'comparison'"
+            (click)="activeTab = 'comparison'"
+            class="tab">
+            Comparison Results
+            <span *ngIf="comparisonResults" class="badge badge-primary">✓</span>
+          </button>
+          <button 
+            [class.active]="activeTab === 'contracts'"
+            (click)="activeTab = 'contracts'"
+            class="tab">
+            Selected Contracts
+          </button>
+        </div>
+        <div class="card-body">
+          <!-- Answers Tab -->
+          <div *ngIf="activeTab === 'answers'" class="tab-content">
+            <div class="answer-box">
+              <h4>Answer</h4>
+              <p *ngIf="answer" [innerHTML]="answer"></p>
+              <p *ngIf="!answer" class="muted">
+                Click "Get Answer" to query the contract intelligence system.
+              </p>
+              <small class="help-text">(Generated using AI and graph analysis)</small>
+            </div>
+          </div>
+
+          <!-- Contracts Tab -->
+          <div *ngIf="activeTab === 'contracts'" class="tab-content">
+            <div class="table-container">
+              <table class="contracts-table">
+                <thead>
+                  <tr>
+                    <th>Contract</th>
+                    <th>Counterparty</th>
+                    <th>Effective</th>
+                    <th>Law</th>
+                    <th>Type</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let contract of filteredContracts">
+                    <td>📄 {{ contract.title }}</td>
+                    <td>{{ contract.counterparty }}</td>
+                    <td>{{ contract.effective }}</td>
+                    <td>
+                      <span class="badge" [class.badge-primary]="contract.law === 'Delaware'">
+                        {{ contract.law }}
+                      </span>
+                    </td>
+                    <td><span class="badge badge-info">{{ contract.type }}</span></td>
+                    <td>
+                      <button 
+                        (click)="toggleContractSelection(contract.id)"
+                        class="btn btn-sm"
+                        [class.btn-primary]="isContractSelected(contract.id)">
+                        {{ isContractSelected(contract.id) ? 'Selected' : 'Select' }}
+                      </button>
+                      <button (click)="showContractDetails(contract)" class="btn btn-sm btn-icon">
+                        ℹ️
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Clauses Tab -->
+          <div *ngIf="activeTab === 'clauses'" class="tab-content">
+            <div *ngIf="pickedContracts.length < 2" class="alert alert-info">
+              Select 2+ contracts to compare clauses.
+            </div>
+            <div *ngIf="pickedContracts.length >= 2" class="clause-compare-grid">
+              <div *ngFor="let clauseKey of CLAUSE_KEYS" class="clause-card">
+                <h4>{{ getClauseIcon(clauseKey) }} {{ clauseKey }}</h4>
+                <div *ngFor="let contract of pickedContracts" class="clause-content">
+                  <div class="clause-header">
+                    <span class="badge badge-secondary">{{ contract.id }}</span>
+                    <span class="badge badge-info">{{ contract.law }}</span>
+                  </div>
+                  <p class="clause-text" [innerHTML]="highlightText(contract.clauses[clauseKey])"></p>
+                </div>
+                <small class="help-text">Inline highlights show exact wording differences.</small>
+              </div>
+            </div>
+            <button *ngIf="pickedContracts.length >= 2" (click)="showRawDiff()" class="btn btn-secondary">
+              🔄 Show Raw Diff
+            </button>
+          </div>
+
+          <!-- Comparison Results Tab -->
+          <div *ngIf="activeTab === 'comparison'" class="tab-content">
+            <div *ngIf="!comparisonResults && workbenchMode === 'comparison'" class="alert alert-info">
+              <h4>📊 Contract Comparison</h4>
+              <p>To generate a comparison:</p>
+              <ol style="margin: 0.5rem 0; padding-left: 1.5rem;">
+                <li>Select a Standard Contract from the left panel</li>
+                <li>Choose filter criteria and select contracts to compare</li>
+                <li>Choose comparison mode (Clauses or Full Contract)</li>
+                <li>Click "Generate Comparison" to analyze</li>
+              </ol>
+            </div>
+            
+            <div *ngIf="comparisonResults && !comparisonResults.success" class="alert alert-danger">
+              <strong>Comparison Failed:</strong> {{ comparisonResults.error || 'An error occurred during comparison.' }}
+            </div>
+
+            <div *ngIf="comparisonResults && comparisonResults.success">
+              <!-- Comparison Header -->
+              <div class="comparison-header">
+                <h4>📊 Contract Comparison Results</h4>
+                <div class="comparison-info">
+                  <span class="badge badge-primary">Standard: {{ getContractTitle(comparisonResults.standardContractId) }}</span>
+                  <span class="badge badge-secondary">Mode: {{ comparisonResults.comparisonMode }}</span>
+                  <span class="badge badge-info">Compared: {{ comparisonResults.compareContractIds.length }} contracts</span>
+                </div>
+                <button (click)="exportComparisonResults()" class="btn btn-sm btn-secondary">
+                  📥 Export Results
+                </button>
+              </div>
+
+              <!-- Comparison Results Grid -->
+              <div class="comparison-results-grid">
+                <div *ngFor="let comparison of comparisonResults.results.comparisons" class="comparison-card">
+                  <div class="comparison-card-header">
+                    <h5>{{ getContractTitle(comparison.contract_id) }}</h5>
+                    <div class="comparison-metrics">
+                      <span class="badge" [ngClass]="getSimilarityBadgeClass(comparison.overall_similarity_score * 100)">
+                        {{ (comparison.overall_similarity_score * 100).toFixed(0) }}% Similar
+                      </span>
+                      <span class="badge" [ngClass]="getRiskBadgeClass(comparison.risk_level)">
+                        {{ comparison.risk_level }} Risk
+                      </span>
+                    </div>
+                  </div>
+
+                  <!-- Critical Findings -->
+                  <div *ngIf="comparison.critical_findings && comparison.critical_findings.length > 0" class="critical-findings">
+                    <h6>🚨 Critical Findings</h6>
+                    <ul>
+                      <li *ngFor="let finding of comparison.critical_findings">{{ finding }}</li>
+                    </ul>
+                  </div>
+
+                  <!-- Missing Clauses -->
+                  <div *ngIf="comparison.missing_clauses && comparison.missing_clauses.length > 0" class="missing-clauses">
+                    <h6>⚠️ Missing Clauses</h6>
+                    <div class="clause-list">
+                      <span *ngFor="let clause of comparison.missing_clauses" class="badge badge-warning">
+                        {{ clause }}
+                      </span>
+                    </div>
+                  </div>
+
+                  <!-- Additional Clauses -->
+                  <div *ngIf="comparison.additional_clauses && comparison.additional_clauses.length > 0" class="additional-clauses">
+                    <h6>➕ Additional Clauses</h6>
+                    <div class="clause-list">
+                      <span *ngFor="let clause of comparison.additional_clauses" class="badge badge-info">
+                        {{ clause }}
+                      </span>
+                    </div>
+                  </div>
+
+                  <!-- Clause/Contract Analysis -->
+                  <div *ngIf="comparison.clause_analyses && comparison.clause_analyses.length > 0" class="clause-analyses">
+                    <h6>📋 {{ comparisonResults.comparisonMode === 'full' ? 'Contract Analysis' : 'Clause Analysis' }}</h6>
+                    <div *ngFor="let analysis of getSortedClauseAnalyses(comparison.clause_analyses)" class="clause-analysis-item">
+                      <div class="clause-analysis-header collapsible-header" 
+                           (click)="toggleClauseExpansion(comparison.contract_id, analysis.clause_type)"
+                           [class.expanded]="isClauseExpanded(comparison.contract_id, analysis.clause_type)">
+                        <div class="header-content">
+                          <span class="expand-icon">{{ isClauseExpanded(comparison.contract_id, analysis.clause_type) ? '▼' : '▶' }}</span>
+                          <strong>{{ analysis.clause_type }}</strong>
+                          <span class="badge" [ngClass]="getSimilarityBadgeClass(analysis.similarity_score * 100)">
+                            {{ (analysis.similarity_score * 100).toFixed(0) }}% Match
+                          </span>
+                        </div>
+                      </div>
+                      
+                      <div *ngIf="isClauseExpanded(comparison.contract_id, analysis.clause_type)" class="clause-details">
+                        <div *ngIf="analysis.summary" class="clause-summary">
+                          {{ analysis.summary }}
+                        </div>
+
+                        <div *ngIf="analysis.key_differences && analysis.key_differences.length > 0" class="key-differences">
+                          <strong>Key Differences:</strong>
+                          <ul>
+                            <li *ngFor="let diff of analysis.key_differences">{{ diff }}</li>
+                          </ul>
+                        </div>
+
+                        <div *ngIf="analysis.risks && analysis.risks.length > 0" class="clause-risks">
+                          <strong>Risks:</strong>
+                          <ul>
+                            <li *ngFor="let risk of analysis.risks" class="risk-item">{{ risk }}</li>
+                          </ul>
+                        </div>
+
+                        <!-- Review Clause Text Button -->
+                        <div class="clause-actions">
+                          <button 
+                            (click)="showClauseText(analysis, comparison.contract_id)" 
+                            class="btn btn-secondary btn-sm">
+                            📋 Review Clause Text
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- Right Sidebar -->
+    <aside class="sidebar right-sidebar">
+      <!-- Graph Insights Card -->
+      <div class="card">
+        <div class="card-header">
+          <h3>💹 Graph Insights</h3>
+        </div>
+        <div class="card-body">
+          <div class="insights-section">
+            <h4>Top Jurisdictions</h4>
+            <div class="jurisdiction-badges">
+              <span *ngFor="let item of jurisdictionStats | keyvalue" class="badge badge-secondary">
+                {{ item.key }} · {{ item.value }}
+              </span>
+            </div>
+          </div>
+          <div class="insights-section">
+            <h4>Entity Relationship Sketch</h4>
+            <div class="relationship-grid">
+              <div class="relationship-box">Vendor ↔ Customer</div>
+              <div class="relationship-box">Contract → Clause</div>
+              <div class="relationship-box">Clause → Obligation</div>
+            </div>
+            <small class="help-text">(Placeholder) Visuals populate from graph database.</small>
+          </div>
+          <small class="tip">
+            Tip: Run a graph pattern to instantly answer complex queries.
+          </small>
+        </div>
+      </div>
+
+      <!-- Info Card -->
+      <div class="card">
+        <div class="card-header">
+          <h3>ℹ️ What this UI supports</h3>
+        </div>
+        <div class="card-body">
+          <ul class="feature-list">
+            <li>🧭 Jurisdiction answered via NLQ, not filter</li>
+            <li>🧩 Clause clustering + inline highlights</li>
+            <li>🆚 Side-by-side wording contrast & raw diff</li>
+            <li>📊 Provisions vs gold standard with Δ highlights</li>
+            <li>🕸️ Graph-backed insights & saved queries</li>
+            <li>📤 Copy/export stubs for downstream review</li>
+          </ul>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <!-- Contract Selection Modal -->
+  <div *ngIf="showContractSelectionModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Contract Selection</h3>
+        <button (click)="showContractSelectionModal = false" class="close-btn">✕</button>
+      </div>
+      <div class="modal-body">
+        <div *ngIf="isLoadingContracts" class="loading-container">
+          <div class="spinner"></div>
+          <p>Loading contracts...</p>
+        </div>
+        <div *ngIf="!isLoadingContracts">
+          <div class="modal-controls">
+            <button (click)="selectAllContracts()" class="btn btn-sm">Select All</button>
+            <button (click)="deselectAllContracts()" class="btn btn-sm">Deselect All</button>
+            <span class="badge badge-secondary">{{ selectedContracts.length }} selected</span>
+          </div>
+          <div class="contract-list">
+            <div *ngIf="filteredContracts.length === 0" class="no-results">
+              No contracts found matching your filter criteria.
+            </div>
+            <div *ngFor="let contract of filteredContracts" class="contract-item">
+              <input 
+                type="checkbox"
+                [checked]="isContractSelected(contract.id)"
+                (change)="toggleContractSelection(contract.id)">
+              <label>
+                <strong>{{ contract.title }}</strong>
+                <span class="badges">
+                  <span class="badge badge-secondary">{{ contract.type }}</span>
+                  <span class="badge badge-info">{{ contract.effective }}</span>
+                </span>
+              </label>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button (click)="showContractSelectionModal = false" class="btn btn-secondary">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Contract Details Modal -->
+  <div *ngIf="showContractDetailsModal && selectedContractForDetails" class="modal">
+    <div class="modal-content modal-large">
+      <div class="modal-header">
+        <h3>{{ selectedContractForDetails.title }}</h3>
+        <button (click)="showContractDetailsModal = false" class="close-btn">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="clause-details-grid">
+          <div *ngFor="let clauseKey of CLAUSE_KEYS" class="clause-detail">
+            <h4>{{ clauseKey }}</h4>
+            <p [innerHTML]="highlightText(selectedContractForDetails.clauses[clauseKey] || '')"></p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Raw Diff Modal -->
+  <div *ngIf="showRawDiffModal" class="modal">
+    <div class="modal-content modal-large">
+      <div class="modal-header">
+        <h3>Raw Wording Contrast</h3>
+        <button (click)="showRawDiffModal = false" class="close-btn">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="diff-grid">
+          <div *ngFor="let i of [0]" class="diff-section">
+            <div *ngIf="pickedContracts[i] && pickedContracts[i+1]">
+              <h4>{{ pickedContracts[i].id }} vs {{ pickedContracts[i+1].id }}</h4>
+              <div *ngFor="let clauseKey of CLAUSE_KEYS" class="diff-clause">
+                <h5>{{ clauseKey }}</h5>
+                <div class="diff-content">
+                  <span *ngFor="let word of diffStrings(
+                    pickedContracts[i].clauses[clauseKey] || '', 
+                    pickedContracts[i+1].clauses[clauseKey] || ''
+                  )" [innerHTML]="word + ' '"></span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Comparison Loading Modal -->
+  <div *ngIf="showComparisonModal && isLoadingComparison" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>⚡ Generating Comparison</h3>
+      </div>
+      <div class="modal-body">
+        <div class="loading-container">
+          <div class="spinner"></div>
+          <p>Analyzing contracts and generating comparison...</p>
+          <p class="help-text">This may take a few moments depending on the number of contracts and clauses selected.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Clause Text Review Modal -->
+  <div *ngIf="showClauseTextModal && selectedClauseForReview" class="modal">
+    <div class="modal-content modal-large">
+      <div class="modal-header">
+        <h3>📋 {{ selectedClauseForReview.clause_type }} - Clause Comparison</h3>
+        <button (click)="closeClauseTextModal()" class="close-btn">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="clause-comparison-container">
+          <div class="comparison-metrics">
+            <span class="badge" [ngClass]="getSimilarityBadgeClass(selectedClauseForReview.similarity_score * 100)">
+              {{ (selectedClauseForReview.similarity_score * 100).toFixed(0) }}% Match
+            </span>
+            <span *ngIf="selectedClauseForReview.risks && selectedClauseForReview.risks.length > 0" 
+                  class="badge badge-danger">
+              {{ selectedClauseForReview.risks.length }} Risk{{ selectedClauseForReview.risks.length > 1 ? 's' : '' }}
+            </span>
+          </div>
+
+          <div *ngIf="selectedClauseForReview.summary" class="clause-summary-modal">
+            <strong>Summary:</strong>
+            <p>{{ selectedClauseForReview.summary }}</p>
+          </div>
+
+          <div class="clause-text-side-by-side">
+            <div class="clause-text-column">
+              <h4>Standard Contract</h4>
+              <div class="clause-text-box">
+                <p *ngIf="selectedClauseForReview.standard_clause_text">
+                  {{ selectedClauseForReview.standard_clause_text }}
+                </p>
+                <p *ngIf="!selectedClauseForReview.standard_clause_text" class="no-clause-text">
+                  No clause text available
+                </p>
+              </div>
+            </div>
+            <div class="clause-text-column">
+              <h4>{{ getContractTitle(selectedContractIdForReview) }}</h4>
+              <div class="clause-text-box">
+                <p *ngIf="selectedClauseForReview.compared_clause_text">
+                  {{ selectedClauseForReview.compared_clause_text }}
+                </p>
+                <p *ngIf="!selectedClauseForReview.compared_clause_text" class="no-clause-text">
+                  No clause text available
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div *ngIf="selectedClauseForReview.key_differences && selectedClauseForReview.key_differences.length > 0" 
+               class="differences-section">
+            <h4>Key Differences</h4>
+            <ul>
+              <li *ngFor="let diff of selectedClauseForReview.key_differences">{{ diff }}</li>
+            </ul>
+          </div>
+
+          <div *ngIf="selectedClauseForReview.risks && selectedClauseForReview.risks.length > 0" 
+               class="risks-section">
+            <h4>Identified Risks</h4>
+            <ul>
+              <li *ngFor="let risk of selectedClauseForReview.risks" class="risk-item">{{ risk }}</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button (click)="closeClauseTextModal()" class="btn btn-primary">Close</button>
+      </div>
+    </div>
+  </div>
+</div>

@@ -12,6 +12,60 @@
 
 <div class="container">
     <img class="mx-auto d-block" src="static/CAIGLogoGrey.svg" width="30%" alt="CosmosAIGraph logo">
+    
+    <!-- Quick Access Cards -->
+    <div class="row mt-5">
+        <div class="col-md-6 offset-md-3">
+            <div class="card caig-card mb-3">
+                <div class="card-body text-center">
+                    <h5 class="card-title">Contract Intelligence Workbench</h5>
+                    <p class="card-text">
+                        Analyze, compare, and query contracts using natural language, 
+                        vector search, and graph relationships.
+                    </p>
+                    <a href="/contract_workbench" class="btn btn-primary">
+                        <i class="bi bi-file-text"></i> Open Contract Workbench
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Feature Grid -->
+    <div class="row mt-4">
+        <div class="col-md-3">
+            <div class="card caig-card text-center">
+                <div class="card-body">
+                    <h6>SPARQL Queries</h6>
+                    <a href="/sparql_console" class="btn btn-sm btn-outline-primary mt-2">Open</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card caig-card text-center">
+                <div class="card-body">
+                    <h6>Natural Language</h6>
+                    <a href="/gen_sparql_console" class="btn btn-sm btn-outline-primary mt-2">Open</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card caig-card text-center">
+                <div class="card-body">
+                    <h6>OmniRAG Chat</h6>
+                    <a href="/conv_ai_console" class="btn btn-sm btn-outline-primary mt-2">Open</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card caig-card text-center">
+                <div class="card-body">
+                    <h6>Vector Search</h6>
+                    <a href="/vector_search_console" class="btn btn-sm btn-outline-primary mt-2">Open</a>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
 {% endblock %}

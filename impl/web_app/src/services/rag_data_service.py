@@ -105,8 +105,33 @@ class RAGDataService:
             
             self.nosql_svc.set_db(ConfigService.graph_source_db())
             
+            # Check if we have a specific contract ID
+            if "contract_id" in strategy_obj:
+                contract_id = strategy_obj["contract_id"]
+                logging.info(f"Querying for specific contract ID: {contract_id}")
+                
+                # Query for specific contract
+                rag_docs_list = await self.nosql_svc.get_documents_by_entity(
+                    entity_type="contract_id",
+                    entity_values=[contract_id],
+                    container_name="contracts"
+                )
+                
+                # If we need chunks too
+                if strategy_obj.get("query_config", {}).get("chunk_retrieval"):
+                    # Get chunk IDs from parent documents
+                    chunk_ids = []
+                    for doc in rag_docs_list:
+                        chunk_ids.extend(doc.get("chunk_ids", []))
+                    
+                    if chunk_ids:
+                        # Retrieve chunks
+                        self.nosql_svc.set_container("contract_chunks")
+                        chunks = await self.nosql_svc.get_documents_by_ids(chunk_ids[:max_doc_count])
+                        rag_docs_list.extend(chunks)
+            
             # Check if we have entity information
-            if "primary_entity" in strategy_obj:
+            elif "primary_entity" in strategy_obj:
                 entity = strategy_obj["primary_entity"]
                 entity_type = entity.get("type")
                 entity_value = entity.get("value")

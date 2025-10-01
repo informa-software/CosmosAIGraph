@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import re
 from typing import Dict, Optional, List
 
 from src.services.ai_service import AiService
@@ -92,6 +93,18 @@ class ContractStrategyBuilder:
         """
         nl = strategy["natural_language"].lower()
         
+        # Check for specific contract ID pattern first
+        contract_id_pattern = r'contract_[a-f0-9]{32}'
+        contract_id_match = re.search(contract_id_pattern, nl)
+        if contract_id_match:
+            contract_id = contract_id_match.group()
+            strategy["strategy"] = "db"
+            strategy["algorithm"] = "contract_id_lookup"
+            strategy["confidence"] = 1.0
+            strategy["contract_id"] = contract_id
+            logging.info(f"ContractStrategyBuilder - found contract ID: {contract_id}")
+            return
+        
         # Database lookup patterns
         db_patterns = [
             "find contract",
@@ -166,7 +179,7 @@ class ContractStrategyBuilder:
         entity_count = sum([
             len(entities.get("contractor_parties", [])),
             len(entities.get("contracting_parties", [])),
-            len(entities.get("governing_laws", [])),
+            len(entities.get("governing_law_States", [])),
             len(entities.get("contract_types", []))
         ])
         
@@ -297,7 +310,7 @@ class ContractStrategyBuilder:
         type_map = {
             'contractor_parties': 'contractor_party',
             'contracting_parties': 'contracting_party',
-            'governing_laws': 'governing_law',
+            'governing_law_States': 'governing_law_state',
             'contract_types': 'contract_type'
         }
         entity_path = type_map.get(entity_type, entity_type)
@@ -310,7 +323,7 @@ class ContractStrategyBuilder:
         var_map = {
             'contractor_parties': '?contractorParty',
             'contracting_parties': '?contractingParty',
-            'governing_laws': '?governingLaw',
+            'governing_law_states': '?governingLawState',
             'contract_types': '?contractType'
         }
         return var_map.get(entity_type, '?entity')
@@ -332,7 +345,7 @@ class ContractStrategyBuilder:
                 'purchasesService',
                 'isClientFor'
             ],
-            'governing_laws': [
+            'governing_law_States': [
                 'governs',
                 'hasJurisdiction',
                 'appliesTo'
@@ -401,12 +414,12 @@ class ContractStrategyBuilder:
         FILTER(?contractorParty = <URI_HERE>)
         """)
         
-        if entities.get("governing_laws"):
+        if entities.get("governing_law_States"):
             patterns.append("""
         # Pattern for contracts governed by specific law
         ?contract a :Contract ;
-                  :governedBy ?governingLaw .
-        FILTER(?governingLaw = <URI_HERE>)
+                  :governedBy ?governingLawState .
+        FILTER(?governingLawState = <URI_HERE>)
         """)
         
         return patterns
@@ -455,19 +468,29 @@ class ContractStrategyBuilder:
         Add strategy-specific configuration based on the selected strategy.
         """
         if strategy["strategy"] == "db":
-            # Add database-specific config
-            entities = strategy.get("entities", {})
-            primary_entity = self.select_primary_entity(entities)
-            
-            if primary_entity:
-                strategy["primary_entity"] = primary_entity
-                strategy["name"] = primary_entity.get("display_name", "")  # For backward compatibility
-            
-            strategy["db_config"] = {
-                "primary_entity": primary_entity,
-                "container": "contracts",
-                "field": self.get_field_name(primary_entity.get("type")) if primary_entity else None
-            }
+            # Check for contract ID first
+            if "contract_id" in strategy:
+                strategy["db_config"] = {
+                    "contract_id": strategy["contract_id"],
+                    "container": "contracts",
+                    "field": "id"
+                }
+                strategy["name"] = strategy["contract_id"]  # For compatibility
+                strategy["primary_entity"] = None  # No entity for ID lookup
+            else:
+                # Add database-specific config for entity-based queries
+                entities = strategy.get("entities", {})
+                primary_entity = self.select_primary_entity(entities)
+                
+                if primary_entity:
+                    strategy["primary_entity"] = primary_entity
+                    strategy["name"] = primary_entity.get("display_name", "")  # For backward compatibility
+                
+                strategy["db_config"] = {
+                    "primary_entity": primary_entity,
+                    "container": "contracts",
+                    "field": self.get_field_name(primary_entity.get("type")) if primary_entity else None
+                }
             
             # Check if we need chunks
             nl = strategy["natural_language"].lower()
@@ -514,7 +537,7 @@ class ContractStrategyBuilder:
         field_map = {
             'contractor_parties': 'contractor_party',
             'contracting_parties': 'contracting_party',
-            'governing_laws': 'governing_law',
+            'governing_law_States': 'governing_law_state',
             'contract_types': 'contract_type'
         }
         return field_map.get(entity_type, 'entity')

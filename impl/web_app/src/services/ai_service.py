@@ -363,6 +363,21 @@ ChatBot: """
         )
         result = completion.choices[0].message.content
         return result
+    
+    def get_completion_for_contracts(self, user_prompt, system_prompt, max_tokens=4000):
+        """Special version of get_completion for contract comparisons with configurable max_tokens"""
+        completion = self.aoai_client.chat.completions.create(
+            model=self.completions_deployment,
+            temperature=ConfigService.get_completion_temperature(),
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "system", "content": "Return the response as JSON only. (json)"},
+                {"role": "user", "content": user_prompt},
+            ],
+            max_tokens=max_tokens
+        )
+        result = completion.choices[0].message.content
+        return result
 
     def optimize_context_and_history(
         self,

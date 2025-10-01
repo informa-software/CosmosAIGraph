@@ -31,7 +31,7 @@ public class ContractsGraphTriplesBuilder {
     public static final String TYPE_CONTRACT_URI = "http://cosmosdb.com/caig#Contract";
     public static final String TYPE_CONTRACTOR_PARTY_URI = "http://cosmosdb.com/caig#ContractorParty";
     public static final String TYPE_CONTRACTING_PARTY_URI = "http://cosmosdb.com/caig#ContractingParty";
-    public static final String TYPE_GOVERNING_LAW_URI = "http://cosmosdb.com/caig#GoverningLaw";
+    public static final String TYPE_GOVERNING_LAW_STATE_URI = "http://cosmosdb.com/caig#GoverningLawState";
     public static final String TYPE_INDEMNIFICATION_URI = "http://cosmosdb.com/caig#Indemnification";
     public static final String TYPE_INDEMNIFICATION_OBLIGATIONS_URI = "http://cosmosdb.com/caig#IndemnificationObligations";
     public static final String TYPE_WORKERS_COMPENSATION_INSURANCE_URI = "http://cosmosdb.com/caig#WorkersCompensationInsurance";
@@ -49,6 +49,7 @@ public class ContractsGraphTriplesBuilder {
     public static final String TYPE_SERVICE_LEVEL_AGREEMENT_URI = "http://cosmosdb.com/caig#ServiceLevelAgreement";
     public static final String TYPE_TERMINATION_OBLIGATIONS_URI = "http://cosmosdb.com/caig#TerminationObligations";
     public static final String TYPE_WARRANTY_OBLIGATIONS_URI = "http://cosmosdb.com/caig#WarrantyObligations";
+    public static final String TYPE_GOVERNING_LAW_URI = "http://cosmosdb.com/caig#GoverningLaw";
     private static final Map<String, String> CLAUSE_TYPE_MAPPING = new HashMap<>();
     static {
         CLAUSE_TYPE_MAPPING.put("indemnification", "Indemnification");
@@ -68,6 +69,7 @@ public class ContractsGraphTriplesBuilder {
         CLAUSE_TYPE_MAPPING.put("servicelevelagreement", "ServiceLevelAgreement");
         CLAUSE_TYPE_MAPPING.put("terminationobligations", "TerminationObligations");
         CLAUSE_TYPE_MAPPING.put("warrantyobligations", "WarrantyObligations");
+        CLAUSE_TYPE_MAPPING.put("governinglaw", "GoverningLaw");
     }
 
     // Class variables
@@ -83,6 +85,7 @@ public class ContractsGraphTriplesBuilder {
     // Properties from the ontology
     PropertyImpl contractorPartyNameProperty;
     PropertyImpl contractingPartyNameProperty;
+    PropertyImpl governingLawStateProperty;
     PropertyImpl effectiveDateProperty;
     PropertyImpl expirationDateProperty;
     PropertyImpl contractTypeProperty;
@@ -109,6 +112,7 @@ public class ContractsGraphTriplesBuilder {
         // Initialize datatype properties
         contractorPartyNameProperty = new PropertyImpl(namespace, "contractorPartyName");
         contractingPartyNameProperty = new PropertyImpl(namespace, "contractingPartyName");
+        governingLawStateProperty = new PropertyImpl(namespace, "governingLawState");
         effectiveDateProperty = new PropertyImpl(namespace, "effectiveDate");
         expirationDateProperty = new PropertyImpl(namespace, "expirationDate");
         contractTypeProperty = new PropertyImpl(namespace, "contractType");
@@ -208,11 +212,11 @@ public class ContractsGraphTriplesBuilder {
         }
         
         // Create governing law resource and relationships
-        String governingLaw = (String) doc.get("governing_law");
-        if (governingLaw != null && !governingLaw.isEmpty()) {
-            Resource governingLawResource = createOrGetGoverningLaw(governingLaw);
-            contractResource.addProperty(isGovernedByProperty, governingLawResource);
-            governingLawResource.addProperty(governsProperty, contractResource);
+        String governingLawState = (String) doc.get("governing_law_state");
+        if (governingLawState != null && !governingLawState.isEmpty()) {
+            Resource governingLawStateResource = createOrGetGoverningLawState(governingLawState);
+            contractResource.addProperty(isGovernedByProperty, governingLawStateResource);
+            governingLawStateResource.addProperty(governsProperty, contractResource);
         }
 
         // Create clause resources and relationships
@@ -297,21 +301,21 @@ public class ContractsGraphTriplesBuilder {
         return contractingPartyResource;
     }
 
-    private Resource createOrGetGoverningLaw(String governingLawName) {
+    private Resource createOrGetGoverningLawState(String governingLawStateName) {
         // Create a URI-safe version of the governing law
-        String safeGovLawId = governingLawName.replaceAll("[^a-zA-Z0-9]", "_").toLowerCase();
-        String govLawUri = namespace + "govlaw_" + safeGovLawId;
+        String safeGovLawId = governingLawStateName.replaceAll("[^a-zA-Z0-9]", "_").toLowerCase();
+        String govLawStateUri = namespace + "govlaw_" + safeGovLawId;
         
         // Check if resource already exists
-        Resource govLawResource = model.getResource(govLawUri);
-        if (!model.contains(govLawResource, RDF.type)) {
+        Resource govLawStateResource = model.getResource(govLawStateUri);
+        if (!model.contains(govLawStateResource, RDF.type)) {
             // New governing law, add type
-            govLawResource.addProperty(RDF.type, model.createResource(TYPE_GOVERNING_LAW_URI));
-            govLawResource.addProperty(RDFS.label, governingLawName);
+            govLawStateResource.addProperty(RDF.type, model.createResource(TYPE_GOVERNING_LAW_STATE_URI));
+            govLawStateResource.addProperty(RDFS.label, governingLawStateName);
             // Could add a name property if the ontology had one
         }
         
-        return govLawResource;
+        return govLawStateResource;
     }
 
     private void addStringProperty(Resource resource, PropertyImpl property, 

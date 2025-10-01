@@ -23,6 +23,7 @@ import traceback
 import uuid
 from datetime import datetime
 
+import tiktoken
 from docopt import docopt
 from dotenv import load_dotenv
 
@@ -52,7 +53,9 @@ CLAUSE_FIELDS = [
     "RenewalNotification",
     "ServiceLevelAgreement",
     "TerminationObligations",
-    "WarrantyObligations"
+    "WarrantyObligations", 
+    "GoverningLaw",
+    "Jurisdiction",
 ]
 
 # Fields to exclude from the contract parent document
@@ -239,13 +242,32 @@ def create_parent_contract_doc(contract_data, contract_id):
         "created_date": str(datetime.now()),
         "clause_ids": [],  # Will be populated later
         "chunk_ids": [],   # Will be populated later
+        "contract_text": "",  # Will store the markdown content
+        "contract_text_tokens": 0,  # Estimated token count for the markdown
         "metadata": {}
     }
     
     # Extract fields from result.contents[0].fields if available
     if "result" in contract_data and "contents" in contract_data["result"]:
         if len(contract_data["result"]["contents"]) > 0:
-            fields = contract_data["result"]["contents"][0].get("fields", {})
+            contents_0 = contract_data["result"]["contents"][0]
+            fields = contents_0.get("fields", {})
+            
+            # Store the markdown content and calculate token estimate
+            markdown_content = contents_0.get("markdown", "")
+            doc["contract_text"] = markdown_content
+            
+            # Estimate token count using tiktoken
+            if markdown_content:
+                try:
+                    # Use the same encoding as AiService uses
+                    encoding = tiktoken.encoding_for_model("gpt-3.5-turbo")
+                    doc["contract_text_tokens"] = len(encoding.encode(markdown_content))
+                    logging.info(f"Contract markdown has approximately {doc['contract_text_tokens']} tokens")
+                except Exception as e:
+                    logging.warning(f"Could not estimate token count: {str(e)}")
+                    # Fallback: rough estimate based on character count (4 chars per token is a common approximation)
+                    doc["contract_text_tokens"] = len(markdown_content) // 4
             
             # Extract contract metadata fields (non-clause fields)
             metadata_fields = {
@@ -301,7 +323,7 @@ def create_parent_contract_doc(contract_data, contract_id):
     if "ContractType" in doc["metadata"]:
         doc["contract_type"] = doc["metadata"]["ContractType"].get("normalizedValue", doc["metadata"]["ContractType"]["value"])
     if "GoverningLawState" in doc["metadata"]:
-        doc["governing_law"] = doc["metadata"]["GoverningLawState"].get("normalizedValue", doc["metadata"]["GoverningLawState"]["value"])
+        doc["governing_law_state"] = doc["metadata"]["GoverningLawState"].get("normalizedValue", doc["metadata"]["GoverningLawState"]["value"])
     if "Jurisdiction" in doc["metadata"]:
         doc["jurisdiction"] = doc["metadata"]["Jurisdiction"]["value"]
     
@@ -323,7 +345,7 @@ def extract_contract_metadata(parent_doc):
         "effective_date": parent_doc.get("effective_date", ""),
         "expiration_date": parent_doc.get("expiration_date", ""),
         "contract_value": parent_doc.get("contract_value", ""),
-        "governing_law": parent_doc.get("governing_law", ""),  # Already normalized
+        "governing_law_state": parent_doc.get("governing_law_state", ""),  # Already normalized
         "contract_type": parent_doc.get("contract_type", ""),  # Already normalized
         "jurisdiction": parent_doc.get("jurisdiction", "")
     }
@@ -379,7 +401,7 @@ async def create_clause_documents(contract_data, contract_id, ai_svc, contract_m
                     "effective_date": contract_metadata.get("effective_date", ""),
                     "expiration_date": contract_metadata.get("expiration_date", ""),
                     "contract_value": contract_metadata.get("contract_value", ""),
-                    "governing_law": contract_metadata.get("governing_law", ""),
+                    "governing_law_state": contract_metadata.get("governing_law_state", ""),
                     "contract_type": contract_metadata.get("contract_type", ""),
                     "jurisdiction": contract_metadata.get("jurisdiction", "")
                 }
@@ -434,7 +456,7 @@ async def create_clause_documents_preprocessed(contract_data, contract_id, contr
                     "effective_date": contract_metadata.get("effective_date", ""),
                     "expiration_date": contract_metadata.get("expiration_date", ""),
                     "contract_value": contract_metadata.get("contract_value", ""),
-                    "governing_law": contract_metadata.get("governing_law", ""),
+                    "governing_law_state": contract_metadata.get("governing_law_state", ""),
                     "contract_type": contract_metadata.get("contract_type", ""),
                     "jurisdiction": contract_metadata.get("jurisdiction", "")
                 }
@@ -472,7 +494,7 @@ def create_chunk_documents_preprocessed(contract_data, contract_id, contract_met
             "effective_date": contract_metadata.get("effective_date", ""),
             "expiration_date": contract_metadata.get("expiration_date", ""),
             "contract_value": contract_metadata.get("contract_value", ""),
-            "governing_law": contract_metadata.get("governing_law", ""),
+            "governing_law_state": contract_metadata.get("governing_law_state", ""),
             "contract_type": contract_metadata.get("contract_type", ""),
             "jurisdiction": contract_metadata.get("jurisdiction", "")
         }
@@ -522,7 +544,7 @@ async def create_chunk_documents(markdown_content, contract_id, ai_svc, contract
             "effective_date": contract_metadata.get("effective_date", ""),
             "expiration_date": contract_metadata.get("expiration_date", ""),
             "contract_value": contract_metadata.get("contract_value", ""),
-            "governing_law": contract_metadata.get("governing_law", ""),
+            "governing_law_state": contract_metadata.get("governing_law_state", ""),
             "contract_type": contract_metadata.get("contract_type", ""),
             "jurisdiction": contract_metadata.get("jurisdiction", "")
         }
@@ -655,7 +677,7 @@ async def update_contract_entities(parent_doc):
         if "GoverningLawState" in metadata:
             original_value = metadata["GoverningLawState"].get("value")
             if original_value:
-                await ContractEntitiesService.update_or_create_governing_law(
+                await ContractEntitiesService.update_or_create_governing_law_state(
                     original_value, contract_id
                 )
         

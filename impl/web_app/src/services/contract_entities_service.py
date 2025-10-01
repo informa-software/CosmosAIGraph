@@ -41,7 +41,7 @@ class ContractEntitiesService:
     # Class variables for caching entities in memory
     static_contractor_parties = dict()  # normalized_name -> entity_doc
     static_contracting_parties = dict()  # normalized_name -> entity_doc
-    static_governing_laws = dict()  # state_name -> entity_doc
+    static_governing_law_states = dict()  # state_name -> entity_doc
     static_contract_types = dict()  # type_name -> entity_doc
     static_clause_types = dict()  # normalized_name -> entity_doc
     static_entity_reference = dict()  # The reference document with all entity lists
@@ -78,7 +78,7 @@ class ContractEntitiesService:
         # Reset all static collections
         cls.static_contractor_parties = dict()
         cls.static_contracting_parties = dict()
-        cls.static_governing_laws = dict()
+        cls.static_governing_law_states = dict()
         cls.static_contract_types = dict()
         cls.static_clause_types = dict()
         cls.static_entity_reference = dict()
@@ -105,7 +105,7 @@ class ContractEntitiesService:
                     "pk": "contract_entities",
                     "contractor_parties": [],
                     "contracting_parties": [],
-                    "governing_laws": [],
+                    "governing_laws_states": [],
                     "contract_types": []
                 }
             
@@ -122,9 +122,9 @@ class ContractEntitiesService:
             )
             
             # Load governing laws from their container
-            nosql_svc.set_container("governing_laws")
+            nosql_svc.set_container("governing_law_states")
             governing_count = await cls._load_entities_from_container(
-                nosql_svc, cls.static_governing_laws, "governing_laws"
+                nosql_svc, cls.static_governing_law_states, "governing_law_states"
             )
             
             # Load contract types from their container
@@ -148,7 +148,7 @@ class ContractEntitiesService:
                 f"ContractEntitiesService initialized - "
                 f"Contractor Parties: {contractor_count}, "
                 f"Contracting Parties: {contracting_count}, "
-                f"Governing Laws: {governing_count}, "
+                f"Governing Law States: {governing_count}, "
                 f"Contract Types: {types_count}, "
                 f"Clause Types: {clause_count}"
             )
@@ -333,7 +333,7 @@ class ContractEntitiesService:
         results = {
             "contractor_parties": [],
             "contracting_parties": [],
-            "governing_laws": [],
+            "governing_law_states": [],
             "contract_types": [],
             "fuzzy_matches": [],  # Entities that matched with lower confidence
             "match_details": []  # Detailed information about all matches
@@ -408,9 +408,9 @@ class ContractEntitiesService:
                     results["match_details"].append(match_info)
         
         # Check governing laws (usually state names, more straightforward)
-        for state_name, entity in cls.static_governing_laws.items():
+        for state_name, entity in cls.static_governing_law_states.items():
             if state_name in text_lower:
-                results["governing_laws"].append({
+                results["governing_law_states"].append({
                     "state": state_name,
                     "display_name": entity.get("display_name", state_name),
                     "confidence": 1.0,
@@ -506,7 +506,7 @@ class ContractEntitiesService:
         return normalized_name
     
     @classmethod
-    async def update_or_create_governing_law(cls, state_name: str, contract_id: str) -> str:
+    async def update_or_create_governing_law_state(cls, state_name: str, contract_id: str) -> str:
         """
         Update an existing governing law or create a new one.
         Returns the normalized state name.
@@ -514,9 +514,9 @@ class ContractEntitiesService:
         # Use the full normalization function to handle punctuation and special characters
         normalized_name = cls.normalize_entity_name(state_name)
         
-        if normalized_name in cls.static_governing_laws:
+        if normalized_name in cls.static_governing_law_states:
             # Update existing entity
-            entity = cls.static_governing_laws[normalized_name]
+            entity = cls.static_governing_law_states[normalized_name]
             if contract_id not in entity.get("contracts", []):
                 entity["contracts"].append(contract_id)
             entity["contract_count"] = len(entity["contracts"])
@@ -525,7 +525,7 @@ class ContractEntitiesService:
             # Create new entity
             entity = {
                 "id": normalized_name,
-                "pk": "governing_laws",
+                "pk": "governing_law_states",
                 "normalized_name": normalized_name,
                 "display_name": state_name,
                 "contracts": [contract_id],
@@ -533,11 +533,11 @@ class ContractEntitiesService:
                 "created_at": time.time(),
                 "updated_at": time.time()
             }
-            cls.static_governing_laws[normalized_name] = entity
+            cls.static_governing_law_states[normalized_name] = entity
             
             # Update reference document
-            if normalized_name not in cls.static_entity_reference.get("governing_laws", []):
-                cls.static_entity_reference.setdefault("governing_laws", []).append(normalized_name)
+            if normalized_name not in cls.static_entity_reference.get("governing_law_states", []):
+                cls.static_entity_reference.setdefault("governing_law_states", []).append(normalized_name)
         
         return normalized_name
     
@@ -601,8 +601,8 @@ class ContractEntitiesService:
                 await nosql_svc.upsert_item(entity)
             
             # Persist governing laws
-            nosql_svc.set_container("governing_laws")
-            for entity in cls.static_governing_laws.values():
+            nosql_svc.set_container("governing_law_states")
+            for entity in cls.static_governing_law_states.values():
                 await nosql_svc.upsert_item(entity)
             
             # Persist contract types
@@ -641,9 +641,9 @@ class ContractEntitiesService:
                 "total_contracts": sum(e.get("contract_count", 0) for e in cls.static_contracting_parties.values()),
                 "total_value": sum(e.get("total_value", 0) for e in cls.static_contracting_parties.values())
             },
-            "governing_laws": {
-                "count": len(cls.static_governing_laws),
-                "total_contracts": sum(e.get("contract_count", 0) for e in cls.static_governing_laws.values())
+            "governing_law_states": {
+                "count": len(cls.static_governing_law_states),
+                "total_contracts": sum(e.get("contract_count", 0) for e in cls.static_governing_law_states.values())
             },
             "contract_types": {
                 "count": len(cls.static_contract_types),
@@ -672,12 +672,12 @@ class ContractEntitiesService:
         return cls.static_contracting_parties.copy()
     
     @classmethod
-    def get_governing_laws_catalog(cls) -> Dict:
+    def get_governing_law_states_catalog(cls) -> Dict:
         """
-        Get the catalog of governing laws.
+        Get the catalog of governing law states.
         Returns a dictionary of normalized_name -> entity_doc.
         """
-        return cls.static_governing_laws.copy()
+        return cls.static_governing_law_states.copy()
     
     @classmethod
     def get_contract_types_catalog(cls) -> Dict:
@@ -822,6 +822,13 @@ class ContractEntitiesService:
                 "displayName": "Warranty Obligations",
                 "icon": "verified",
                 "description": "Warranty terms and conditions",
+                "category": "quality"
+            },
+            {
+                "type": "GoverningLaw",
+                "displayName": "Governing Law",
+                "icon": "verified",
+                "description": "Laws governing the Contract",
                 "category": "quality"
             }
         ]

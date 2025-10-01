@@ -218,6 +218,24 @@ class CosmosNoSQLService:
         Returns:
             List of documents matching the entity criteria
         """
+        # Special case for contract ID lookup
+        if entity_type == "contract_id":
+            # Set container
+            self.set_container(container_name or "contracts")
+            
+            # Query by ID
+            quoted_ids = [f"'{val}'" for val in entity_values]
+            sql = f"SELECT * FROM c WHERE c.id IN ({','.join(quoted_ids)})"
+            
+            docs = []
+            items_paged = self._ctrproxy.query_items(query=sql, parameters=[])
+            async for item in items_paged:
+                cdf = CosmosDocFilter(item)
+                docs.append(cdf.filter_out_embedding())
+            
+            logging.info(f"Contract ID query returned {len(docs)} documents")
+            return docs
+        
         # Map entity types to document fields
         field_map = {
             'contractor_parties': 'contractor_party',

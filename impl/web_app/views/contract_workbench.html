@@ -1,0 +1,374 @@
+{% extends "layout.html" %}
+
+{% block title %}Contract Intelligence Workbench{% endblock %}
+
+{% block content %}
+<div class="container mt-3">
+    <!-- Header with Search Bar -->
+    <div class="row mb-3">
+        <div class="col">
+            <div class="card caig-card">
+                <div class="card-body py-2">
+                    <div class="row align-items-center">
+                        <div class="col-md-4">
+                            <h5 class="mb-0">
+                                <i class="bi bi-stars"></i> Contract Intelligence Workbench
+                            </h5>
+                        </div>
+                        <div class="col-md-8">
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="bi bi-search"></i></span>
+                                <input type="text" class="form-control" id="searchText" 
+                                       placeholder="Search text inside clauses…">
+                                <button class="btn btn-outline-secondary" type="button" id="copyResults">
+                                    <i class="bi bi-clipboard"></i> Copy
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Left Sidebar - Filters -->
+        <div class="col-lg-3 mb-3">
+            <!-- Filters Card -->
+            <div class="card caig-card mb-3">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="bi bi-funnel"></i> Filters</h6>
+                </div>
+                <div class="card-body">
+                    <!-- Mode Selection -->
+                    <div class="mb-3">
+                        <div class="btn-group w-100" role="group">
+                            <input type="radio" class="btn-check" name="mode" id="modeRealtime" value="realtime">
+                            <label class="btn btn-outline-primary" for="modeRealtime">Real time</label>
+                            
+                            <input type="radio" class="btn-check" name="mode" id="modeBatch" value="batch" checked>
+                            <label class="btn btn-outline-primary" for="modeBatch">Batch</label>
+                        </div>
+                        <small class="text-muted d-none" id="realtimeLimits">
+                            Up to 3 contracts & up to 3 clauses <em>or</em> 3 provisions.
+                        </small>
+                    </div>
+
+                    <!-- Contract Type -->
+                    <div class="mb-3">
+                        <label class="form-label small text-muted">Contract Type</label>
+                        <select class="form-select" id="contractType">
+                            <option value="Any">Any</option>
+                            <option value="MSA">MSA</option>
+                            <option value="Subscription">Subscription</option>
+                            <option value="SOW">SOW</option>
+                        </select>
+                        
+                        <!-- Date Range (shown when type selected) -->
+                        <div id="dateRangeSection" class="d-none mt-2">
+                            <div class="row">
+                                <div class="col-6">
+                                    <label class="form-label small text-muted">From</label>
+                                    <input type="date" class="form-control form-control-sm" id="dateFrom">
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label small text-muted">To</label>
+                                    <input type="date" class="form-control form-control-sm" id="dateTo">
+                                </div>
+                            </div>
+                        </div>
+                        <small class="text-muted">Selecting a contract type enables date range filtering.</small>
+                    </div>
+
+                    <!-- Contract Selection -->
+                    <div class="mb-3">
+                        <button class="btn btn-outline-primary w-100" data-bs-toggle="modal" data-bs-target="#contractSelectionModal">
+                            Select Contracts <span id="selectedCount" class="badge bg-secondary">0</span>
+                        </button>
+                    </div>
+
+                    <!-- Risk Threshold -->
+                    <div class="mb-3">
+                        <label class="form-label small text-muted">Risk Threshold</label>
+                        <input type="range" class="form-range" min="0" max="100" value="50" id="riskThreshold">
+                        <small class="text-muted">Show ≥ <span id="riskValue">50</span>% risk score</small>
+                    </div>
+
+                    <hr>
+
+                    <!-- Clause Library -->
+                    <div class="mb-3">
+                        <label class="form-label small text-muted">
+                            <i class="bi bi-filter"></i> Clause Library
+                        </label>
+                        <button class="btn btn-outline-primary w-100 dropdown-toggle" type="button" 
+                                data-bs-toggle="dropdown" id="clauseButton">
+                            Select clauses
+                        </button>
+                        <div class="dropdown-menu p-2" style="max-width: 300px;">
+                            <small class="text-muted d-block mb-2">Choose up to <span id="clauseCap">5</span> clauses</small>
+                            <div id="clauseOptions"></div>
+                        </div>
+                        <div id="selectedClauses" class="mt-2"></div>
+                    </div>
+
+                    <!-- Provisions -->
+                    <div class="mb-3">
+                        <label class="form-label small text-muted">
+                            <i class="bi bi-filter"></i> Provisions
+                        </label>
+                        <button class="btn btn-outline-primary w-100 dropdown-toggle" type="button" 
+                                data-bs-toggle="dropdown" id="provisionButton">
+                            Select provisions
+                        </button>
+                        <div class="dropdown-menu p-2" style="max-width: 300px;">
+                            <small class="text-muted d-block mb-2">Compare to gold standard or across contracts</small>
+                            <div id="provisionOptions"></div>
+                        </div>
+                        <div id="selectedProvisions" class="mt-2"></div>
+                    </div>
+
+                    <button class="btn btn-primary w-100" id="applyFilters">Apply</button>
+                </div>
+            </div>
+
+            <!-- Saved Queries Card -->
+            <div class="card caig-card">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="bi bi-diagram-3"></i> Saved Graph Queries</h6>
+                </div>
+                <div class="card-body">
+                    <div class="list-group list-group-flush">
+                        <div class="list-group-item bg-transparent text-light border-secondary d-flex justify-content-between align-items-center">
+                            <small>Non-Delaware contracts</small>
+                            <button class="btn btn-sm btn-outline-primary">Run</button>
+                        </div>
+                        <div class="list-group-item bg-transparent text-light border-secondary d-flex justify-content-between align-items-center">
+                            <small>Indemnity by type</small>
+                            <button class="btn btn-sm btn-outline-primary">Run</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content Area -->
+        <div class="col-lg-6 mb-3">
+            <!-- Question/Query Card -->
+            <div class="card caig-card mb-3">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="bi bi-stars"></i> Ask a question</h6>
+                </div>
+                <div class="card-body">
+                    <textarea class="form-control mb-2" id="questionText" rows="2" 
+                              placeholder="e.g., Compare indemnity language across all MSAs, highlight differences.">Which contracts are governed by states other than Delaware?</textarea>
+                    <div class="btn-group">
+                        <button class="btn btn-primary" id="getAnswer">
+                            <i class="bi bi-search"></i> Get Answer
+                        </button>
+                        <button class="btn btn-outline-primary" id="compareSelected">
+                            <i class="bi bi-arrows-angle-expand"></i> Compare Selected (<span id="compareCount">0</span>)
+                        </button>
+                    </div>
+                    <small class="text-muted d-block mt-2">
+                        Natural language queries compile to parameterized graph + vector searches under the hood.
+                    </small>
+                </div>
+            </div>
+
+            <!-- Tabs for Results -->
+            <div class="card caig-card">
+                <div class="card-header">
+                    <ul class="nav nav-tabs card-header-tabs" role="tablist">
+                        <li class="nav-item">
+                            <a class="nav-link active" data-bs-toggle="tab" href="#answersTab">Answers</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" data-bs-toggle="tab" href="#contractsTab">Contracts</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" data-bs-toggle="tab" href="#clausesTab">Clause Compare</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" data-bs-toggle="tab" href="#provisionsTab">Provisions</a>
+                        </li>
+                    </ul>
+                </div>
+                <div class="card-body">
+                    <div class="tab-content">
+                        <!-- Answers Tab -->
+                        <div class="tab-pane fade show active" id="answersTab">
+                            <div id="answerContent">
+                                <div class="alert alert-secondary">
+                                    <h6>Answer</h6>
+                                    <p id="answerText">
+                                        Click "Get Answer" to query the contract intelligence system.
+                                    </p>
+                                    <small class="text-muted">(Mock answer for layout illustration)</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Contracts Tab -->
+                        <div class="tab-pane fade" id="contractsTab">
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Contract</th>
+                                            <th>Counterparty</th>
+                                            <th>Effective</th>
+                                            <th>Law</th>
+                                            <th>Type</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="contractsTableBody">
+                                        <!-- Populated by JavaScript -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Clauses Tab -->
+                        <div class="tab-pane fade" id="clausesTab">
+                            <div id="clauseCompareContent">
+                                <div class="alert alert-info">
+                                    Select 2+ contracts to compare clauses.
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Provisions Tab -->
+                        <div class="tab-pane fade" id="provisionsTab">
+                            <div id="provisionCompareContent">
+                                <div class="alert alert-info">
+                                    Select contracts and provisions to compare against gold standard.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Sidebar -->
+        <div class="col-lg-3 mb-3">
+            <!-- Graph Insights Card -->
+            <div class="card caig-card mb-3">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="bi bi-database"></i> Graph Insights</h6>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <h6 class="small text-muted">Top Jurisdictions</h6>
+                        <div id="jurisdictionBadges">
+                            <!-- Populated by JavaScript -->
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <h6 class="small text-muted">Entity Relationship Sketch</h6>
+                        <div class="border rounded p-2 bg-dark">
+                            <div class="row g-2">
+                                <div class="col-4">
+                                    <div class="text-center border rounded p-1 small">Vendor ↔ Customer</div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="text-center border rounded p-1 small">Contract → Clause</div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="text-center border rounded p-1 small">Clause → Obligation</div>
+                                </div>
+                            </div>
+                            <small class="text-muted d-block mt-2">(Placeholder) Visuals populate from graph database.</small>
+                        </div>
+                    </div>
+                    <small class="text-muted">
+                        Tip: Run a graph pattern to instantly answer complex queries.
+                    </small>
+                </div>
+            </div>
+
+            <!-- Info Card -->
+            <div class="card caig-card">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="bi bi-info-circle"></i> What this UI supports</h6>
+                </div>
+                <div class="card-body">
+                    <ul class="small">
+                        <li>🧭 Jurisdiction answered via NLQ, not filter</li>
+                        <li>🧩 Clause clustering + inline highlights</li>
+                        <li>🆚 Side-by-side wording contrast & raw diff</li>
+                        <li>📊 Provisions vs gold standard with Δ highlights</li>
+                        <li>🕸️ Graph-backed insights & saved queries</li>
+                        <li>📤 Copy/export stubs for downstream review</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Contract Selection Modal -->
+<div class="modal fade" id="contractSelectionModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content bg-dark text-light">
+            <div class="modal-header">
+                <h5 class="modal-title">Contract Selection</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-2">
+                    <button class="btn btn-sm btn-outline-primary" id="selectAll">Select All</button>
+                    <button class="btn btn-sm btn-outline-primary" id="deselectAll">Deselect All</button>
+                    <span class="badge bg-secondary float-end" id="modalSelectedCount">0 selected</span>
+                </div>
+                <div class="list-group" id="contractSelectionList" style="max-height: 400px; overflow-y: auto;">
+                    <!-- Populated by JavaScript -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Contract Details Modal -->
+<div class="modal fade" id="contractDetailsModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content bg-dark text-light">
+            <div class="modal-header">
+                <h5 class="modal-title" id="contractDetailsTitle">Contract Details</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="contractDetailsBody">
+                <!-- Populated by JavaScript -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Raw Diff Modal -->
+<div class="modal fade" id="rawDiffModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content bg-dark text-light">
+            <div class="modal-header">
+                <h5 class="modal-title">Raw Wording Contrast</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="rawDiffBody">
+                <!-- Populated by JavaScript -->
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block js %}
+<!-- Add Bootstrap Icons -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+
+<!-- Contract Workbench JavaScript -->
+<script src="{{ url_for('static', path='contract_workbench.js') }}"></script>
+{% endblock %}

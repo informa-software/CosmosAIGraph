@@ -29,9 +29,9 @@
     <rdfs:comment xml:lang="en">The contracting Party in the Contract</rdfs:comment>
   </owl:Class>
 
-  <owl:Class rdf:ID="GoverningLaw">
-    <rdfs:label xml:lang="en">GoverningLaw</rdfs:label>
-    <rdfs:comment xml:lang="en">The Governing Law for the Contract</rdfs:comment>
+  <owl:Class rdf:ID="GoverningLawState">
+    <rdfs:label xml:lang="en">GoverningLawState</rdfs:label>
+    <rdfs:comment xml:lang="en">The State whose Laws govern the Contract</rdfs:comment>
   </owl:Class>
 
   <!-- Base Clause Class -->
@@ -142,6 +142,12 @@
     <rdfs:label xml:lang="en">WarrantyObligations</rdfs:label>
     <rdfs:comment xml:lang="en">Warranty obligations clause</rdfs:comment>
   </owl:Class>
+  
+  <owl:Class rdf:ID="GoverningLaw">
+    <rdfs:subClassOf rdf:resource="#Clause"/>
+    <rdfs:label xml:lang="en">Governing Law</rdfs:label>
+    <rdfs:comment xml:lang="en">Governing Law clause</rdfs:comment>
+  </owl:Class>
 
   <!-- Object Properties -->
   <owl:ObjectProperty rdf:ID="performs">
@@ -174,15 +180,15 @@
 
   <owl:ObjectProperty rdf:ID="is_governed_by">
 	<rdfs:label xml:lang="en">is_governed_by</rdfs:label>
-	<rdfs:comment xml:lang="en">Contract is governed by a Governing Law</rdfs:comment>
+	<rdfs:comment xml:lang="en">Contract is governed by a Governing Law State</rdfs:comment>
     <rdfs:domain rdf:resource="#Contract" />
-    <rdfs:range  rdf:resource="#GoverningLaw" />
+    <rdfs:range  rdf:resource="#GoverningLawState" />
   </owl:ObjectProperty>
 
   <owl:ObjectProperty rdf:ID="governs">
 	<rdfs:label xml:lang="en">governs</rdfs:label>
-	<rdfs:comment xml:lang="en">Governing Law governs a Contract</rdfs:comment>
-    <rdfs:domain rdf:resource="#GoverningLaw" />
+	<rdfs:comment xml:lang="en">Governing Law State governs a Contract</rdfs:comment>
+    <rdfs:domain rdf:resource="#GoverningLawState" />
     <rdfs:range  rdf:resource="#Contract" />
   </owl:ObjectProperty>
 
