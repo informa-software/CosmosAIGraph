@@ -93,10 +93,19 @@ export class ContractWorkbenchComponent implements OnInit {
     return this.contracts.filter(c => this.selectedContracts.includes(c.id));
   }
 
+  // Get filtered contracts excluding the standard contract for selection list
+  getFilteredContractsForSelection(): Contract[] {
+    if (!this.standardContractId) {
+      return this.filteredContracts;
+    }
+    // Filter out the standard contract from the selection list
+    return this.filteredContracts.filter(c => c.id !== this.standardContractId);
+  }
+
   get jurisdictionStats(): { [key: string]: number } {
     const stats: { [key: string]: number } = {};
     this.contracts.forEach(contract => {
-      stats[contract.law] = (stats[contract.law] || 0) + 1;
+      stats[contract.governing_law_state] = (stats[contract.governing_law_state] || 0) + 1;
     });
     return stats;
   }
@@ -258,6 +267,11 @@ export class ContractWorkbenchComponent implements OnInit {
     } else {
       this.dateRangeError = '';
     }
+    
+    // Clear selected contracts when date range changes
+    if (this.filters.dateFrom || this.filters.dateTo) {
+      this.selectedContracts = [];
+    }
   }
 
   onStandardContractChange(): void {
@@ -281,10 +295,10 @@ export class ContractWorkbenchComponent implements OnInit {
         this.filters.clauses = [];
       }
       
-      // Optionally trigger comparison or other actions
-      // You could automatically add this to selected contracts for comparison
-      if (this.standardContract && !this.selectedContracts.includes(this.standardContractId)) {
-        this.selectedContracts.push(this.standardContractId);
+      // Remove standard contract from selected contracts if it was selected
+      const index = this.selectedContracts.indexOf(this.standardContractId);
+      if (index > -1) {
+        this.selectedContracts.splice(index, 1);
       }
     } else {
       this.standardContract = null;
@@ -295,6 +309,9 @@ export class ContractWorkbenchComponent implements OnInit {
 
   onModeChange(mode: 'realtime' | 'batch'): void {
     this.filters.mode = mode;
+    
+    // Clear selected contracts when mode changes
+    this.selectedContracts = [];
     
     // Enforce limits for contracts only
     if (mode === 'realtime') {
@@ -344,10 +361,25 @@ export class ContractWorkbenchComponent implements OnInit {
     } else {
       this.filters.clauses.splice(index, 1);
     }
+    // Clear selected contracts when clause selection changes
+    this.selectedContracts = [];
   }
 
   isClauseSelected(clause: string): boolean {
     return this.filters.clauses.includes(clause);
+  }
+
+  // Handler for contract type changes
+  onContractTypeChange(): void {
+    // Clear selected contracts when contract type changes
+    this.selectedContracts = [];
+  }
+
+  // Handler for comparison mode changes
+  onComparisonModeChange(mode: 'clauses' | 'full'): void {
+    this.filters.comparisonMode = mode;
+    // Clear selected contracts when comparison mode changes
+    this.selectedContracts = [];
   }
 
 
@@ -429,6 +461,14 @@ export class ContractWorkbenchComponent implements OnInit {
     // Open the contract selection modal and load filtered contracts
     this.showContractSelectionModal = true;
     this.loadFilteredContracts();
+    // Prevent body scroll when modal is open
+    document.body.style.overflow = 'hidden';
+  }
+  
+  closeContractSelectionModal(): void {
+    this.showContractSelectionModal = false;
+    // Re-enable body scroll
+    document.body.style.overflow = '';
   }
 
   loadFilteredContracts(): void {
@@ -601,6 +641,9 @@ export class ContractWorkbenchComponent implements OnInit {
         this.filters.governingLaws.splice(index, 1);
       }
     }
+    
+    // Clear selected contracts when filter changes
+    this.selectedContracts = [];
   }
 
   isGoverningLawSelected(law: string): boolean {
@@ -623,6 +666,9 @@ export class ContractWorkbenchComponent implements OnInit {
         this.filters.contractingParties.splice(index, 1);
       }
     }
+    
+    // Clear selected contracts when filter changes
+    this.selectedContracts = [];
   }
 
   isContractingPartySelected(party: string): boolean {
@@ -653,6 +699,8 @@ export class ContractWorkbenchComponent implements OnInit {
       // Select all
       this.filters.clauses = [...this.availableClausesFromStandard];
     }
+    // Clear selected contracts when clause selection changes
+    this.selectedContracts = [];
   }
   
   getClausesButtonText(): string {

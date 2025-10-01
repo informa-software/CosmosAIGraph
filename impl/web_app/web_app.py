@@ -1746,7 +1746,7 @@ async def get_contracts(
             # Split comma-separated values
             laws_list = [l.strip() for l in governing_laws.split(',')]
             if len(laws_list) == 1:
-                query += " AND c.governing_law = @governing_law"
+                query += " AND c.governing_law_state = @governing_law"
                 params.append({"name": "@governing_law", "value": laws_list[0]})
             else:
                 # Use IN clause for multiple values
@@ -1755,10 +1755,10 @@ async def get_contracts(
                     param_name = f"@governing_law_{i}"
                     in_clause_params.append(param_name)
                     params.append({"name": param_name, "value": law})
-                query += f" AND c.governing_law IN ({','.join(in_clause_params)})"
+                query += f" AND c.governing_law_state IN ({','.join(in_clause_params)})"
         elif governing_law:
             # Backward compatibility - single value
-            query += " AND c.governing_law = @governing_law"
+            query += " AND c.governing_law_state = @governing_law"
             params.append({"name": "@governing_law", "value": governing_law})
             
         if date_from:
@@ -1801,13 +1801,13 @@ async def get_contracts(
             contract = {
                 "id": contract_id,  # Use the full ID with "contract_" prefix
                 "title": item.get("filename", "Unknown"),
-                "counterparty": item.get("contractor_party", "Unknown"),
+                "contractor_party": item.get("contractor_party", "Unknown"),
                 "contracting_party": item.get("contracting_party", "Unknown"),
-                "effective": item.get("effective_date", ""),
-                "expiration": item.get("expiration_date", ""),
-                "law": item.get("governing_law", "Unknown"),
-                "type": item.get("contract_type", "Unknown"),
-                "value": item.get("contract_value", ""),
+                "effective_date": item.get("effective_date", ""),
+                "expiration_date": item.get("expiration_date", ""),
+                "governing_law_state": item.get("governing_law_state", "Unknown"),
+                "contract_type": item.get("contract_type", "Unknown"),
+                "contract_value": item.get("contract_value", ""),
                 "clauses": {}
             }
             

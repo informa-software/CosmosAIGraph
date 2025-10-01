@@ -11,14 +11,14 @@ export interface EntityOption {
 export interface Contract {
   id: string;
   title: string;
-  counterparty: string;
+  contractorParty: string;
   contractingParty?: string;
-  effective: string;
-  expiration?: string;
-  law: string;
-  type: string;
+  effective_date: string;
+  expiration_date?: string;
+  governing_law_state: string;
+  contract_type: string;
   risk?: string;
-  value?: string;
+  contract_value?: string;
   clauses: { [key: string]: string };
   hasFullText?: boolean;
   textTokens?: number;

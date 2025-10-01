@@ -16,11 +16,11 @@ const MOCK_CONTRACTS: Contract[] = [
   {
     id: 'contract_c001',
     title: 'Master Services Agreement – Asterix Health',
-    counterparty: 'Asterix Health, Inc.',
+    contractorParty: 'Asterix Health, Inc.',
     contractingParty: 'The Westervelt Company',
-    effective: '2024-11-02',
-    law: 'New York',
-    type: 'MSA',
+    effective_date: '2024-11-02',
+    governing_law_state: 'New York',
+    contract_type: 'MSA',
     risk: 'Med',
     clauses: {
       Indemnity: 'Each party shall indemnify, defend, and hold harmless the other from third-party claims arising out of gross negligence or willful misconduct.',
@@ -33,11 +33,11 @@ const MOCK_CONTRACTS: Contract[] = [
   {
     id: 'contract_c002',
     title: 'Subscription Agreement – Novalink',
-    counterparty: 'Novalink LLC',
+    contractorParty: 'Novalink LLC',
     contractingParty: 'Westervelt Ecological Services',
-    effective: '2025-03-18',
-    law: 'Delaware',
-    type: 'Subscription',
+    effective_date: '2025-03-18',
+    governing_law_state: 'Delaware',
+    contract_type: 'Subscription',
     risk: 'Low',
     clauses: {
       Indemnity: 'Vendor will indemnify Customer against third-party IP infringement claims subject to prompt notice and sole control of the defense.',
@@ -50,11 +50,11 @@ const MOCK_CONTRACTS: Contract[] = [
   {
     id: 'contract_c003',
     title: 'Professional Services SOW – BlueFerry',
-    counterparty: 'BlueFerry Corp',
+    contractorParty: 'BlueFerry Corp',
     contractingParty: 'Westervelt Lumber Thomasville',
-    effective: '2023-09-01',
-    law: 'California',
-    type: 'SOW',
+    effective_date: '2023-09-01',
+    governing_law_state: 'California',
+    contract_type: 'SOW',
     risk: 'High',
     clauses: {
       Indemnity: 'Vendor shall indemnify Customer for claims alleging bodily injury, death, or damage to tangible property caused by Vendor\'s performance.',
@@ -67,11 +67,11 @@ const MOCK_CONTRACTS: Contract[] = [
   {
     id: 'contract_c004',
     title: 'Service Agreement – Sunshine Systems',
-    counterparty: 'Sunshine Systems LLC',
+    contractorParty: 'Sunshine Systems LLC',
     contractingParty: 'The Westervelt Company',
-    effective: '2024-06-15',
-    law: 'Florida',
-    type: 'MSA',
+    effective_date: '2024-06-15',
+    governing_law_state: 'Florida',
+    contract_type: 'MSA',
     risk: 'Low',
     clauses: {
       Indemnity: 'Provider shall indemnify Client for third-party claims arising from Provider\'s breach of this Agreement or negligent acts.',
@@ -84,11 +84,11 @@ const MOCK_CONTRACTS: Contract[] = [
   {
     id: 'contract_c005',
     title: 'Software License Agreement – Peachtree Tech',
-    counterparty: 'Peachtree Technologies Inc.',
+    contractorParty: 'Peachtree Technologies Inc.',
     contractingParty: 'Westervelt Ecological Services',
-    effective: '2023-12-01',
-    law: 'Georgia',
-    type: 'Subscription',
+    effective_date: '2023-12-01',
+    governing_law_state: 'Georgia',
+    contract_type: 'Subscription',
     risk: 'Med',
     clauses: {
       Indemnity: 'Licensor indemnifies Licensee against claims that the Software infringes third-party intellectual property rights.',
@@ -101,11 +101,11 @@ const MOCK_CONTRACTS: Contract[] = [
   {
     id: 'contract_c006',
     title: 'Consulting Agreement – Gulf Coast Advisors',
-    counterparty: 'Gulf Coast Advisors',
+    contractorParty: 'Gulf Coast Advisors',
     contractingParty: 'Westervelt Lumber Thomasville',
-    effective: '2024-09-30',
-    law: 'Alabama',
-    type: 'SOW',
+    effective_date: '2024-09-30',
+    governing_law_state: 'Alabama',
+    contract_type: 'SOW',
     risk: 'High',
     clauses: {
       Indemnity: 'Consultant shall defend and indemnify Company from all claims resulting from Consultant\'s willful misconduct or gross negligence.',
@@ -178,8 +178,8 @@ export class ContractService {
         console.error('Error querying contracts:', error);
         // Return mock response
         const nonDelawareContracts = MOCK_CONTRACTS
-          .filter(c => c.law !== 'Delaware')
-          .map(c => `${c.title} (${c.law})`)
+          .filter(c => c.governing_law_state !== 'Delaware')
+          .map(c => `${c.title} (${c.governing_law_state})`)
           .join(', ');
         
         return of({

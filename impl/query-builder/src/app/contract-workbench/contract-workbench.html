@@ -78,7 +78,7 @@
           <!-- Contract Type -->
           <div class="form-group">
             <label>Contract Type</label>
-            <select [(ngModel)]="filters.type" class="form-control">
+            <select [(ngModel)]="filters.type" (ngModelChange)="onContractTypeChange()" class="form-control">
               <option value="Any">Any</option>
               <option *ngFor="let type of availableContractTypes" [value]="type.normalizedName">
                 {{ type.displayName }}
@@ -207,13 +207,13 @@
             <div class="btn-group full-width">
               <button 
                 [class.active]="filters.comparisonMode === 'clauses'"
-                (click)="filters.comparisonMode = 'clauses'"
+                (click)="onComparisonModeChange('clauses')"
                 class="btn btn-toggle">
                 Clauses
               </button>
               <button 
                 [class.active]="filters.comparisonMode === 'full'"
-                (click)="filters.comparisonMode = 'full'"
+                (click)="onComparisonModeChange('full')"
                 class="btn btn-toggle">
                 Full Contract
               </button>
@@ -490,14 +490,14 @@
                 <tbody>
                   <tr *ngFor="let contract of filteredContracts">
                     <td>📄 {{ contract.title }}</td>
-                    <td>{{ contract.counterparty }}</td>
-                    <td>{{ contract.effective }}</td>
+                    <td>{{ contract.contractorParty }}</td>
+                    <td>{{ contract.effective_date }}</td>
                     <td>
-                      <span class="badge" [class.badge-primary]="contract.law === 'Delaware'">
-                        {{ contract.law }}
+                      <span class="badge" [class.badge-primary]="contract.governing_law_state === 'Delaware'">
+                        {{ contract.governing_law_state }}
                       </span>
                     </td>
-                    <td><span class="badge badge-info">{{ contract.type }}</span></td>
+                    <td><span class="badge badge-info">{{ contract.contract_type }}</span></td>
                     <td>
                       <button 
                         (click)="toggleContractSelection(contract.id)"
@@ -526,7 +526,7 @@
                 <div *ngFor="let contract of pickedContracts" class="clause-content">
                   <div class="clause-header">
                     <span class="badge badge-secondary">{{ contract.id }}</span>
-                    <span class="badge badge-info">{{ contract.law }}</span>
+                    <span class="badge badge-info">{{ contract.governing_law_state }}</span>
                   </div>
                   <p class="clause-text" [innerHTML]="highlightText(contract.clauses[clauseKey])"></p>
                 </div>
@@ -592,9 +592,12 @@
                     </ul>
                   </div>
 
-                  <!-- Missing Clauses -->
+                  <!-- Missing Clauses/Provisions -->
                   <div *ngIf="comparison.missing_clauses && comparison.missing_clauses.length > 0" class="missing-clauses">
-                    <h6>⚠️ Missing Clauses</h6>
+                    <h6>⚠️ {{ comparisonResults.comparisonMode === 'full' ? 'Missing Provisions' : 'Missing Clauses' }}</h6>
+                    <small class="subtitle-text" *ngIf="comparisonResults.comparisonMode === 'full'">
+                      Provisions in Standard Contract but not Comparison Contract
+                    </small>
                     <div class="clause-list">
                       <span *ngFor="let clause of comparison.missing_clauses" class="badge badge-warning">
                         {{ clause }}
@@ -602,9 +605,12 @@
                     </div>
                   </div>
 
-                  <!-- Additional Clauses -->
+                  <!-- Additional Clauses/Provisions -->
                   <div *ngIf="comparison.additional_clauses && comparison.additional_clauses.length > 0" class="additional-clauses">
-                    <h6>➕ Additional Clauses</h6>
+                    <h6>➕ {{ comparisonResults.comparisonMode === 'full' ? 'Additional Provisions' : 'Additional Clauses' }}</h6>
+                    <small class="subtitle-text" *ngIf="comparisonResults.comparisonMode === 'full'">
+                      Provisions in Comparison Contract but not Standard Contract
+                    </small>
                     <div class="clause-list">
                       <span *ngFor="let clause of comparison.additional_clauses" class="badge badge-info">
                         {{ clause }}
@@ -717,11 +723,11 @@
   </div>
 
   <!-- Contract Selection Modal -->
-  <div *ngIf="showContractSelectionModal" class="modal">
-    <div class="modal-content">
+  <div *ngIf="showContractSelectionModal" class="modal" (click)="closeContractSelectionModal()">
+    <div class="modal-content modal-large" (click)="$event.stopPropagation()">
       <div class="modal-header">
         <h3>Contract Selection</h3>
-        <button (click)="showContractSelectionModal = false" class="close-btn">✕</button>
+        <button (click)="closeContractSelectionModal()" class="close-btn">✕</button>
       </div>
       <div class="modal-body">
         <div *ngIf="isLoadingContracts" class="loading-container">
@@ -738,24 +744,28 @@
             <div *ngIf="filteredContracts.length === 0" class="no-results">
               No contracts found matching your filter criteria.
             </div>
-            <div *ngFor="let contract of filteredContracts" class="contract-item">
+            <div *ngFor="let contract of getFilteredContractsForSelection()" class="contract-item">
               <input 
                 type="checkbox"
                 [checked]="isContractSelected(contract.id)"
-                (change)="toggleContractSelection(contract.id)">
-              <label>
+                (change)="toggleContractSelection(contract.id)"
+                [id]="'contract-check-' + contract.id">
+              <label [for]="'contract-check-' + contract.id">
                 <strong>{{ contract.title }}</strong>
-                <span class="badges">
-                  <span class="badge badge-secondary">{{ contract.type }}</span>
-                  <span class="badge badge-info">{{ contract.effective }}</span>
-                </span>
+                <div class="contract-info">
+                  <span class="badges">
+                    <span class="badge badge-secondary">{{ contract.contract_type }}</span>
+                    <span class="badge badge-info">{{ contract.governing_law_state }}</span>
+                    <span class="badge badge-primary">{{ contract.effective_date }}</span>
+                  </span>
+                </div>
               </label>
             </div>
           </div>
         </div>
       </div>
       <div class="modal-footer">
-        <button (click)="showContractSelectionModal = false" class="btn btn-secondary">Close</button>
+        <button (click)="closeContractSelectionModal()" class="btn btn-secondary">Close</button>
       </div>
     </div>
   </div>
