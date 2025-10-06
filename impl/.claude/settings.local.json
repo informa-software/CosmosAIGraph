@@ -5,7 +5,8 @@
       "Bash(git branch:*)",
       "Bash(git ls-tree:*)",
       "Bash(grep:*)",
-      "Bash(git log:*)"
+      "Bash(git log:*)",
+      "Bash('malone_forestry' AND c.cl\" - cut off at \"c.cl\"\n- Made traces unreadable and unhelpful for debugging\n\nSolution:\n- Replaced truncation with proper word wrapping using textwrap module\n- Fixed two locations where queries were being cut:\n  1. LLM Generated Query display (line 190)\n  2. Step metadata query display (line 228)\n\nChanges Made:\n- LLM query display:\n  * Changed from: query_line[:76] (hard truncation)\n  * Changed to: textwrap.wrap() with 72 char width\n  * Preserves subsequent_indent for multi-line queries\n\n- Step metadata query display:\n  * Changed from: line[:76] (hard truncation)  \n  * Changed to: textwrap.wrap() with 68 char width\n  * Uses subsequent_indent=''   |    '' to maintain box formatting\n\nExample Before:\n  +- QUERY:\n  |    SELECT TOP 20 * FROM c WHERE c.contractor_party = ''malone_forestry'' AND c.cl\n\nExample After:\n  +- QUERY:\n  |    SELECT TOP 20 * FROM c WHERE c.contractor_party =\n  |    ''malone_forestry'' AND c.clause_type = ''governing_law''\n\nFile Modified:\n- query_execution_tracker.py: visualize_ascii() method\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")"
     ],
     "deny": [],
     "ask": []

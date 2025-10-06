@@ -184,10 +184,14 @@ class QueryExecutionTracker:
                     # Single line, short query
                     lines.append(f"    {self.llm_query_text}")
                 else:
-                    # Multi-line or long query
+                    # Multi-line or long query - use word wrapping
                     for query_line in query_lines:
                         if query_line.strip():
-                            lines.append(f"    {query_line[:76]}")
+                            # Wrap long lines at 72 chars, preserving indentation
+                            wrapped = textwrap.wrap(query_line, width=72, break_long_words=False,
+                                                   subsequent_indent='    ')
+                            for wrapped_line in wrapped:
+                                lines.append(f"    {wrapped_line}")
         elif self.llm_plan:
             lines.append(f"LLM STRATEGY: [{self.llm_validation_status}]")
             if self.llm_plan.get("validation_error"):
@@ -222,10 +226,14 @@ class QueryExecutionTracker:
                         query_text = str(value)
                         if len(query_text) > 80:
                             lines.append(f"   +- {label}:")
-                            # Indent query text
+                            # Indent query text with word wrapping
                             for line in query_text.split('\n'):
                                 if line.strip():
-                                    lines.append(f"   |    {line[:76]}")
+                                    # Wrap long lines at 68 chars (to fit within the box format)
+                                    wrapped = textwrap.wrap(line, width=68, break_long_words=False,
+                                                           subsequent_indent='   |    ')
+                                    for wrapped_line in wrapped:
+                                        lines.append(f"   |    {wrapped_line}")
                         else:
                             lines.append(f"   +- {label}: {query_text}")
                     else:
