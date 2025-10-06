@@ -62,16 +62,16 @@ echo 'setting CAIG_GRAPH_SERVICE_URL'
 [Environment]::SetEnvironmentVariable("CAIG_GRAPH_SERVICE_URL", "http://127.0.0.1", "User")
 
 echo 'setting CAIG_GRAPH_SOURCE_CONTAINER'
-[Environment]::SetEnvironmentVariable("CAIG_GRAPH_SOURCE_CONTAINER", "libraries", "User")
+[Environment]::SetEnvironmentVariable("CAIG_GRAPH_SOURCE_CONTAINER", "contracts", "User")
 
 echo 'setting CAIG_GRAPH_SOURCE_DB'
 [Environment]::SetEnvironmentVariable("CAIG_GRAPH_SOURCE_DB", "caig", "User")
 
 echo 'setting CAIG_GRAPH_SOURCE_OWL_FILENAME'
-[Environment]::SetEnvironmentVariable("CAIG_GRAPH_SOURCE_OWL_FILENAME", "ontologies/libraries.owl", "User")
+[Environment]::SetEnvironmentVariable("CAIG_GRAPH_SOURCE_OWL_FILENAME", "ontologies/contracts.owl", "User")
 
 echo 'setting CAIG_GRAPH_SOURCE_PATH'
-[Environment]::SetEnvironmentVariable("CAIG_GRAPH_SOURCE_PATH", "rdf/libraries-graph.nt", "User")
+[Environment]::SetEnvironmentVariable("CAIG_GRAPH_SOURCE_PATH", "rdf/contracts-graph.nt", "User")
 
 echo 'setting CAIG_GRAPH_SOURCE_TYPE'
 [Environment]::SetEnvironmentVariable("CAIG_GRAPH_SOURCE_TYPE", "cosmos_nosql", "User")

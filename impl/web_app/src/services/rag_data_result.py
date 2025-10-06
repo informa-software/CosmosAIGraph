@@ -19,9 +19,14 @@ class RAGDataResult:
         self.data["query"] = ""
         self.data["rag_docs"] = list()
         self.data["rag_doc_count"] = -1
+        self.execution_tracker = None  # Optional execution tracker
 
     def finish(self):
         self.data["rag_doc_count"] = len(self.data["rag_docs"])
+        # Add execution trace if tracker exists
+        if self.execution_tracker:
+            self.execution_tracker.finish()
+            self.data["execution_trace"] = self.execution_tracker.to_dict()
 
     def set_attr(self, attr_name, value):
         if attr_name is not None:
@@ -96,6 +101,14 @@ class RAGDataResult:
     def add_strategy(self, value):
         if value is not None:
             self.data["strategy"].append(str(value))
+
+    def set_execution_tracker(self, tracker):
+        """Set the execution tracker for this result"""
+        self.execution_tracker = tracker
+
+    def get_execution_tracker(self):
+        """Get the execution tracker"""
+        return self.execution_tracker
 
     def as_system_prompt_text(self):
         prompt_lines = list()
