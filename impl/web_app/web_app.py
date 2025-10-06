@@ -782,6 +782,16 @@ async def conv_ai_console_post(req: Request):
         if (LoggingLevelService.get_level() == logging.DEBUG):
             FS.write_json(rdr.get_data(), "tmp/ai_conv_rdr.json")
 
+            # Save execution trace if available
+            tracker = rdr.get_execution_tracker()
+            if tracker:
+                # Save ASCII visualization to file
+                ascii_trace = tracker.visualize_ascii()
+                logging.debug("\n" + ascii_trace)
+                FS.write(f"tmp/execution_trace_{int(time.time())}.txt", ascii_trace)
+                # Save structured trace data
+                FS.write_json(tracker.to_dict(), f"tmp/execution_trace_{int(time.time())}.json")
+
         completion: Optional[AiCompletion] = AiCompletion(conv.conversation_id, None)
         completion.set_user_text(user_text)
         completion.set_rag_strategy(rdr.get_strategy())
@@ -794,14 +804,8 @@ async def conv_ai_console_post(req: Request):
         if rdr.has_db_rag_docs() == True:
             for doc in rdr.get_rag_docs():
                 logging.debug("doc: {}".format(doc))
-                line_parts = list()
-                # TO DO - Should we include the filename in the contract_chunk in addition to the IQ ID?
-                for attr in ["id", "fileName", "text", "chunk_text"]:
-                    if attr in doc.keys():
-                        value = doc[attr].strip()
-                        if len(value) > 0:
-                            line_parts.append("{}: {}".format(attr, value))
-                content_lines.append(".  ".join(line_parts))
+                # For contracts, include ALL fields as JSON
+                content_lines.append(json.dumps(doc))
             
             # For DB RAG, set the context but don't set completion content yet
             conv.set_context(rdr.get_context())
