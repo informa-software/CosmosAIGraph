@@ -1,0 +1,407 @@
+{
+  "schema_version": "1.0",
+  "last_updated": "2025-10-03",
+  "database": "CosmosDB NoSQL",
+  "description": "Schema definition for contract intelligence system with multi-collection optimization",
+  "collections": {
+    "contracts": {
+      "description": "Main contract documents collection with vector embeddings",
+      "primary_key": "id",
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "description": "Unique contract identifier"
+        },
+        {
+          "name": "governing_law_state",
+          "type": "string",
+          "description": "State governing the contract (normalized: lowercase, underscores replace spaces)",
+          "example": "california"
+        },
+        {
+          "name": "contractor_party",
+          "type": "string",
+          "description": "Party performing the contract work (normalized: lowercase, special chars removed)",
+          "example": "microsoft"
+        },
+        {
+          "name": "contracting_party",
+          "type": "string",
+          "description": "Party initiating/requesting the contract (normalized: lowercase, special chars removed)",
+          "example": "acme_corp"
+        },
+        {
+          "name": "contract_type",
+          "type": "string",
+          "description": "Type of contract (normalized: lowercase)",
+          "example": "msa",
+          "valid_values": ["msa", "nda", "sow", "license", "service_agreement"]
+        },
+        {
+          "name": "effective_date",
+          "type": "string",
+          "description": "Contract effective date (ISO 8601 format)",
+          "example": "2023-01-15"
+        },
+        {
+          "name": "expiration_date",
+          "type": "string",
+          "description": "Contract expiration date (ISO 8601 format)",
+          "example": "2024-01-15"
+        },
+        {
+          "name": "maximum_contract_value",
+          "type": "number",
+          "description": "Maximum contract value in USD",
+          "example": 1000000.00
+        },
+        {
+          "name": "filename",
+          "type": "string",
+          "description": "Original contract document filename"
+        },
+        {
+          "name": "text",
+          "type": "string",
+          "description": "Full contract text content"
+        },
+        {
+          "name": "embedding",
+          "type": "array",
+          "description": "Vector embedding for semantic search (1536 dimensions)"
+        }
+      ],
+      "indexed_fields": [
+        "id",
+        "governing_law_state",
+        "contractor_party",
+        "contracting_party",
+        "contract_type",
+        "effective_date"
+      ],
+      "has_embeddings": true,
+      "supports": ["direct_query", "vector_search"],
+      "entity_references": {
+        "governing_law_state": "governing_law_states",
+        "contractor_party": "contractor_parties",
+        "contracting_party": "contracting_parties",
+        "contract_type": "contract_types"
+      }
+    },
+    "governing_law_states": {
+      "description": "Entity collection for US states with pre-computed contract aggregations",
+      "primary_key": "normalized_name",
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "description": "Same as normalized_name (required by CosmosDB)"
+        },
+        {
+          "name": "normalized_name",
+          "type": "string",
+          "description": "Normalized state name (lowercase, underscores)",
+          "example": "california"
+        },
+        {
+          "name": "display_name",
+          "type": "string",
+          "description": "Human-readable state name for UI display",
+          "example": "California"
+        },
+        {
+          "name": "contracts",
+          "type": "array",
+          "description": "Array of contract IDs governed by this state",
+          "element_type": "string"
+        },
+        {
+          "name": "contract_count",
+          "type": "number",
+          "description": "Pre-computed count of contracts (updated during ingestion)",
+          "example": 150
+        },
+        {
+          "name": "total_value",
+          "type": "number",
+          "description": "Pre-computed sum of contract values in USD",
+          "example": 25000000.00
+        }
+      ],
+      "indexed_fields": ["normalized_name", "display_name"],
+      "is_entity_collection": true,
+      "stats_fields": ["contract_count", "total_value"],
+      "supports": ["entity_first_lookup", "aggregation"]
+    },
+    "contractor_parties": {
+      "description": "Entity collection for contractor parties with pre-computed aggregations",
+      "primary_key": "normalized_name",
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "description": "Same as normalized_name (required by CosmosDB)"
+        },
+        {
+          "name": "normalized_name",
+          "type": "string",
+          "description": "Normalized party name (lowercase, special chars removed)",
+          "example": "microsoft"
+        },
+        {
+          "name": "display_name",
+          "type": "string",
+          "description": "Human-readable party name for UI display",
+          "example": "Microsoft Corporation"
+        },
+        {
+          "name": "contracts",
+          "type": "array",
+          "description": "Array of contract IDs performed by this party",
+          "element_type": "string"
+        },
+        {
+          "name": "contract_count",
+          "type": "number",
+          "description": "Pre-computed count of contracts",
+          "example": 45
+        },
+        {
+          "name": "total_value",
+          "type": "number",
+          "description": "Pre-computed sum of contract values in USD",
+          "example": 8500000.00
+        }
+      ],
+      "indexed_fields": ["normalized_name", "display_name"],
+      "is_entity_collection": true,
+      "stats_fields": ["contract_count", "total_value"],
+      "supports": ["entity_first_lookup", "aggregation"]
+    },
+    "contracting_parties": {
+      "description": "Entity collection for contracting parties with pre-computed aggregations",
+      "primary_key": "normalized_name",
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "description": "Same as normalized_name (required by CosmosDB)"
+        },
+        {
+          "name": "normalized_name",
+          "type": "string",
+          "description": "Normalized party name (lowercase, special chars removed)",
+          "example": "acme_corp"
+        },
+        {
+          "name": "display_name",
+          "type": "string",
+          "description": "Human-readable party name for UI display",
+          "example": "ACME Corporation"
+        },
+        {
+          "name": "contracts",
+          "type": "array",
+          "description": "Array of contract IDs initiated by this party",
+          "element_type": "string"
+        },
+        {
+          "name": "contract_count",
+          "type": "number",
+          "description": "Pre-computed count of contracts",
+          "example": 28
+        },
+        {
+          "name": "total_value",
+          "type": "number",
+          "description": "Pre-computed sum of contract values in USD",
+          "example": 5200000.00
+        }
+      ],
+      "indexed_fields": ["normalized_name", "display_name"],
+      "is_entity_collection": true,
+      "stats_fields": ["contract_count", "total_value"],
+      "supports": ["entity_first_lookup", "aggregation"]
+    },
+    "contract_types": {
+      "description": "Entity collection for contract types with pre-computed aggregations",
+      "primary_key": "normalized_name",
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "description": "Same as normalized_name (required by CosmosDB)"
+        },
+        {
+          "name": "normalized_name",
+          "type": "string",
+          "description": "Normalized contract type (lowercase)",
+          "example": "msa"
+        },
+        {
+          "name": "display_name",
+          "type": "string",
+          "description": "Human-readable contract type for UI display",
+          "example": "MSA"
+        },
+        {
+          "name": "contracts",
+          "type": "array",
+          "description": "Array of contract IDs of this type",
+          "element_type": "string"
+        },
+        {
+          "name": "contract_count",
+          "type": "number",
+          "description": "Pre-computed count of contracts of this type",
+          "example": 120
+        },
+        {
+          "name": "total_value",
+          "type": "number",
+          "description": "Pre-computed sum of contract values in USD",
+          "example": 18000000.00
+        }
+      ],
+      "indexed_fields": ["normalized_name", "display_name"],
+      "is_entity_collection": true,
+      "stats_fields": ["contract_count", "total_value"],
+      "supports": ["entity_first_lookup", "aggregation"]
+    },
+    "contract_chunks": {
+      "description": "Text chunks from contracts for vector search with embeddings",
+      "primary_key": "id",
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "description": "Unique chunk identifier"
+        },
+        {
+          "name": "parent_id",
+          "type": "string",
+          "description": "Parent contract ID reference"
+        },
+        {
+          "name": "text",
+          "type": "string",
+          "description": "Chunk text content (typically 500-1000 tokens)"
+        },
+        {
+          "name": "chunk_index",
+          "type": "number",
+          "description": "Sequential index of chunk within parent contract"
+        },
+        {
+          "name": "embedding",
+          "type": "array",
+          "description": "Vector embedding for semantic search (1536 dimensions)"
+        }
+      ],
+      "indexed_fields": ["id", "parent_id"],
+      "has_embeddings": true,
+      "supports": ["vector_search"],
+      "parent_collection": "contracts"
+    },
+    "contract_clauses": {
+      "description": "Extracted clauses from contracts with embeddings for clause-level search",
+      "primary_key": "id",
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "description": "Unique clause identifier"
+        },
+        {
+          "name": "contract_id",
+          "type": "string",
+          "description": "Parent contract ID reference"
+        },
+        {
+          "name": "clause_type",
+          "type": "string",
+          "description": "Type of clause extracted",
+          "example": "indemnification",
+          "valid_values": [
+            "indemnification",
+            "termination_obligations",
+            "limitation_of_liability_obligations",
+            "payment_obligations",
+            "confidentiality_obligations",
+            "compliance_obligations",
+            "warranty_obligations",
+            "service_level_agreement"
+          ]
+        },
+        {
+          "name": "text",
+          "type": "string",
+          "description": "Full clause text content"
+        },
+        {
+          "name": "embedding",
+          "type": "array",
+          "description": "Vector embedding for semantic search (1536 dimensions)"
+        }
+      ],
+      "indexed_fields": ["id", "contract_id", "clause_type"],
+      "has_embeddings": true,
+      "supports": ["direct_query", "vector_search"],
+      "parent_collection": "contracts"
+    }
+  },
+  "normalization_rules": {
+    "description": "Entity value normalization applied during ingestion and query processing",
+    "rules": [
+      "Convert to lowercase",
+      "Replace spaces with underscores",
+      "Remove special characters (except underscores)",
+      "Remove common business suffixes (LLC, Inc, Corp, Ltd, Co)"
+    ],
+    "examples": {
+      "California": "california",
+      "New York": "new_york",
+      "Microsoft Corporation": "microsoft",
+      "ACME Corp.": "acme",
+      "John's Company, LLC": "johns_company"
+    }
+  },
+  "query_strategies": {
+    "ENTITY_FIRST": {
+      "description": "Query entity collection first, then batch retrieve contracts by IDs",
+      "use_when": "Single positive entity, no negations, no OR lists",
+      "collections": ["governing_law_states", "contractor_parties", "contracting_parties", "contract_types"],
+      "ru_cost": "~2 RUs (very low)",
+      "example": "Show all contracts governed by California"
+    },
+    "CONTRACT_DIRECT": {
+      "description": "Direct SQL query on contracts collection with WHERE filters",
+      "use_when": "Multiple entities, negations, OR lists, complex filters",
+      "collections": ["contracts"],
+      "ru_cost": "~5-50 RUs (medium)",
+      "example": "Show contracts in California, Texas, or Florida but not with Microsoft"
+    },
+    "ENTITY_AGGREGATION": {
+      "description": "Use pre-computed stats from entity collections",
+      "use_when": "Count/sum queries on single entity",
+      "collections": ["governing_law_states", "contractor_parties", "contracting_parties", "contract_types"],
+      "ru_cost": "~1 RU (minimal)",
+      "example": "How many contracts are governed by California?"
+    },
+    "GRAPH_TRAVERSAL": {
+      "description": "SPARQL query on RDF graph for relationship queries",
+      "use_when": "Relationship keywords (between, connected, depends on, related to)",
+      "collections": ["graph_service"],
+      "ru_cost": "~10-100 RUs (variable)",
+      "example": "What contracts are related to Microsoft as contractor?"
+    },
+    "VECTOR_SEARCH": {
+      "description": "Semantic similarity search using vector embeddings",
+      "use_when": "Fuzzy matching, semantic search, fallback for complex queries",
+      "collections": ["contracts", "contract_chunks", "contract_clauses"],
+      "ru_cost": "~50-200 RUs (high)",
+      "example": "Find contracts similar to this clause text"
+    }
+  }
+}
