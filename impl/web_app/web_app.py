@@ -44,13 +44,11 @@ from src.services.ai_conversation import AiConversation
 from src.services.ai_service import AiService
 from src.services.cosmos_nosql_service import CosmosNoSQLService
 from src.services.config_service import ConfigService
-from src.services.entities_service import EntitiesService
 from src.services.contract_entities_service import ContractEntitiesService
 from src.services.contract_strategy_builder import ContractStrategyBuilder
 from src.services.logging_level_service import LoggingLevelService
 from src.services.ontology_service import OntologyService
 from src.services.rag_data_service import RAGDataService
-from src.services.strategy_builder import StrategyBuilder
 from src.services.rag_data_result import RAGDataResult
 from src.util.fs import FS
 from src.util.sparql_formatter import SparqlFormatter
@@ -118,23 +116,14 @@ async def lifespan(app: FastAPI):
         await nosql_svc.initialize()
         logging.error("FastAPI lifespan - CosmosNoSQLService initialized")
         
-        # Initialize entities based on graph mode
-        graph_mode = ConfigService.envvar("CAIG_GRAPH_MODE", "libraries").lower()
-        if graph_mode == "contracts":
-            await ContractEntitiesService.initialize()
-            entity_stats = ContractEntitiesService.get_statistics()
-            logging.error(
-                "FastAPI lifespan - ContractEntitiesService initialized, stats: {}".format(
-                    json.dumps(entity_stats)
-                )
+        # Initialize contract entities
+        await ContractEntitiesService.initialize()
+        entity_stats = ContractEntitiesService.get_statistics()
+        logging.error(
+            "FastAPI lifespan - ContractEntitiesService initialized, stats: {}".format(
+                json.dumps(entity_stats)
             )
-        else:
-            await EntitiesService.initialize()
-            logging.error(
-                "FastAPI lifespan - EntitiesService initialized, libraries_count: {}".format(
-                    EntitiesService.libraries_count()
-                )
-            )
+        )
         logging.error("ConfigService.graph_service_url():  {}".format(ConfigService.graph_service_url()))
         logging.error("ConfigService.graph_service_port(): {}".format(ConfigService.graph_service_port()))                  
                     
@@ -1387,14 +1376,6 @@ async def search_entities(
     - limit: max results (default 20)
     """
     try:
-        # Check if contracts mode is enabled
-        graph_mode = ConfigService.envvar("CAIG_GRAPH_MODE", "libraries").lower()
-        if graph_mode != "contracts":
-            return JSONResponse(
-                status_code=400,
-                content={"error": "Contract entities are only available in contracts mode"}
-            )
-        
         # If no query, return all entities grouped by type
         if not q or len(q.strip()) == 0:
             # Return all entities when no search query
@@ -1523,14 +1504,6 @@ async def get_entities(entity_type: str):
     Entity types: contractor_parties, contracting_parties, governing_laws, contract_types, clause_types
     """
     try:
-        # Check if contracts mode is enabled
-        graph_mode = ConfigService.envvar("CAIG_GRAPH_MODE", "libraries").lower()
-        if graph_mode != "contracts":
-            return JSONResponse(
-                status_code=400,
-                content={"error": "Contract entities are only available in contracts mode"}
-            )
-        
         # Map entity type to catalog method
         entity_methods = {
             "contractor_parties": ContractEntitiesService.get_contractor_parties_catalog,
@@ -1699,14 +1672,6 @@ async def get_contracts(
     Returns contract summaries for the workbench.
     """
     try:
-        # Check if we're in contracts mode
-        graph_mode = ConfigService.envvar("CAIG_GRAPH_MODE", "contracts").lower()
-        if graph_mode != "contracts":
-            return JSONResponse(
-                content={"error": "System not in contracts mode"},
-                status_code=400
-            )
-        
         # Query CosmosDB for contracts
         query = "SELECT * FROM c WHERE c.doctype = 'contract_parent'"
         params = []
@@ -1886,15 +1851,7 @@ async def contract_query(req: Request):
         question = data.get("question", "")
         filters = data.get("filters", {})
         selected_contracts = data.get("selected_contracts", [])
-        
-        # Check if we're in contracts mode
-        graph_mode = ConfigService.envvar("CAIG_GRAPH_MODE", "libraries").lower()
-        if graph_mode != "contracts":
-            return JSONResponse(
-                content={"error": "System not in contracts mode"},
-                status_code=400
-            )
-        
+
         # Use ContractStrategyBuilder to determine query strategy
         strategy_builder = ContractStrategyBuilder(question)
         strategy = strategy_builder.get_strategy()
