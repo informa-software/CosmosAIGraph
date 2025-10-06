@@ -16,12 +16,11 @@ import java.util.Map;
 
 /**
  * This class builds RDF triples from Contract documents stored in CosmosDB.
- * It follows the same pattern as LibrariesGraphTriplesBuilder but for contracts domain.
- * 
+ *
  * The AppGraphBuilder creates an instance of this class at application startup
  * and invokes the "ingestDocument(...)" method for each graph source document read
  * from Azure Cosmos DB.
- * 
+ *
  * Chris Joakim, Microsoft, 2025
  */
 public class ContractsGraphTriplesBuilder {

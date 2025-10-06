@@ -696,11 +696,11 @@ public class AppGraph {
     /**
      * This method can be invoked after the initial graph load in class AppGraphBuilder.
      * The given Array of objects must be in the same structure as the Cosmos DB source
-     * documents as the same LibrariesGraphTriplesBuilder class is used to load these docs.
+     * documents as the same ContractsGraphTriplesBuilder class is used to load these docs.
      * Typical use of this method is from the Cosmos DB Change Feed.
      */
     public synchronized AddDocumentsResponse addDocuments(ArrayList<Map<String, Object>> documents) {
-        LibrariesGraphTriplesBuilder triplesBuilder = new LibrariesGraphTriplesBuilder(this);
+        ContractsGraphTriplesBuilder triplesBuilder = new ContractsGraphTriplesBuilder(this);
         AddDocumentsResponse response = new AddDocumentsResponse();
 
         if (documents != null) {

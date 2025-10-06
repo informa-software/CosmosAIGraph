@@ -4,7 +4,7 @@ import org.apache.jena.rdf.model.* ;
 
 /**
  * Example of how to define a custom RDF Vocabulary, in this case for the Caig (CosmosAIGraph)
- * reference implementation.  See the alternative implementation in LibrariesGraphTriplesBuilder.
+ * reference implementation.  See the alternative implementation in ContractsGraphTriplesBuilder.
  * Chris Joakim, Microsoft, 2025
  */
 public class Caig extends Object {
