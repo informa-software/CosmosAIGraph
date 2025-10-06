@@ -137,9 +137,7 @@ pytest -v --cov=src/ --cov-report html tests/
 ```
 
 #### Entity Initialization
-The web app automatically initializes the appropriate entity service based on `CAIG_GRAPH_MODE`:
-- `libraries` mode: Uses `EntitiesService` for library entities
-- `contracts` mode: Uses `ContractEntitiesService` for contract entities
+The web app automatically initializes `ContractEntitiesService` for contract entity management at startup.
 
 #### Contract Data Loading
 ```bash
@@ -172,7 +170,6 @@ docker compose -f docker-compose.yml down
 
 ### Key Environment Variables
 - `CAIG_GRAPH_SOURCE_TYPE`: One of `cosmos_nosql`, `rdf_file`, or `json_docs_file`
-- `CAIG_GRAPH_MODE`: Either `libraries` (default) or `contracts`
 - `CAIG_COSMOSDB_NOSQL_URI`: Azure CosmosDB endpoint
 - `CAIG_COSMOSDB_NOSQL_KEY`: CosmosDB access key
 - `CAIG_AZURE_OPENAI_URL`: Azure OpenAI endpoint
@@ -187,7 +184,6 @@ docker compose -f docker-compose.yml down
 - **AppGraphBuilder**: Factory for building graph from CosmosDB, RDF files, or JSON documents
 - **GraphRestController**: REST endpoints for SPARQL queries and graph operations
 - **Triple Builders**:
-  - `LibrariesGraphTriplesBuilder`: For PyPi library relationships (default)
   - `ContractsGraphTriplesBuilder`: For contract/contractor/governing law relationships
 - **Data Sources**: 
   - `cosmos_nosql`: Live CosmosDB connection
@@ -199,7 +195,7 @@ docker compose -f docker-compose.yml down
 - **CosmosNoSQLService**: CosmosDB client for document operations and vector search
 - **RAGDataService**: RAG (Retrieval Augmented Generation) orchestration
 - **AiConversation**: Conversation state management with context
-- **EntitiesService**: Entity extraction and processing
+- **ContractEntitiesService**: Contract entity extraction and processing
 - **OntologyService**: OWL ontology management and SPARQL generation
 
 ### API Endpoints
@@ -262,12 +258,12 @@ docker compose -f docker-compose.yml down
 ### Common Development Tasks
 
 #### Add New RDF Triples
-1. Update ontology in `ontologies/libraries.owl`
-2. Add triples to `rdf/libraries-graph.nt` or via SPARQL UPDATE
+1. Update ontology in `ontologies/contracts.owl`
+2. Add triples via SPARQL UPDATE or reload from data source
 3. Reload graph via endpoint or restart service
 
 #### Update Vector Index Policy
-1. Modify policy in `web_app/config/cosmosdb_nosql_libraries_index_policy*.json`
+1. Modify policy in `web_app/config/cosmosdb_nosql_contract_parents_index_policy*.json`
 2. Apply to CosmosDB container via Azure Portal or CLI
 3. Restart web app to use new policy
 

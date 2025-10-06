@@ -36,7 +36,6 @@ public class AppConfig {
     public static final String CAIG_GRAPH_NAMESPACE               = "CAIG_GRAPH_NAMESPACE";
     public static final String CAIG_GRAPH_DUMP_UPON_BUILD         = "CAIG_GRAPH_DUMP_UPON_BUILD";
     public static final String CAIG_GRAPH_DUMP_OUTFILE            = "CAIG_GRAPH_DUMP_OUTFILE";
-    public static final String CAIG_GRAPH_MODE                    = "CAIG_GRAPH_MODE";
 
     public static final String[] DEFINED_ENVIRONMENT_VARIABLES = {
             CAIG_COSMOSDB_NOSQL_ACCT,
@@ -50,8 +49,7 @@ public class AppConfig {
             CAIG_GRAPH_SOURCE_PATH,
             CAIG_GRAPH_NAMESPACE,
             CAIG_GRAPH_DUMP_UPON_BUILD,
-            CAIG_GRAPH_DUMP_OUTFILE,
-            CAIG_GRAPH_MODE
+            CAIG_GRAPH_DUMP_OUTFILE
     };
 
     private static Properties overrideProperties = new Properties();
@@ -188,11 +186,6 @@ public class AppConfig {
 
     public static String getGraphDumpOutfile() {
         return getEnvVar(CAIG_GRAPH_DUMP_OUTFILE, null);
-    }
-
-    public static String getGraphMode() {
-        // Returns "contracts" or "libraries" (default)
-        return getEnvVar(CAIG_GRAPH_MODE, "libraries");
     }
 
     public static String graphNamespace() {

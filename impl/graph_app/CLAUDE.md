@@ -61,9 +61,6 @@ gradle consoleAppPostSparqlAddDocuments
    - **CAIG_GRAPH_SOURCE_TYPE**: One of `cosmos_nosql`, `rdf_file`, or `json_docs_file`
    - **CAIG_COSMOSDB_NOSQL_URI**: Your CosmosDB URI (if using cosmos_nosql)
    - **CAIG_COSMOSDB_NOSQL_KEY**: Your CosmosDB key (if using cosmos_nosql)
-   - **CAIG_GRAPH_MODE**: Either `libraries` (default) or `contracts`
-   
-   For contracts mode:
    - **CAIG_GRAPH_SOURCE_DB**: Database name (e.g., `caig`)
    - **CAIG_GRAPH_SOURCE_CONTAINER**: Container name (e.g., `contracts`)
    - **CAIG_GRAPH_SOURCE_OWL_FILENAME**: Path to ontology (e.g., `ontologies/contracts.owl`)
