@@ -10,6 +10,8 @@ from src.services.cosmos_nosql_service import CosmosNoSQLService
 from src.services.config_service import ConfigService
 from src.services.contract_strategy_builder import ContractStrategyBuilder
 from src.services.ontology_service import OntologyService
+from src.services.query_optimizer import QueryOptimizer, QueryStrategy
+from src.services.query_execution_tracker import QueryExecutionTracker, ExecutionStatus
 from src.services.rag_data_result import RAGDataResult
 from src.util.cosmos_doc_filter import CosmosDocFilter
 from src.util.sparql_query_response import SparqlQueryResponse
@@ -45,7 +47,8 @@ class RAGDataService:
         except Exception as e:
             logging.critical("Exception in RagDataService#__init__: {}".format(str(e)))
 
-    async def get_rag_data(self, user_text, max_doc_count=10, strategy_override: Optional[str] = None) -> RAGDataResult:
+    async def get_rag_data(self, user_text, max_doc_count=10, strategy_override: Optional[str] = None,
+                          enable_tracking: bool = True) -> RAGDataResult:
         """
         Return a RAGDataResult object which contains an array of documents to
         be used as a system prompt of a completion call to Azure OpenAI.
@@ -70,6 +73,13 @@ class RAGDataService:
         rdr.add_strategy(strategy)
         rdr.set_context(strategy_obj["name"])
 
+        # Initialize execution tracker if enabled
+        if enable_tracking:
+            # Get LLM plan from strategy dict (if available from Phase 1)
+            llm_plan = strategy_obj.get("llm_plan") if isinstance(strategy_obj, dict) else None
+            tracker = QueryExecutionTracker(user_text, strategy, llm_plan)
+            rdr.set_execution_tracker(tracker)
+
         if strategy == "db":
             name = strategy_obj.get("name", "")
             rdr.set_attr("name", name)
@@ -79,7 +89,7 @@ class RAGDataService:
                 await self.get_vector_rag_data(user_text, rdr, max_doc_count)
 
         elif strategy == "graph":
-            await self.get_graph_rag_data(user_text, rdr, max_doc_count)
+            await self.get_graph_rag_data(user_text, strategy_obj, rdr, max_doc_count)
             if rdr.has_no_docs():
                 rdr.add_strategy("vector")
                 await self.get_vector_rag_data(user_text, rdr, max_doc_count)
@@ -99,6 +109,104 @@ class RAGDataService:
             )
             
             self.nosql_svc.set_db(ConfigService.graph_source_db())
+
+            # Get execution tracker
+            tracker = rdr.get_execution_tracker()
+
+            # Check if we should use LLM execution (Phase 3)
+            llm_plan = strategy_obj.get("llm_plan")
+            llm_execution_mode = ConfigService.envvar("CAIG_LLM_EXECUTION_MODE", "comparison_only").lower()
+
+            should_use_llm = False
+            if llm_plan and llm_execution_mode == "execution":
+                # Always use LLM in execution mode (if valid)
+                should_use_llm = (llm_plan.get("validation_status") == "valid" and
+                                 llm_plan.get("confidence", 0.0) >= 0.5)
+            elif llm_plan and llm_execution_mode == "a_b_test":
+                # A/B testing: randomly choose LLM or rule-based
+                import random
+                should_use_llm = (random.random() < 0.5 and
+                                 llm_plan.get("validation_status") == "valid" and
+                                 llm_plan.get("confidence", 0.0) >= 0.5)
+
+            # Execute LLM-generated query if enabled and valid
+            if should_use_llm:
+                try:
+                    logging.info(f"Using LLM execution path (mode: {llm_execution_mode})")
+                    rag_docs_list = await self._execute_llm_query(llm_plan, max_doc_count, tracker, rdr)
+
+                    # If LLM execution succeeded, add docs and return
+                    if rag_docs_list is not None:
+                        logging.info(f"LLM execution returned {len(rag_docs_list)} documents")
+                        for doc in rag_docs_list[:max_doc_count]:
+                            doc_copy = dict(doc)
+                            doc_copy.pop("embedding", None)
+                            rdr.add_doc(doc_copy)
+                        return
+                    else:
+                        logging.warning("LLM execution returned None, falling back to rule-based")
+
+                except Exception as e:
+                    logging.warning(f"LLM execution failed: {str(e)}, falling back to rule-based")
+                    if tracker:
+                        tracker.fallback_count += 1
+
+            # Check if we have optimal path from QueryOptimizer (rule-based)
+            optimal_path = strategy_obj.get("optimal_path")
+
+            if optimal_path:
+                logging.info(f"Using optimized query path: {optimal_path.get('strategy')}, {optimal_path.get('explanation')}")
+
+                # Handle different query strategies
+                if optimal_path.get("strategy") == QueryStrategy.ENTITY_FIRST:
+                    # Query entity collection first, then get contracts
+                    rag_docs_list = await self._handle_entity_first_query(optimal_path, max_doc_count, tracker)
+
+                elif optimal_path.get("strategy") == QueryStrategy.ENTITY_AGGREGATION:
+                    # Get aggregated data from entity collection
+                    aggregate_result = await self._handle_aggregation_query(optimal_path, tracker)
+                    if aggregate_result:
+                        rag_docs_list = [aggregate_result]
+
+                elif optimal_path.get("strategy") == QueryStrategy.CONTRACT_DIRECT:
+                    # Direct query on contracts with filters
+                    filter_dict = optimal_path.get("filter", {})
+                    if filter_dict and tracker:
+                        step = tracker.start_step(
+                            "Direct Contract Query",
+                            "CONTRACT_DIRECT",
+                            "contracts"
+                        )
+                        try:
+                            # Build SQL query for tracking
+                            where_clauses = [f"c.{field} = '{value}'" for field, value in filter_dict.items()]
+                            where_clause = " AND ".join(where_clauses) if where_clauses else "1=1"
+                            sql_query = f"SELECT TOP {max_doc_count} * FROM c WHERE {where_clause}"
+
+                            rag_docs_list = await self.nosql_svc.query_contracts_with_filter(
+                                filter_dict, max_doc_count
+                            )
+                            tracker.complete_step(
+                                step, ExecutionStatus.SUCCESS,
+                                ru_cost=5.0, docs_found=len(rag_docs_list),
+                                metadata={'filter': filter_dict, 'sql': sql_query}
+                            )
+                        except Exception as e:
+                            if tracker:
+                                tracker.complete_step(step, ExecutionStatus.FAILED, error=str(e))
+                            raise
+                    elif filter_dict:
+                        rag_docs_list = await self.nosql_svc.query_contracts_with_filter(
+                            filter_dict, max_doc_count
+                        )
+
+                # If optimal path handled the query, add docs and return
+                if rag_docs_list:
+                    for doc in rag_docs_list[:max_doc_count]:
+                        doc_copy = dict(doc)
+                        doc_copy.pop("embedding", None)
+                        rdr.add_doc(doc_copy)
+                    return
             
             # Check if we have a specific contract ID
             if "contract_id" in strategy_obj:
@@ -211,16 +319,38 @@ class RAGDataService:
             logging.exception(e, stack_info=True, exc_info=True)
 
     async def get_graph_rag_data(
-        self, user_text, rdr: RAGDataResult, max_doc_count=10
+        self, user_text, strategy_obj: dict, rdr: RAGDataResult, max_doc_count=10
     ) -> None:
+        tracker = rdr.get_execution_tracker()
+        step = None
         try:
             logging.warning(
                 "RagDataService#get_graph_rag_data, user_text: {}".format(user_text)
             )
+
+            # Track SPARQL generation
+            if tracker:
+                step = tracker.start_step(
+                    "SPARQL Query Generation & Execution",
+                    "GRAPH_TRAVERSAL",
+                    "graph"
+                )
+
             # first generate and execute the SPARQL query vs the in-memory RDF graph
             info = dict()
             info["natural_language"] = user_text
             info["owl"] = OntologyService().get_owl_content()
+
+            # Include negation information if available to help SPARQL generation
+            negations = strategy_obj.get("negations", {})
+            if any(negations.values()):
+                negation_hints = []
+                for entity_type, negated_entities in negations.items():
+                    for entity in negated_entities:
+                        negation_hints.append(f"EXCLUDE {entity_type}: {entity.get('display_name')}")
+                info["negations"] = " | ".join(negation_hints)
+                logging.info(f"Adding negation hints to SPARQL generation: {info['negations']}")
+
             sparql = self.ai_svc.generate_sparql_from_user_prompt(info)["sparql"]
             rdr.set_sparql(sparql)
             logging.warning("get_graph_rag_data - sparql:\n{}".format(sparql))
@@ -231,12 +361,26 @@ class RAGDataService:
                 sqr.response_obj,
                 "tmp/get_graph_rag_data_get_graph_rag_data_response_obj.json",
             )
+
+            docs_found = 0
             for doc in sqr.binding_values():
                 doc_copy = dict(doc)  # shallow copy
                 doc_copy.pop("embedding", None)
                 rdr.add_doc(doc_copy)
+                docs_found += 1
+
+            # Track success
+            if tracker and step:
+                tracker.complete_step(
+                    step, ExecutionStatus.SUCCESS,
+                    ru_cost=10.0, docs_found=docs_found,
+                    metadata={'sparql': sparql}
+                )
             FS.write_json(rdr.get_data(), "tmp/rdr.json")
         except Exception as e:
+            # Track failure
+            if tracker and step:
+                tracker.complete_step(step, ExecutionStatus.FAILED, error=str(e))
             logging.critical(
                 "Exception in RagDataService#get_graph_rag_data: {}".format(str(e))
             )
@@ -272,6 +416,253 @@ class RAGDataService:
         return "{}:{}/sparql_query".format(
             ConfigService.graph_service_url(), ConfigService.graph_service_port()
         )
+
+    async def _execute_llm_query(self, llm_plan: dict, max_count: int, tracker=None, rdr=None) -> Optional[list]:
+        """
+        Execute LLM-generated query plan.
+
+        Args:
+            llm_plan: LLM query plan dict with query_text, query_type, etc.
+            max_count: Maximum number of documents to return
+            tracker: Execution tracker for logging
+            rdr: RAGDataResult for strategy tracking
+
+        Returns:
+            List of documents or None if execution failed
+        """
+        from src.services.llm_query_planner import LLMQueryPlan
+        from src.services.llm_query_executor import LLMQueryExecutor
+        from src.services.query_execution_tracker import ExecutionStatus
+        import time
+
+        try:
+            # Convert dict back to LLMQueryPlan object
+            plan_obj = LLMQueryPlan(
+                strategy=llm_plan.get("strategy"),
+                fallback_strategy=llm_plan.get("fallback_strategy", "VECTOR_SEARCH"),
+                query_type=llm_plan.get("query_type"),
+                query_text=llm_plan.get("query_text"),
+                execution_plan=llm_plan.get("execution_plan", {}),
+                confidence=llm_plan.get("confidence", 0.0),
+                reasoning=llm_plan.get("reasoning", ""),
+                raw_response={}
+            )
+
+            # Create executor with services
+            executor = LLMQueryExecutor(
+                cosmos_service=self.nosql_svc,
+                ontology_service=self.ontology_svc if hasattr(self, 'ontology_svc') else None
+            )
+
+            # Track LLM execution step
+            step = None
+            if tracker:
+                step = tracker.start_step(
+                    f"LLM {plan_obj.query_type} Query",
+                    plan_obj.strategy,
+                    plan_obj.execution_plan.get("collection", "contracts")
+                )
+
+            # Execute the query
+            result = await executor.execute_plan(plan_obj)
+
+            # Complete tracking step
+            if tracker and step:
+                if result.success:
+                    tracker.complete_step(
+                        step,
+                        ExecutionStatus.SUCCESS,
+                        ru_cost=result.ru_cost,
+                        docs_found=len(result.documents),
+                        metadata={
+                            'query_type': plan_obj.query_type,
+                            'query': result.executed_query,
+                            'confidence': plan_obj.confidence,
+                            'reasoning': plan_obj.reasoning[:100] if plan_obj.reasoning else ""
+                        }
+                    )
+                else:
+                    tracker.complete_step(
+                        step,
+                        ExecutionStatus.FAILED,
+                        error=result.error_message
+                    )
+
+            # Update strategy in rdr
+            if rdr and result.success:
+                strategy_map = {
+                    "ENTITY_FIRST": "db",
+                    "CONTRACT_DIRECT": "db",
+                    "ENTITY_AGGREGATION": "db",
+                    "GRAPH_TRAVERSAL": "graph",
+                    "VECTOR_SEARCH": "vector"
+                }
+                mapped_strategy = strategy_map.get(plan_obj.strategy, "db")
+                rdr.add_strategy(mapped_strategy)
+
+            # Return documents if successful
+            if result.success:
+                logging.info(f"LLM execution succeeded: {len(result.documents)} docs, "
+                           f"{result.ru_cost:.1f} RUs")
+                return result.documents
+            else:
+                logging.warning(f"LLM execution failed: {result.error_message}")
+                return None
+
+        except Exception as e:
+            logging.error(f"Error executing LLM query: {str(e)}")
+            if tracker and step:
+                tracker.complete_step(step, ExecutionStatus.FAILED, error=str(e))
+            return None
+
+    async def _handle_entity_first_query(self, optimal_path: dict, max_count: int, tracker=None) -> list:
+        """Handle entity-first query strategy"""
+        try:
+            entity_info = optimal_path.get("entity_info", {})
+            collection = optimal_path.get("collection")
+
+            if not entity_info or not collection:
+                return []
+
+            # Track Step 1: Entity Collection Query
+            step1 = None
+            entity_sql = None
+            if tracker:
+                step1 = tracker.start_step(
+                    "Entity Collection Query",
+                    "ENTITY_FIRST",
+                    collection
+                )
+                # Build SQL for tracking
+                entity_sql = f"SELECT * FROM c WHERE c.normalized_name = '{entity_info.get('value')}'"
+
+            # Get entity document
+            entity_doc = await self.nosql_svc.get_entity_document(
+                collection, entity_info.get("value")
+            )
+
+            if not entity_doc:
+                logging.warning(f"Entity not found: {entity_info}")
+                if tracker and step1:
+                    tracker.complete_step(
+                        step1, ExecutionStatus.FAILED,
+                        ru_cost=1.0, docs_found=0,
+                        error="Entity not found",
+                        metadata={'key': entity_info.get("value"), 'sql': entity_sql}
+                    )
+                return []
+
+            # Get contract IDs from entity
+            contract_ids = entity_doc.get("contracts", [])
+
+            if tracker and step1:
+                tracker.complete_step(
+                    step1, ExecutionStatus.SUCCESS,
+                    ru_cost=1.0, docs_found=1,
+                    metadata={
+                        'key': entity_info.get("value"),
+                        'contract_count': len(contract_ids),
+                        'sql': entity_sql
+                    }
+                )
+
+            if not contract_ids:
+                logging.info(f"No contracts found for entity: {entity_info.get('display_name')}")
+                return []
+
+            # Track Step 2: Batch Contract Retrieval
+            step2 = None
+            if tracker:
+                step2 = tracker.start_step(
+                    "Batch Contract Retrieval",
+                    "ENTITY_FIRST",
+                    "contracts"
+                )
+
+            # Batch retrieve contracts
+            contracts = await self.nosql_svc.batch_get_contracts(contract_ids, max_count)
+
+            if tracker and step2:
+                tracker.complete_step(
+                    step2, ExecutionStatus.SUCCESS,
+                    ru_cost=len(contracts) * 1.0,
+                    docs_found=len(contracts),
+                    metadata={'method': 'Batch Read', 'ids': contract_ids[:5]}
+                )
+
+            logging.info(f"Entity-first query returned {len(contracts)} contracts")
+            return contracts
+
+        except Exception as e:
+            logging.error(f"Error in entity-first query: {str(e)}")
+            if tracker and step1:
+                tracker.complete_step(step1, ExecutionStatus.FAILED, error=str(e))
+            return []
+    
+    async def _handle_aggregation_query(self, optimal_path: dict, tracker=None) -> dict:
+        """Handle aggregation query using entity statistics"""
+        step = None
+        try:
+            entity_info = optimal_path.get("entity_info", {})
+            collection = optimal_path.get("collection")
+            agg_type = optimal_path.get("aggregation_type", "count")
+
+            if not entity_info or not collection:
+                return {}
+
+            # Track aggregation query
+            if tracker:
+                step = tracker.start_step(
+                    "Entity Aggregate Query",
+                    "ENTITY_AGGREGATION",
+                    collection
+                )
+
+            # Get aggregated statistics
+            result = await self.nosql_svc.get_entity_aggregates(
+                collection, entity_info.get("value"), agg_type
+            )
+
+            # Format as document for RAG
+            if result:
+                formatted = {
+                    "id": f"aggregate_{entity_info.get('value')}",
+                    "type": "aggregation",
+                    "entity": entity_info.get("display_name"),
+                    "aggregation_type": agg_type,
+                    "value": result.get("value"),
+                    "explanation": f"{entity_info.get('display_name')} has {result.get('value')} contracts"
+                    if agg_type == "count" else
+                    f"Total value for {entity_info.get('display_name')}: ${result.get('value'):,.2f}"
+                }
+
+                if tracker and step:
+                    tracker.complete_step(
+                        step, ExecutionStatus.SUCCESS,
+                        ru_cost=1.0, docs_found=1,
+                        metadata={
+                            'key': entity_info.get("value"),
+                            'aggregation': agg_type,
+                            'value': result.get("value")
+                        }
+                    )
+
+                return formatted
+
+            if tracker and step:
+                tracker.complete_step(
+                    step, ExecutionStatus.FAILED,
+                    ru_cost=1.0, docs_found=0,
+                    error="No aggregates found"
+                )
+
+            return {}
+
+        except Exception as e:
+            logging.error(f"Error in aggregation query: {str(e)}")
+            if tracker and step:
+                tracker.complete_step(step, ExecutionStatus.FAILED, error=str(e))
+            return {}
 
     # def _parse_sparql_rag_query_results(self, sparql_query_results):
     #     libtype_name_pairs = list()

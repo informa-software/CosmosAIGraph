@@ -2,6 +2,7 @@ import json
 import logging
 import traceback
 import uuid
+from typing import Dict, List
 
 from azure.cosmos.aio import CosmosClient
 from azure.cosmos.aio._database import DatabaseProxy
@@ -652,3 +653,178 @@ class CosmosNoSQLService:
             return self._ctrproxy.client_connection.last_response_headers[header]
         except:
             return None
+    
+    async def get_entity_document(self, collection: str, entity_id: str) -> Dict:
+        """
+        Retrieve a single entity document from an entity collection.
+        
+        Args:
+            collection: Name of the entity collection 
+            entity_id: Normalized name/ID of the entity
+        
+        Returns:
+            Entity document with contract list and statistics
+        """
+        try:
+            # Save current container
+            curr_container = self._cname
+            
+            # Switch to entity collection
+            self.set_container(collection)
+            
+            # Query for the entity
+            sql = f"SELECT * FROM c WHERE c.normalized_name = '{entity_id}'"
+
+            logging.info(f"Executing entity query: {sql}")
+
+            docs = []
+            items_paged = self._ctrproxy.query_items(query=sql, parameters=[])
+            async for item in items_paged:
+                docs.append(item)
+
+            # Restore original container
+            self.set_container(curr_container)
+
+            if docs:
+                logging.info(f"Retrieved entity from {collection}: {entity_id}")
+                return docs[0]
+            else:
+                logging.warning(f"Entity not found in {collection}: {entity_id}")
+                return {}
+                
+        except Exception as e:
+            logging.error(f"Error retrieving entity from {collection}: {str(e)}")
+            return {}
+    
+    async def batch_get_contracts(self, contract_ids: List[str], max_count: int = 100) -> List[Dict]:
+        """
+        Batch retrieve contracts by their IDs.
+        More efficient than individual queries.
+        
+        Args:
+            contract_ids: List of contract IDs to retrieve
+            max_count: Maximum number of contracts to return
+        
+        Returns:
+            List of contract documents
+        """
+        try:
+            if not contract_ids:
+                return []
+            
+            # Limit to max_count
+            ids_to_fetch = contract_ids[:max_count]
+            
+            # Save current container
+            curr_container = self._cname
+            
+            # Switch to contracts container
+            self.set_container("contracts")
+            
+            # Build batch query
+            quoted_ids = [f"'{cid}'" for cid in ids_to_fetch]
+            sql = f"SELECT * FROM c WHERE c.id IN ({','.join(quoted_ids)})"
+            
+            docs = []
+            items_paged = self._ctrproxy.query_items(query=sql, parameters=[])
+            async for item in items_paged:
+                cdf = CosmosDocFilter(item)
+                docs.append(cdf.filter_out_embedding())
+            
+            # Restore original container
+            self.set_container(curr_container)
+            
+            logging.info(f"Batch retrieved {len(docs)} contracts")
+            return docs
+            
+        except Exception as e:
+            logging.error(f"Error in batch contract retrieval: {str(e)}")
+            return []
+    
+    async def get_entity_aggregates(self, collection: str, entity_id: str, 
+                                   aggregate_type: str = "count") -> Dict:
+        """
+        Get aggregated statistics from an entity collection.
+        
+        Args:
+            collection: Name of the entity collection
+            entity_id: Normalized name/ID of the entity  
+            aggregate_type: Type of aggregation (count, sum, average)
+        
+        Returns:
+            Dictionary with aggregation results
+        """
+        try:
+            entity_doc = await self.get_entity_document(collection, entity_id)
+            
+            if not entity_doc:
+                return {"value": 0, "type": aggregate_type}
+            
+            result = {"entity": entity_id, "type": aggregate_type}
+            
+            if aggregate_type == "count":
+                result["value"] = entity_doc.get("contract_count", 0)
+            elif aggregate_type == "sum":
+                result["value"] = entity_doc.get("total_value", 0.0)
+            elif aggregate_type == "average":
+                count = entity_doc.get("contract_count", 0)
+                total = entity_doc.get("total_value", 0.0)
+                result["value"] = total / count if count > 0 else 0.0
+            else:
+                result["value"] = 0
+            
+            return result
+            
+        except Exception as e:
+            logging.error(f"Error getting aggregates from {collection}: {str(e)}")
+            return {"value": 0, "type": aggregate_type, "error": str(e)}
+    
+    async def query_contracts_with_filter(self, filter_dict: Dict, max_count: int = 100) -> List[Dict]:
+        """
+        Query contracts with multiple filter criteria.
+        
+        Args:
+            filter_dict: Dictionary of field:value pairs to filter on
+            max_count: Maximum number of contracts to return
+        
+        Returns:
+            List of contract documents matching all filters
+        """
+        try:
+            # Save current container
+            curr_container = self._cname
+            
+            # Switch to contracts container
+            self.set_container("contracts")
+            
+            # Build WHERE clause from filters
+            where_clauses = []
+            for field, value in filter_dict.items():
+                # Handle negation filters (marked with $ne operator)
+                if isinstance(value, dict) and "$ne" in value:
+                    negated_value = value["$ne"]
+                    where_clauses.append(f"c.{field} != '{negated_value}'")
+                else:
+                    # Regular equality filter
+                    where_clauses.append(f"c.{field} = '{value}'")
+
+            where_clause = " AND ".join(where_clauses) if where_clauses else "1=1"
+            sql = f"SELECT TOP {max_count} * FROM c WHERE {where_clause}"
+
+            logging.info(f"Executing SQL query: {sql}")
+
+            docs = []
+            items_paged = self._ctrproxy.query_items(query=sql, parameters=[])
+            async for item in items_paged:
+                cdf = CosmosDocFilter(item)
+                docs.append(cdf.filter_out_embedding())
+
+            # Restore original container
+            self.set_container(curr_container)
+
+            logging.info(f"Filter query returned {len(docs)} contracts")
+            return docs
+            
+        except Exception as e:
+            logging.error(f"Error in filtered contract query: {str(e)}")
+            return []
