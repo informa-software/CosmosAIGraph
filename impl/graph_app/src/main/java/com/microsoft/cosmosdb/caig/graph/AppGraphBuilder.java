@@ -201,23 +201,13 @@ public class AppGraphBuilder {
             ArrayList<Map<String, Object>>  documents = fileUtil.readJsonMapArray(infile);
             logger.warn("populateFromJsonDocsFile, documents read: " + documents.size());
 
-            // Check if we're in contracts mode
-            String graphMode = AppConfig.getGraphMode();
-            if ("contracts".equalsIgnoreCase(graphMode)) {
-                ContractsGraphTriplesBuilder triplesBuilder = new ContractsGraphTriplesBuilder(g);
-                for (int i = 0; i < documents.size(); i++) {
-                    Map<String, Object> doc = documents.get(i);
-                    triplesBuilder.ingestDocument(doc);
-                }
-                logger.warn("documentsIngested (contracts): " + triplesBuilder.getDocumentsIngested());
-            } else {
-                LibrariesGraphTriplesBuilder triplesBuilder = new LibrariesGraphTriplesBuilder(g);
-                for (int i = 0; i < documents.size(); i++) {
-                    Map<String, Object> doc = documents.get(i);
-                    triplesBuilder.ingestDocument(doc);
-                }
-                logger.warn("documentsIngested (libraries): " + triplesBuilder.getDocumentsIngested());
+            // Build contracts graph from documents
+            ContractsGraphTriplesBuilder triplesBuilder = new ContractsGraphTriplesBuilder(g);
+            for (int i = 0; i < documents.size(); i++) {
+                Map<String, Object> doc = documents.get(i);
+                triplesBuilder.ingestDocument(doc);
             }
+            logger.warn("documentsIngested: " + triplesBuilder.getDocumentsIngested());
         }
         catch (Exception e) {
             e.printStackTrace();
@@ -236,16 +226,11 @@ public class AppGraphBuilder {
         String sql = cosmosdbSourceSqlQuery();
         AtomicLong docCounter = new AtomicLong(0);
         ArrayList<Map> allDocuments = new ArrayList<>();
-        
-        // Check if we're in contracts mode
-        String graphMode = AppConfig.getGraphMode();
-        boolean isContractsMode = "contracts".equalsIgnoreCase(graphMode);
-        
+
         logger.warn("populateFromCosmosDbNoSQL, uri: " + uri);
         logger.warn("populateFromCosmosDbNoSQL, key: " + key);
         logger.warn("populateFromCosmosDbNoSQL, dbname: " + dbname);
         logger.warn("populateFromCosmosDbNoSQL, cname:  " + cname);
-        logger.warn("populateFromCosmosDbNoSQL, mode: " + (isContractsMode ? "contracts" : "libraries"));
 
         CosmosAsyncClient cosmosAsyncClient = new CosmosClientBuilder()
                 .endpoint(uri)
@@ -287,36 +272,19 @@ public class AppGraphBuilder {
         CosmosPagedFlux<Map> flux = container.queryItems(sql, queryOptions, Map.class);
         logger.warn("Query created (not yet executed)");
 
-        if (isContractsMode) {
-            logger.info("IS CONTRACT MODE = TRUE");
-            ContractsGraphTriplesBuilder triplesBuilder = new ContractsGraphTriplesBuilder(g);
-            logger.info("CREATED TRIPLESBUILDER");
-            flux.byPage(100).flatMap(fluxResponse -> {
-                List<Map> results = fluxResponse.getResults().stream().collect(Collectors.toList());
-                logger.warn("GOT FLUX RESPONSE, results.size(): " + results.size());
-                for (int r = 0; r < results.size(); r++) {
-                    Map doc = results.get(r);
-                    docCounter.incrementAndGet();
-                    triplesBuilder.ingestDocument(doc);
-                    // allDocuments.add(doc);
-                }
-                return Flux.empty();
-            }).blockLast();
-            logger.warn("populateFromCosmosDbNoSQL (contracts), documentsIngested: " + triplesBuilder.getDocumentsIngested());
-        } else {
-            LibrariesGraphTriplesBuilder triplesBuilder = new LibrariesGraphTriplesBuilder(g);
-            flux.byPage(100).flatMap(fluxResponse -> {
-                List<Map> results = fluxResponse.getResults().stream().collect(Collectors.toList());
-                for (int r = 0; r < results.size(); r++) {
-                    Map doc = results.get(r);
-                    docCounter.incrementAndGet();
-                    triplesBuilder.ingestDocument(doc);
-                    // allDocuments.add(doc);
-                }
-                return Flux.empty();
-            }).blockLast();
-            logger.warn("populateFromCosmosDbNoSQL (libraries), documentsIngested: " + triplesBuilder.getDocumentsIngested());
-        }
+        ContractsGraphTriplesBuilder triplesBuilder = new ContractsGraphTriplesBuilder(g);
+        flux.byPage(100).flatMap(fluxResponse -> {
+            List<Map> results = fluxResponse.getResults().stream().collect(Collectors.toList());
+            logger.warn("GOT FLUX RESPONSE, results.size(): " + results.size());
+            for (int r = 0; r < results.size(); r++) {
+                Map doc = results.get(r);
+                docCounter.incrementAndGet();
+                triplesBuilder.ingestDocument(doc);
+                // allDocuments.add(doc);
+            }
+            return Flux.empty();
+        }).blockLast();
+        logger.warn("populateFromCosmosDbNoSQL, documentsIngested: " + triplesBuilder.getDocumentsIngested());
 
         g.setDocsRead(docCounter.get());
         logger.warn("populateFromCosmosDbNoSQL, docCount:  " + docCounter.get());
@@ -389,26 +357,18 @@ public class AppGraphBuilder {
      * Return a Cosmos DB NoSQL API SELECT query which returns only the necessary
      * attributes for building the in-memory graph.  For example, exclude the
      * "embeddings" attribute and large text value attributes.
+     * For contracts, only fetch parent contract documents for the graph.
+     * Clauses and chunks are not added as separate graph entities.
      */
     private static String cosmosdbSourceSqlQuery() {
-        String graphMode = AppConfig.getGraphMode();
-        if ("contracts".equalsIgnoreCase(graphMode)) {
-            // For contracts, only fetch parent contract documents for the graph
-            // Clauses and chunks are not added as separate graph entities
-            return """
-            select c.id, c.doctype, c.contractor_party, c.contracting_party, 
-                   c.effective_date, c.expiration_date, c.contract_type, 
-                   c.contract_value, c.governing_law, c.filename, c.clause_ids
-            from c 
-            where c.doctype = 'contract_parent'
-            offset 0 limit 999999
-            """.strip();
-        } else {
-            // Original query for libraries
-            return """
-            select c._id, c.name, c.libtype, c.kwds, c.developers, c.dependency_ids, c.release_count from c offset 0 limit 999999
-            """.strip();
-        }
+        return """
+        select c.id, c.doctype, c.contractor_party, c.contracting_party,
+               c.effective_date, c.expiration_date, c.contract_type,
+               c.contract_value, c.governing_law, c.filename, c.clause_ids
+        from c
+        where c.doctype = 'contract_parent'
+        offset 0 limit 999999
+        """.strip();
     }
 
     private static String docAsJson(Map doc, boolean pretty) {
