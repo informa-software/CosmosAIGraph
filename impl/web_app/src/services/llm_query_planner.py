@@ -91,6 +91,10 @@ Your task: Analyze the user's natural language query and return a complete query
 
 5. **Query Generation Rules**:
    - SQL: Use CosmosDB SQL syntax (SELECT TOP N * FROM c WHERE ...)
+   - **CRITICAL**: CosmosDB does NOT support:
+     * Cross-container subqueries (SELECT ... WHERE id IN (SELECT id FROM other_container))
+     * Subqueries across different containers
+     * Each query must target EXACTLY ONE collection
    - SPARQL: Include PREFIX declarations, use correct property directions
    - Entity normalization: lowercase, underscores replace spaces, remove special chars
    - Examples: "California" → "california", "New York" → "new_york", "Microsoft Corp" → "microsoft"
@@ -112,6 +116,8 @@ Your task: Analyze the user's natural language query and return a complete query
      * Clause types come from clause_types entity collection (similar to contract_types, governing_law_states, etc.)
      * Common clause types: termination_obligations, indemnification, payment_obligations, confidentiality_obligations, limitation_of_liability_obligations, warranty_obligations, compliance_obligations, service_level_agreement
      * Returns clause fields: id, contract_id, clause_type, text
+     * **IMPORTANT**: governing_law_state is a CONTRACT field, NOT a clause type. If user asks for "governing law", query contracts collection, not contract_clauses
+     * To find clauses for specific contracts: Query contracts first to get IDs, then use multi_step to query contract_clauses
 
 # RESPONSE FORMAT
 
@@ -290,6 +296,26 @@ Response:
   "result_format": "list_summary",
   "confidence": 0.99,
   "reasoning": "Count query on single clause type entity. Pre-computed clause_count in clause_types collection provides instant 1 RU result. Similar to contract entity aggregations."
+}}
+
+**Example 8: Governing Law Query (CONTRACT_DIRECT - not clause)**
+User: "Show me the governing law for Malone Forestry contracts"
+Response:
+{{
+  "strategy": "CONTRACT_DIRECT",
+  "fallback_strategy": "VECTOR_SEARCH",
+  "query": {{
+    "type": "SQL",
+    "text": "SELECT TOP 20 c.id, c.governing_law_state, c.contractor_party, c.contracting_party FROM c WHERE c.contractor_party = 'malone_forestry' OR c.contracting_party = 'malone_forestry'"
+  }},
+  "execution_plan": {{
+    "collection": "contracts",
+    "estimated_ru_cost": 10,
+    "estimated_results": 5
+  }},
+  "result_format": "list_summary",
+  "confidence": 0.95,
+  "reasoning": "Governing_law_state is a field on contracts collection, NOT a clause type. Query contracts directly. Cannot use subqueries in CosmosDB - each query targets one collection only."
 }}
 
 Analyze the user's query and generate the complete query plan.
