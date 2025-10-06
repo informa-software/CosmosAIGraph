@@ -109,7 +109,8 @@ Your task: Analyze the user's natural language query and return a complete query
    - **"clause_analysis"**: Use when query is specifically about CLAUSES
      * Examples: "What are the termination clauses...", "Find indemnification clauses...", "Compare payment obligations..."
      * MUST query contract_clauses collection (not contracts)
-     * Clause types: indemnification, termination_obligations, limitation_of_liability_obligations, payment_obligations, confidentiality_obligations, compliance_obligations, warranty_obligations, service_level_agreement
+     * Clause types come from clause_types entity collection (similar to contract_types, governing_law_states, etc.)
+     * Common clause types: termination_obligations, indemnification, payment_obligations, confidentiality_obligations, limitation_of_liability_obligations, warranty_obligations, compliance_obligations, service_level_agreement
      * Returns clause fields: id, contract_id, clause_type, text
 
 # RESPONSE FORMAT
@@ -268,6 +269,27 @@ Response:
   "result_format": "full_context",
   "confidence": 0.90,
   "reasoning": "Query requires summarizing entire contract content. Need full contract_text and all fields for complete analysis. Uses contracts collection. full_context format is required."
+}}
+
+**Example 7: Clause Type Aggregation (ENTITY_AGGREGATION)**
+User: "How many termination clauses are there?"
+Response:
+{{
+  "strategy": "ENTITY_AGGREGATION",
+  "fallback_strategy": "CONTRACT_DIRECT",
+  "query": {{
+    "type": "SQL",
+    "text": "SELECT * FROM c WHERE c.id = 'termination_obligations'"
+  }},
+  "execution_plan": {{
+    "collection": "clause_types",
+    "aggregation_field": "clause_count",
+    "estimated_ru_cost": 1,
+    "estimated_results": 1
+  }},
+  "result_format": "list_summary",
+  "confidence": 0.99,
+  "reasoning": "Count query on single clause type entity. Pre-computed clause_count in clause_types collection provides instant 1 RU result. Similar to contract entity aggregations."
 }}
 
 Analyze the user's query and generate the complete query plan.

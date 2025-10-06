@@ -269,6 +269,45 @@
       "stats_fields": ["contract_count", "total_value"],
       "supports": ["entity_first_lookup", "aggregation"]
     },
+    "clause_types": {
+      "description": "Entity collection for clause types with pre-computed aggregations",
+      "primary_key": "normalized_name",
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "description": "Same as normalized_name (required by CosmosDB)"
+        },
+        {
+          "name": "normalized_name",
+          "type": "string",
+          "description": "Normalized clause type (lowercase, underscores)",
+          "example": "termination_obligations"
+        },
+        {
+          "name": "display_name",
+          "type": "string",
+          "description": "Human-readable clause type for UI display",
+          "example": "Termination Obligations"
+        },
+        {
+          "name": "clauses",
+          "type": "array",
+          "description": "Array of clause IDs of this type",
+          "element_type": "string"
+        },
+        {
+          "name": "clause_count",
+          "type": "number",
+          "description": "Pre-computed count of clauses of this type",
+          "example": 45
+        }
+      ],
+      "indexed_fields": ["normalized_name", "display_name"],
+      "is_entity_collection": true,
+      "stats_fields": ["clause_count"],
+      "supports": ["entity_first_lookup", "aggregation"]
+    },
     "contract_chunks": {
       "description": "Text chunks from contracts for vector search with embeddings",
       "primary_key": "id",
@@ -321,18 +360,8 @@
         {
           "name": "clause_type",
           "type": "string",
-          "description": "Type of clause extracted",
-          "example": "indemnification",
-          "valid_values": [
-            "indemnification",
-            "termination_obligations",
-            "limitation_of_liability_obligations",
-            "payment_obligations",
-            "confidentiality_obligations",
-            "compliance_obligations",
-            "warranty_obligations",
-            "service_level_agreement"
-          ]
+          "description": "Type of clause extracted (normalized: lowercase, underscores)",
+          "example": "termination_obligations"
         },
         {
           "name": "text",
@@ -348,7 +377,10 @@
       "indexed_fields": ["id", "contract_id", "clause_type"],
       "has_embeddings": true,
       "supports": ["direct_query", "vector_search"],
-      "parent_collection": "contracts"
+      "parent_collection": "contracts",
+      "entity_references": {
+        "clause_type": "clause_types"
+      }
     }
   },
   "normalization_rules": {
@@ -382,10 +414,17 @@
       "ru_cost": "~5-50 RUs (medium)",
       "example": "Show contracts in California, Texas, or Florida but not with Microsoft"
     },
+    "CLAUSE_DIRECT": {
+      "description": "Direct SQL query on contract_clauses collection with WHERE filters",
+      "use_when": "Clause-specific queries, filtering by clause_type",
+      "collections": ["contract_clauses"],
+      "ru_cost": "~5-30 RUs (medium)",
+      "example": "Show all termination clauses"
+    },
     "ENTITY_AGGREGATION": {
       "description": "Use pre-computed stats from entity collections",
       "use_when": "Count/sum queries on single entity",
-      "collections": ["governing_law_states", "contractor_parties", "contracting_parties", "contract_types"],
+      "collections": ["governing_law_states", "contractor_parties", "contracting_parties", "contract_types", "clause_types"],
       "ru_cost": "~1 RU (minimal)",
       "example": "How many contracts are governed by California?"
     },
