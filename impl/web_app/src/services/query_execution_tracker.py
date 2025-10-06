@@ -194,8 +194,27 @@ class QueryExecutionTracker:
                                 lines.append(f"    {wrapped_line}")
         elif self.llm_plan:
             lines.append(f"LLM STRATEGY: [{self.llm_validation_status}]")
+
+            # Show query text even if invalid (for debugging)
+            if self.llm_query_text:
+                lines.append(f"  LLM Generated Query (INVALID):")
+                query_lines = self.llm_query_text.split('\n')
+                for query_line in query_lines:
+                    if query_line.strip():
+                        # Wrap long lines at 72 chars
+                        wrapped = textwrap.wrap(query_line, width=72, break_long_words=False,
+                                               subsequent_indent='    ')
+                        for wrapped_line in wrapped:
+                            lines.append(f"    {wrapped_line}")
+
+            # Show validation error with word wrapping
             if self.llm_plan.get("validation_error"):
-                lines.append(f"  Validation Error: {self.llm_plan.get('validation_error')[:60]}...")
+                lines.append(f"  Validation Error:")
+                error_text = self.llm_plan.get('validation_error')
+                wrapped_errors = textwrap.wrap(error_text, width=68, break_long_words=False,
+                                              subsequent_indent='    ')
+                for wrapped_error in wrapped_errors:
+                    lines.append(f"    {wrapped_error}")
 
         lines.append("ACTUAL EXECUTION PATH:")
         lines.append("-" * 72)
@@ -243,7 +262,15 @@ class QueryExecutionTracker:
             lines.append(f"   +- Documents Found: {step.documents_found}")
 
             if step.error_message:
-                lines.append(f"   +- Error: {step.error_message}")
+                # Word wrap long error messages
+                if len(step.error_message) > 60:
+                    lines.append(f"   +- Error:")
+                    wrapped_errors = textwrap.wrap(step.error_message, width=65, break_long_words=False,
+                                                  subsequent_indent='   |    ')
+                    for wrapped_error in wrapped_errors:
+                        lines.append(f"   |    {wrapped_error}")
+                else:
+                    lines.append(f"   +- Error: {step.error_message}")
 
             lines.append(f"   +- RU Cost: {step.ru_cost:.1f}")
             lines.append("")
