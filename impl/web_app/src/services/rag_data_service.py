@@ -445,6 +445,7 @@ class RAGDataService:
                 execution_plan=llm_plan.get("execution_plan", {}),
                 confidence=llm_plan.get("confidence", 0.0),
                 reasoning=llm_plan.get("reasoning", ""),
+                result_format=llm_plan.get("result_format", "list_summary"),
                 raw_response={}
             )
 
@@ -488,7 +489,7 @@ class RAGDataService:
                         error=result.error_message
                     )
 
-            # Update strategy in rdr
+            # Update strategy and result_format in rdr
             if rdr and result.success:
                 strategy_map = {
                     "ENTITY_FIRST": "db",
@@ -499,6 +500,8 @@ class RAGDataService:
                 }
                 mapped_strategy = strategy_map.get(plan_obj.strategy, "db")
                 rdr.add_strategy(mapped_strategy)
+                # Set result format from LLM plan
+                rdr.set_result_format(plan_obj.result_format)
 
             # Return documents if successful
             if result.success:

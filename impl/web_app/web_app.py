@@ -802,10 +802,26 @@ async def conv_ai_console_post(req: Request):
         completion_context = conv.last_completion_content()
         
         if rdr.has_db_rag_docs() == True:
+            # Check result format to determine which fields to include
+            result_format = rdr.get_result_format()
+            logging.info(f"Result format: {result_format}")
+
             for doc in rdr.get_rag_docs():
                 logging.debug("doc: {}".format(doc))
-                # For contracts, include ALL fields as JSON
-                content_lines.append(json.dumps(doc))
+
+                if result_format == "list_summary":
+                    # For list results, only include summary fields
+                    summary_fields = [
+                        "id", "contractor_party", "contracting_party",
+                        "governing_law_state", "contract_type",
+                        "effective_date", "expiration_date",
+                        "maximum_contract_value", "filename"
+                    ]
+                    filtered_doc = {k: v for k, v in doc.items() if k in summary_fields}
+                    content_lines.append(json.dumps(filtered_doc))
+                else:
+                    # For full_context, include ALL fields
+                    content_lines.append(json.dumps(doc))
             
             # For DB RAG, set the context but don't set completion content yet
             conv.set_context(rdr.get_context())

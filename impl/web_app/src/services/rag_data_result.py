@@ -19,6 +19,7 @@ class RAGDataResult:
         self.data["query"] = ""
         self.data["rag_docs"] = list()
         self.data["rag_doc_count"] = -1
+        self.data["result_format"] = "list_summary"  # Default to list_summary
         self.execution_tracker = None  # Optional execution tracker
 
     def finish(self):
@@ -93,6 +94,15 @@ class RAGDataResult:
 
     def get_query(self):
         return self.data["query"]
+
+    def set_result_format(self, value):
+        """Set the result format (list_summary or full_context)"""
+        if value is not None:
+            self.data["result_format"] = str(value)
+
+    def get_result_format(self):
+        """Get the result format"""
+        return self.data.get("result_format", "list_summary")
 
     def set_rag_docs(self, value):
         if value is not None:

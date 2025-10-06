@@ -30,6 +30,7 @@ class LLMQueryPlan:
     execution_plan: Dict
     confidence: float
     reasoning: str
+    result_format: str  # "list_summary" or "full_context"
     raw_response: Dict
 
 
@@ -94,6 +95,17 @@ Your task: Analyze the user's natural language query and return a complete query
    - Entity normalization: lowercase, underscores replace spaces, remove special chars
    - Examples: "California" → "california", "New York" → "new_york", "Microsoft Corp" → "microsoft"
 
+6. **Result Format Rules**:
+   - **"list_summary"**: Use when query returns a LIST of contracts for display
+     * Examples: "Show all contracts...", "List contracts...", "Find contracts where..."
+     * Only summary fields needed: id, contractor_party, contracting_party, governing_law_state, contract_type, effective_date, expiration_date, maximum_contract_value, filename
+     * Avoids filling context with contract_text, clause_id arrays, chunk_id arrays
+
+   - **"full_context"**: Use when query requires REASONING about contract content
+     * Examples: "What are the termination clauses...", "Explain the payment terms...", "Analyze the liability provisions..."
+     * Requires full contract_text and clause data for AI analysis
+     * Used for single contract analysis or content-based questions
+
 # RESPONSE FORMAT
 
 Return ONLY valid JSON (no markdown, no code blocks):
@@ -119,6 +131,7 @@ Return ONLY valid JSON (no markdown, no code blocks):
     ]
   }},
 
+  "result_format": "list_summary|full_context",
   "confidence": 0.0-1.0,
   "reasoning": "clear explanation of strategy choice and query structure"
 }}
@@ -145,8 +158,9 @@ Response:
     "estimated_ru_cost": 2,
     "estimated_results": 150
   }},
+  "result_format": "list_summary",
   "confidence": 1.0,
-  "reasoning": "Single positive entity (California) with no negations or OR lists. ENTITY_FIRST is optimal for low RU cost (~2 RUs vs ~15 RUs for CONTRACT_DIRECT)."
+  "reasoning": "Single positive entity (California) with no negations or OR lists. ENTITY_FIRST is optimal for low RU cost (~2 RUs vs ~15 RUs for CONTRACT_DIRECT). Result is a list of contracts, so list_summary format is used."
 }}
 
 **Example 2: Negation (CONTRACT_DIRECT)**
@@ -164,8 +178,9 @@ Response:
     "estimated_ru_cost": 10,
     "estimated_results": 85
   }},
+  "result_format": "list_summary",
   "confidence": 0.98,
-  "reasoning": "Negation query. ENTITY_FIRST cannot handle negations (would need all contracts except Alabama). CONTRACT_DIRECT with != operator is required."
+  "reasoning": "Negation query. ENTITY_FIRST cannot handle negations (would need all contracts except Alabama). CONTRACT_DIRECT with != operator is required. Result is a list of contracts, so list_summary format is used."
 }}
 
 **Example 3: OR List (CONTRACT_DIRECT)**
@@ -183,8 +198,9 @@ Response:
     "estimated_ru_cost": 15,
     "estimated_results": 45
   }},
+  "result_format": "list_summary",
   "confidence": 0.97,
-  "reasoning": "OR list with 3 states. ENTITY_FIRST requires single entity. CONTRACT_DIRECT with IN operator handles multiple values efficiently."
+  "reasoning": "OR list with 3 states. ENTITY_FIRST requires single entity. CONTRACT_DIRECT with IN operator handles multiple values efficiently. Result is a list of contracts, so list_summary format is used."
 }}
 
 **Example 4: Aggregation (ENTITY_AGGREGATION)**
@@ -203,8 +219,29 @@ Response:
     "estimated_ru_cost": 1,
     "estimated_results": 1
   }},
+  "result_format": "list_summary",
   "confidence": 0.99,
-  "reasoning": "Count query on single entity. Pre-computed contract_count in governing_law_states provides instant 1 RU result."
+  "reasoning": "Count query on single entity. Pre-computed contract_count in governing_law_states provides instant 1 RU result. Aggregation result, so list_summary format is sufficient."
+}}
+
+**Example 5: Content Analysis (full_context)**
+User: "What are the termination clauses in the Microsoft contract?"
+Response:
+{{
+  "strategy": "VECTOR_SEARCH",
+  "fallback_strategy": "CONTRACT_DIRECT",
+  "query": {{
+    "type": "SQL",
+    "text": "SELECT TOP 5 * FROM c WHERE c.contractor_party = 'microsoft' OR c.contracting_party = 'microsoft'"
+  }},
+  "execution_plan": {{
+    "collection": "contracts",
+    "estimated_ru_cost": 50,
+    "estimated_results": 5
+  }},
+  "result_format": "full_context",
+  "confidence": 0.85,
+  "reasoning": "Query requires analyzing termination clauses within contract text. Need full contract_text and clause data for AI to extract and explain termination provisions. full_context format is required for content analysis."
 }}
 
 Analyze the user's query and generate the complete query plan.
@@ -331,6 +368,7 @@ Classes:
                 execution_plan=llm_response.get('execution_plan', {}),
                 confidence=llm_response.get('confidence', 0.0),
                 reasoning=llm_response.get('reasoning', ''),
+                result_format=llm_response.get('result_format', 'list_summary'),
                 raw_response=llm_response
             )
 
