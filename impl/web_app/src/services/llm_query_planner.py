@@ -101,10 +101,16 @@ Your task: Analyze the user's natural language query and return a complete query
      * Only summary fields needed: id, contractor_party, contracting_party, governing_law_state, contract_type, effective_date, expiration_date, maximum_contract_value, filename
      * Avoids filling context with contract_text, clause_id arrays, chunk_id arrays
 
-   - **"full_context"**: Use when query requires REASONING about contract content
-     * Examples: "What are the termination clauses...", "Explain the payment terms...", "Analyze the liability provisions..."
-     * Requires full contract_text and clause data for AI analysis
-     * Used for single contract analysis or content-based questions
+   - **"full_context"**: Use when query requires REASONING about entire contract
+     * Examples: "Summarize this contract...", "What are all the key terms..."
+     * Requires full contract_text for complete contract analysis
+     * Used for whole contract analysis
+
+   - **"clause_analysis"**: Use when query is specifically about CLAUSES
+     * Examples: "What are the termination clauses...", "Find indemnification clauses...", "Compare payment obligations..."
+     * MUST query contract_clauses collection (not contracts)
+     * Clause types: indemnification, termination_obligations, limitation_of_liability_obligations, payment_obligations, confidentiality_obligations, compliance_obligations, warranty_obligations, service_level_agreement
+     * Returns clause fields: id, contract_id, clause_type, text
 
 # RESPONSE FORMAT
 
@@ -131,7 +137,7 @@ Return ONLY valid JSON (no markdown, no code blocks):
     ]
   }},
 
-  "result_format": "list_summary|full_context",
+  "result_format": "list_summary|full_context|clause_analysis",
   "confidence": 0.0-1.0,
   "reasoning": "clear explanation of strategy choice and query structure"
 }}
@@ -224,24 +230,44 @@ Response:
   "reasoning": "Count query on single entity. Pre-computed contract_count in governing_law_states provides instant 1 RU result. Aggregation result, so list_summary format is sufficient."
 }}
 
-**Example 5: Content Analysis (full_context)**
+**Example 5: Clause Analysis (clause_analysis)**
 User: "What are the termination clauses in the Microsoft contract?"
 Response:
 {{
-  "strategy": "VECTOR_SEARCH",
-  "fallback_strategy": "CONTRACT_DIRECT",
+  "strategy": "CONTRACT_DIRECT",
+  "fallback_strategy": "VECTOR_SEARCH",
+  "query": {{
+    "type": "SQL",
+    "text": "SELECT TOP 20 * FROM c WHERE c.clause_type = 'termination_obligations'"
+  }},
+  "execution_plan": {{
+    "collection": "contract_clauses",
+    "estimated_ru_cost": 15,
+    "estimated_results": 20
+  }},
+  "result_format": "clause_analysis",
+  "confidence": 0.95,
+  "reasoning": "Query specifically asks for termination clauses. Must query contract_clauses collection with clause_type filter. Returns clause records with id, contract_id, clause_type, and text fields for analysis. clause_analysis format is required."
+}}
+
+**Example 6: Full Contract Analysis (full_context)**
+User: "Summarize the entire Microsoft contract"
+Response:
+{{
+  "strategy": "CONTRACT_DIRECT",
+  "fallback_strategy": "VECTOR_SEARCH",
   "query": {{
     "type": "SQL",
     "text": "SELECT TOP 5 * FROM c WHERE c.contractor_party = 'microsoft' OR c.contracting_party = 'microsoft'"
   }},
   "execution_plan": {{
     "collection": "contracts",
-    "estimated_ru_cost": 50,
+    "estimated_ru_cost": 20,
     "estimated_results": 5
   }},
   "result_format": "full_context",
-  "confidence": 0.85,
-  "reasoning": "Query requires analyzing termination clauses within contract text. Need full contract_text and clause data for AI to extract and explain termination provisions. full_context format is required for content analysis."
+  "confidence": 0.90,
+  "reasoning": "Query requires summarizing entire contract content. Need full contract_text and all fields for complete analysis. Uses contracts collection. full_context format is required."
 }}
 
 Analyze the user's query and generate the complete query plan.

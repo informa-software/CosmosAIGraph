@@ -819,9 +819,16 @@ async def conv_ai_console_post(req: Request):
                     ]
                     filtered_doc = {k: v for k, v in doc.items() if k in summary_fields}
                     content_lines.append(json.dumps(filtered_doc))
+                elif result_format == "clause_analysis":
+                    # For clause analysis, include clause-specific fields
+                    clause_fields = ["id", "contract_id", "clause_type", "text"]
+                    filtered_doc = {k: v for k, v in doc.items() if k in clause_fields}
+                    content_lines.append(json.dumps(filtered_doc))
                 else:
-                    # For full_context, include ALL fields
-                    content_lines.append(json.dumps(doc))
+                    # For full_context, include ALL fields (excluding embedding)
+                    doc_copy = dict(doc)
+                    doc_copy.pop("embedding", None)
+                    content_lines.append(json.dumps(doc_copy))
             
             # For DB RAG, set the context but don't set completion content yet
             conv.set_context(rdr.get_context())
