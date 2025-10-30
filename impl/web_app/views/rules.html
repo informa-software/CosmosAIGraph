@@ -6,7 +6,7 @@
 <div class="container mt-4">
     <div class="row">
         <div class="col-12">
-            <div class="card caig-card">
+            <div class="card caig-card bg-dark text-light border-secondary">
                 <div class="card-body">
                     <h3 class="card-title mb-4">
                         <i class="bi bi-list-check me-2"></i>Custom SPARQL Generation Rules
@@ -24,13 +24,13 @@
                                 <small class="text-muted ms-2">(One rule per line or as a paragraph)</small>
                             </label>
                             <textarea 
-                                class="form-control" 
+                                class="form-control bg-dark text-light border-secondary" 
                                 id="customRules" 
                                 name="custom_rules" 
                                 rows="15"
                                 placeholder="Enter your custom rules here. For example:&#10;&#10;- Always filter by active status unless specified otherwise&#10;- When querying for people, include their email addresses&#10;- Use case-insensitive matching for all name fields&#10;- Limit results to 100 unless user specifies a different limit&#10;- Always sort results by creation date descending"
                                 style="font-family: 'Courier New', monospace; font-size: 0.9rem;">{{ custom_rules }}</textarea>
-                            <div class="form-text">
+                            <div class="form-text text-muted">
                                 These rules will be added to the system prompt when generating SPARQL queries. 
                                 Be specific and clear in your instructions.
                             </div>
@@ -40,6 +40,9 @@
                             <div>
                                 <button type="submit" class="btn btn-outline-primary me-2">
                                     <i class="bi bi-save me-1"></i>Save Rules
+                                </button>
+                                <button type="button" class="btn btn-outline-warning me-2" id="verifyRulesBtn">
+                                    <i class="bi bi-check-circle me-1"></i>Verify Rules
                                 </button>
                                 <button type="button" class="btn btn-outline-secondary" id="clearRulesBtn">
                                     <i class="bi bi-trash me-1"></i>Clear Rules
@@ -53,17 +56,25 @@
                         </div>
                     </form>
 
+                    <!-- Verification Results Section -->
+                    <div id="verificationResults" class="mt-4" style="display: none;">
+                        <h5 class="mb-3">
+                            <i class="bi bi-clipboard-check me-2"></i>Verification Results
+                        </h5>
+                        <div id="verificationContent"></div>
+                    </div>
+
                     {% if message %}
                     <div class="alert alert-{{ message_type }} alert-dismissible fade show mt-4" role="alert">
                         <i class="bi bi-{{ 'check-circle' if message_type == 'success' else 'info-circle' }} me-2"></i>
                         {{ message }}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="alert" aria-label="Close"></button>
                     </div>
                     {% endif %}
 
-                    <div class="mt-4 p-3 border border-secondary rounded bg-dark">
+                    <div class="mt-4 p-3 border border-secondary rounded" style="background-color: #1a1a1a;">
                         <h5 class="mb-3"><i class="bi bi-lightbulb me-2"></i>Tips for Effective Rules</h5>
-                        <ul class="mb-0 small">
+                        <ul class="mb-0 small text-muted">
                             <li>Be specific about the types of entities and relationships in your domain</li>
                             <li>Specify default filters, sorting, or limits that should always apply</li>
                             <li>Define naming conventions or abbreviations used in your data</li>
@@ -86,6 +97,9 @@
     const form = document.getElementById('rulesForm');
     const textarea = document.getElementById('customRules');
     const clearBtn = document.getElementById('clearRulesBtn');
+    const verifyBtn = document.getElementById('verifyRulesBtn');
+    const verificationResults = document.getElementById('verificationResults');
+    const verificationContent = document.getElementById('verificationContent');
 
     // Load saved rules from sessionStorage on page load if textarea is empty
     if (!textarea.value.trim()) {
@@ -120,6 +134,203 @@
             form.submit();
         }
     });
+
+    // Verify rules button
+    verifyBtn.addEventListener('click', async function() {
+        const rules = textarea.value.trim();
+        
+        if (!rules) {
+            alert('Please enter some rules to verify.');
+            return;
+        }
+
+        // Disable button and show loading state
+        verifyBtn.disabled = true;
+        verifyBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Verifying...';
+        verificationResults.style.display = 'block';
+        verificationContent.innerHTML = '<div class="text-center"><div class="spinner-border text-warning" role="status"><span class="visually-hidden">Loading...</span></div><p class="mt-2">Verifying rules...</p></div>';
+
+        try {
+            const formData = new FormData();
+            formData.append('custom_rules', rules);
+
+            const response = await fetch('/verify_rules', {
+                method: 'POST',
+                body: formData
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                displayVerificationResults(data.results, data.total_rules);
+            } else {
+                verificationContent.innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        <strong>Verification Failed:</strong> ${data.error || 'Unknown error'}
+                    </div>
+                `;
+            }
+        } catch (error) {
+            console.error('Verification error:', error);
+            verificationContent.innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
+                    <strong>Error:</strong> ${error.message}
+                </div>
+            `;
+        } finally {
+            // Re-enable button
+            verifyBtn.disabled = false;
+            verifyBtn.innerHTML = '<i class="bi bi-check-circle me-1"></i>Verify Rules';
+        }
+    });
+
+    function displayVerificationResults(results, totalRules) {
+        const successCount = results.filter(r => r.success).length;
+        const failureCount = totalRules - successCount;
+
+        let html = `
+            <div class="alert alert-${successCount === totalRules ? 'success' : 'warning'} mb-3">
+                <strong>Summary:</strong> ${successCount} / ${totalRules} rules verified successfully
+                ${failureCount > 0 ? `<br><small>${failureCount} rule(s) failed to verify</small>` : ''}
+            </div>
+        `;
+
+        results.forEach((result, idx) => {
+            const cardClass = result.success ? 'border-success' : 'border-danger';
+            const headerClass = result.success ? 'bg-success bg-opacity-10' : 'bg-danger bg-opacity-10';
+            const iconClass = result.success ? 'bi-check-circle-fill text-success' : 'bi-x-circle-fill text-danger';
+
+            html += `
+                <div class="card ${cardClass} mb-3 bg-dark text-light">
+                    <div class="card-header ${headerClass}">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span>
+                                <i class="bi ${iconClass} me-2"></i>
+                                <strong>Rule ${result.index}</strong>
+                            </span>
+                            <span class="badge ${result.success ? 'bg-success' : 'bg-danger'}">
+                                ${result.success ? result.result_count + ' result(s)' : 'Failed'}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <strong>Rule:</strong>
+                            <div class="p-2 rounded mt-1" style="background-color: #1a1a1a;">
+                                <code class="text-light">${escapeHtml(result.rule)}</code>
+                            </div>
+                        </div>
+                        
+                        ${result.evaluation_query ? `
+                        <div class="mb-3">
+                            <strong>Evaluation Query:</strong>
+                            <div class="p-2 rounded mt-1" style="background-color: #1a1a1a;">
+                                <code class="text-light">${escapeHtml(result.evaluation_query)}</code>
+                            </div>
+                        </div>
+                        ` : ''}
+                        
+                        ${result.response_text ? `
+                        <div class="mb-3">
+                            <strong><i class="bi bi-chat-left-quote me-2"></i>LLM Response:</strong>
+                            <div class="p-2 rounded mt-1 alert ${result.success ? 'alert-success' : 'alert-danger'} mb-0">
+                                ${escapeHtml(result.response_text)}
+                            </div>
+                        </div>
+                        ` : ''}
+            `;
+
+            if (result.success && result.sparql) {
+                // SPARQL query in a collapsible card (collapsed by default)
+                html += `
+                        <div class="mb-3">
+                            <div class="card border-secondary" style="background-color: #1a1a1a;">
+                                <div class="card-header" style="background-color: #252525; cursor: pointer;" onclick="toggleCollapse('sparql-collapse-${idx}')">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <strong><i class="bi bi-code-square me-2"></i>Generated SPARQL Query</strong>
+                                        <div>
+                                            <button type="button" class="btn btn-sm btn-outline-light me-2" onclick="event.stopPropagation(); copyToClipboard('sparql-${idx}')">
+                                                <i class="bi bi-clipboard"></i> Copy
+                                            </button>
+                                            <i class="bi bi-chevron-down" id="sparql-icon-${idx}"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div id="sparql-collapse-${idx}" class="collapse">
+                                    <div class="card-body p-0">
+                                        <pre id="sparql-${idx}" class="p-3 mb-0 text-light" style="max-height: 400px; overflow-y: auto; font-size: 0.85rem; background-color: #0d0d0d;"><code>${escapeHtml(result.sparql)}</code></pre>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                `;
+
+                // Results always expanded
+                if (result.result_count > 0) {
+                    html += `
+                        <div>
+                            <strong><i class="bi bi-table me-2"></i>Query Results (${result.result_count}):</strong>
+                            <div class="p-3 rounded mt-2" style="max-height: 500px; overflow-y: auto; background-color: #0d0d0d;">
+                                <pre class="text-light mb-0" style="font-size: 0.85rem;"><code>${escapeHtml(JSON.stringify(result.results, null, 2))}</code></pre>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    html += `
+                        <div class="alert alert-warning mb-0 mt-2">
+                            <i class="bi bi-info-circle me-2"></i>
+                            SPARQL query executed successfully but returned no results.
+                        </div>
+                    `;
+                }
+            } else if (result.error) {
+                html += `
+                        <div class="alert alert-danger mb-0">
+                            <strong>Error:</strong> ${escapeHtml(result.error)}
+                        </div>
+                `;
+            }
+
+            html += `
+                    </div>
+                </div>
+            `;
+        });
+
+        verificationContent.innerHTML = html;
+    }
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    // Global functions for buttons in dynamically created content
+    window.copyToClipboard = function(elementId) {
+        const element = document.getElementById(elementId);
+        const text = element.textContent;
+        navigator.clipboard.writeText(text).then(() => {
+            alert('Copied to clipboard!');
+        }).catch(err => {
+            console.error('Failed to copy:', err);
+        });
+    };
+
+    window.toggleCollapse = function(collapseId) {
+        const collapseEl = document.getElementById(collapseId);
+        const iconEl = document.getElementById(collapseId.replace('-collapse-', '-icon-'));
+        
+        if (collapseEl.classList.contains('show')) {
+            collapseEl.classList.remove('show');
+            iconEl.className = 'bi bi-chevron-down';
+        } else {
+            collapseEl.classList.add('show');
+            iconEl.className = 'bi bi-chevron-up';
+        }
+    };
 
     // Auto-save to sessionStorage on change (debounced)
     let saveTimeout;

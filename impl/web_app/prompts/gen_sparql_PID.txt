@@ -116,6 +116,21 @@ CRITICAL: Apply fuzzy matching to ALL technical terms when searching Subtype, Ty
 Always include all prefixes from the ontology. 
 CRITICAL: NO COMMENTS INSIDE FILTER EXPRESSIONS. The SPARQL parser will fail if you place comments inside FILTER blocks. Only place comments on their own lines between major query clauses.
 Only in case there are no aggregates/group keys (e.g. COUNT) used in the SELECT, include all intermediate variables used within SPARQL in that SELECT clause.
+CRITICAL GROUP BY/HAVING RULES: When using GROUP BY and HAVING clauses to check cardinality constraints (e.g., "each equipment has exactly one valve"), follow these strict rules:
+1. ALL non-aggregated variables in SELECT must appear in the GROUP BY clause
+2. If you need to return variables that would make grouping meaningless (like individual valve IDs when checking "exactly one valve per equipment"), use aggregate functions like MIN() or MAX() or SAMPLE() to select one value
+3. Example CORRECT pattern for "every equipment connected to only one valve":
+   SELECT ?equipment ?equipmentTag (MIN(?valve) AS ?connectedValve) (MIN(?valveTag) AS ?connectedValveTag)
+   WHERE {{ ... }}
+   GROUP BY ?equipment ?equipmentTag
+   HAVING (COUNT(DISTINCT ?valve) = 1)
+4. Example WRONG pattern (causes "Non-group key variable" error):
+   SELECT ?equipment ?equipmentTag ?valve ?valveTag
+   WHERE {{ ... }}
+   GROUP BY ?equipment ?equipmentTag
+   HAVING (COUNT(DISTINCT ?valve) = 1)
+5. Alternative: If showing individual connected items is more important than verifying cardinality, use a subquery in FILTER EXISTS/NOT EXISTS instead of GROUP BY/HAVING
+6. When using MIN/MAX/SAMPLE with GROUP BY, the aggregate function selects ONE representative value from the group (useful when HAVING guarantees only one distinct value exists anyway)
 CRITICAL VARIABLE NAMING: Never reuse the same variable name for different purposes. Be especially careful with property names like :Type - if you bind ?entity :Type ?entityType for a data property value, do NOT later use ?entityType in a VALUES clause or BIND for RDF type classes. Use distinct variable names like ?entityRdfType for rdf:type bindings and ?entityTypeProperty for :Type property values.
 CRITICAL TYPE MATCHING: When searching for entities of a certain type (e.g., Equipment, Instrument), use SIMPLE type matching with ?entity rdf:type :TypeName. Do NOT use property paths like rdf:type/rdfs:subClassOf* as these traverse the ontology CLASS hierarchy, not instance data, and often fail to match direct instances.
 CRITICAL: Instances in the graph are typed with their SPECIFIC subclass (e.g., :DirectConnection, :Piping, :Signal), NOT the parent class (e.g., :Edge). When you need to match any subtype, you MUST either: (1) use VALUES to list all specific subtypes explicitly, or (2) omit the type constraint entirely and let the edge variable match anything with :StartNode/:EndNode properties. For Edge types specifically, do NOT use rdf:type :Edge - instead either omit the type constraint or use VALUES with all edge subtypes: :DirectConnection, :Piping, :Signal, :ConnectToProcess.

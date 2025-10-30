@@ -299,6 +299,139 @@ async def post_rules(req: Request):
     return views.TemplateResponse(request=req, name="rules.html", context=view_data)
 
 
+@app.post("/verify_rules")
+async def verify_rules(req: Request):
+    """
+    Verify custom rules by executing each line as a natural language query
+    against the graph data source, similar to how conv_ai_console processes queries.
+    """
+    global ai_svc
+    global rag_data_svc
+    
+    try:
+        form_data = await req.form()
+        custom_rules_raw = form_data.get("custom_rules", "")
+        custom_rules = custom_rules_raw.strip() if isinstance(custom_rules_raw, str) else ""
+        
+        if not custom_rules:
+            return Response(
+                content=json.dumps({
+                    "success": False,
+                    "error": "No rules provided to verify"
+                }),
+                media_type="application/json"
+            )
+        
+        # Split rules into individual lines, filter out empty lines
+        rule_lines = [line.strip() for line in custom_rules.split('\n') if line.strip()]
+        
+        # Load the rule evaluation prompt template
+        rule_eval_prompt_path = ConfigService.prompt_rule_evaluation()
+        with open(rule_eval_prompt_path, 'r', encoding='utf-8') as f:
+            rule_eval_template = f.read().strip()
+        
+        results = []
+        for idx, rule_text in enumerate(rule_lines, 1):
+            try:
+                # STEP 1: Use the rule AS-IS to generate SPARQL and execute it
+                rdr: RAGDataResult = await rag_data_svc.get_rag_data(
+                    rule_text,  # Use rule as-is, not wrapped in evaluation query
+                    20, 
+                    strategy_override="graph",  # Force graph data source
+                    custom_rules=custom_rules
+                )
+                
+                # STEP 2: After getting SPARQL results, evaluate true/false with LLM
+                response_text = ""
+                evaluation_prompt = ""
+                sparql_query = rdr.get_sparql() if rdr.has_graph_rag_docs() else None
+                rag_docs = rdr.get_rag_docs() if rdr.has_graph_rag_docs() else []
+                
+                if rdr.has_graph_rag_docs():
+                    # Build context from RAG data (SPARQL execution results)
+                    context = rdr.as_system_prompt_text()
+                    
+                    # Format the evaluation prompt with rule and context
+                    evaluation_prompt = rule_eval_template.format(rule_text, context)
+                    
+                    # Get LLM response using the aoai_client directly
+                    completion = ai_svc.aoai_client.chat.completions.create(
+                        model=ai_svc.completions_deployment,
+                        temperature=0.0,
+                        messages=[
+                            {"role": "user", "content": evaluation_prompt},
+                        ],
+                    )
+                    response_text = completion.choices[0].message.content if completion and completion.choices else ""
+                else:
+                    # Even if no results, still format the evaluation prompt for visibility
+                    evaluation_prompt = rule_eval_template.format(rule_text, "No SPARQL results available")
+                
+                # Check if LLM response indicates true/false
+                response_lower = response_text.lower() if response_text else ""
+                is_true = "true" in response_lower and "false" not in response_lower
+                is_false = "false" in response_lower and "true" not in response_lower
+                
+                # Always include evaluation_query and response_text in result
+                result = {
+                    "index": idx,
+                    "rule": rule_text,
+                    "evaluation_query": evaluation_prompt,
+                    "success": is_true,
+                    "sparql": sparql_query,
+                    "results": rag_docs,
+                    "result_count": len(rag_docs),
+                    "strategy": rdr.get_strategy(),
+                    "response_text": response_text if response_text else "No response from LLM"
+                }
+                
+                if is_false:
+                    result["success"] = False
+                    result["error"] = "Statement evaluated as FALSE by LLM"
+                elif not is_true and not is_false:
+                    result["success"] = False
+                    result["error"] = "LLM did not provide a clear true/false evaluation"
+                elif not rdr.has_graph_rag_docs():
+                    result["success"] = False
+                    result["error"] = "No SPARQL query generated or no results returned"
+                
+            except Exception as e:
+                logging.error(f"Error verifying rule {idx}: {str(e)}")
+                logging.error(traceback.format_exc())
+                result = {
+                    "index": idx,
+                    "rule": rule_text,
+                    "success": False,
+                    "error": str(e),
+                    "sparql": None,
+                    "results": [],
+                    "result_count": 0
+                }
+            
+            results.append(result)
+        
+        return Response(
+            content=json.dumps({
+                "success": True,
+                "results": results,
+                "total_rules": len(rule_lines)
+            }),
+            media_type="application/json"
+        )
+        
+    except Exception as e:
+        logging.error(f"Error in verify_rules endpoint: {str(e)}")
+        logging.error(traceback.format_exc())
+        return Response(
+            content=json.dumps({
+                "success": False,
+                "error": str(e)
+            }),
+            media_type="application/json",
+            status_code=500
+        )
+
+
 @app.get("/sparql_console")
 async def get_sparql_console(req: Request):
     view_data = get_sparql_console_view_data()

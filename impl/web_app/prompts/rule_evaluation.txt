@@ -1,0 +1,6 @@
+Assuming the question only refers to data listed in the provided context, evaluate if the statement is true or false. Respond with either "True" or "False" followed by a brief explanation.
+
+Statement to evaluate: {}
+
+Context:
+{}

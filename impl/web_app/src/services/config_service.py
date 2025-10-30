@@ -189,6 +189,7 @@ class ConfigService:
         )
         d["CAIG_PROMPT_SPARQL_PATH"] = "Path to SPARQL generation prompt .txt file. (WEB RUNTIME)"
         d["CAIG_PROMPT_COMPLETION_PATH"] = "Path to completion prompt .txt file. (WEB RUNTIME)"
+        d["CAIG_PROMPT_RULE_EVALUATION_PATH"] = "Path to rule evaluation prompt .txt file. (WEB RUNTIME)"
         return d
 
     @classmethod
@@ -245,6 +246,7 @@ class ConfigService:
         d["CAIG_LOG_LEVEL"] = "info"
         d["CAIG_PROMPT_SPARQL_PATH"] = "prompts/gen_sparql_generic.txt"
         d["CAIG_PROMPT_COMPLETION_PATH"] = "prompts/gen_completion_generic.txt"
+        d["CAIG_PROMPT_RULE_EVALUATION_PATH"] = "prompts/rule_evaluation.txt"
         return d
 
     @classmethod
@@ -290,6 +292,10 @@ class ConfigService:
     @classmethod
     def prompt_completion(cls) -> str:
         return cls.envvar("CAIG_PROMPT_COMPLETION_PATH", "prompts/gen_completion_generic.txt")
+
+    @classmethod
+    def prompt_rule_evaluation(cls) -> str:
+        return cls.envvar("CAIG_PROMPT_RULE_EVALUATION_PATH", "prompts/rule_evaluation.txt")
 
     @classmethod
     def graph_service_ontology_url(cls) -> str:
