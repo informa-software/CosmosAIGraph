@@ -302,7 +302,7 @@ async def post_rules(req: Request):
 @app.post("/verify_rules")
 async def verify_rules(req: Request):
     """
-    Verify custom rules by executing each line as a natural language query
+    Evaluate custom rules by executing each line as a natural language query
     against the graph data source, similar to how conv_ai_console processes queries.
     """
     global ai_svc
@@ -317,7 +317,7 @@ async def verify_rules(req: Request):
             return Response(
                 content=json.dumps({
                     "success": False,
-                    "error": "No rules provided to verify"
+                    "error": "No rules provided to evaluate"
                 }),
                 media_type="application/json"
             )
@@ -368,9 +368,23 @@ async def verify_rules(req: Request):
                     evaluation_prompt = rule_eval_template.format(rule_text, "No SPARQL results available")
                 
                 # Check if LLM response indicates true/false
+                # Parse the FIRST occurrence of True or False (case-insensitive)
+                # This handles cases where LLM provides reasoning that mentions both words
                 response_lower = response_text.lower() if response_text else ""
-                is_true = "true" in response_lower and "false" not in response_lower
-                is_false = "false" in response_lower and "true" not in response_lower
+                
+                # Find first occurrence of "true" or "false" as a standalone word
+                import re
+                # Match "true" or "false" at word boundaries (not part of another word)
+                matches = list(re.finditer(r'\b(true|false)\b', response_lower))
+                
+                is_true = False
+                is_false = False
+                
+                if matches:
+                    # Use the FIRST match as the answer
+                    first_match = matches[0].group(1)
+                    is_true = (first_match == "true")
+                    is_false = (first_match == "false")
                 
                 # Always include evaluation_query and response_text in result
                 result = {
@@ -385,9 +399,10 @@ async def verify_rules(req: Request):
                     "response_text": response_text if response_text else "No response from LLM"
                 }
                 
+                # Only set error for actual failures, not for False evaluations
                 if is_false:
                     result["success"] = False
-                    result["error"] = "Statement evaluated as FALSE by LLM"
+                    # Don't set an error - False is a valid evaluation result
                 elif not is_true and not is_false:
                     result["success"] = False
                     result["error"] = "LLM did not provide a clear true/false evaluation"
@@ -396,7 +411,7 @@ async def verify_rules(req: Request):
                     result["error"] = "No SPARQL query generated or no results returned"
                 
             except Exception as e:
-                logging.error(f"Error verifying rule {idx}: {str(e)}")
+                logging.error(f"Error evaluating rule {idx}: {str(e)}")
                 logging.error(traceback.format_exc())
                 result = {
                     "index": idx,

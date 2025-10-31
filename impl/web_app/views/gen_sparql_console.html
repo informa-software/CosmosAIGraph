@@ -59,9 +59,18 @@
             // Load custom rules from sessionStorage before form submission
             document.getElementById('generate_form').addEventListener('submit', function() {
               console.log('[GEN_SPARQL] Form submit triggered');
-              const customRules = sessionStorage.getItem('sparql_custom_rules') || '';
-              console.log('[GEN_SPARQL] Loaded from sessionStorage:', customRules);
-              console.log('[GEN_SPARQL] Rules length:', customRules.length);
+              const injectRules = sessionStorage.getItem('sparql_inject_rules') === 'true';
+              console.log('[GEN_SPARQL] Inject rules enabled:', injectRules);
+              
+              let customRules = '';
+              if (injectRules) {
+                customRules = sessionStorage.getItem('sparql_custom_rules') || '';
+                console.log('[GEN_SPARQL] Loaded from sessionStorage:', customRules);
+                console.log('[GEN_SPARQL] Rules length:', customRules.length);
+              } else {
+                console.log('[GEN_SPARQL] Rules injection disabled by user');
+              }
+              
               document.getElementById('custom_rules').value = customRules;
               console.log('[GEN_SPARQL] Set hidden field value to:', document.getElementById('custom_rules').value);
             });
@@ -300,9 +309,18 @@
       
       // Load custom rules from sessionStorage and inject into form
       console.log('[GEN_SPARQL] Generate button clicked');
-      const customRules = sessionStorage.getItem('sparql_custom_rules') || '';
-      console.log('[GEN_SPARQL] Loaded from sessionStorage:', customRules);
-      console.log('[GEN_SPARQL] Rules length:', customRules.length);
+      const injectRules = sessionStorage.getItem('sparql_inject_rules') === 'true';
+      console.log('[GEN_SPARQL] Inject rules enabled:', injectRules);
+      
+      let customRules = '';
+      if (injectRules) {
+        customRules = sessionStorage.getItem('sparql_custom_rules') || '';
+        console.log('[GEN_SPARQL] Loaded from sessionStorage:', customRules);
+        console.log('[GEN_SPARQL] Rules length:', customRules.length);
+      } else {
+        console.log('[GEN_SPARQL] Rules injection disabled by user');
+      }
+      
       const customRulesInput = document.getElementById('custom_rules');
       if (customRulesInput) {
         customRulesInput.value = customRules;

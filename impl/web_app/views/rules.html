@@ -3,6 +3,22 @@
 {% block title %}Custom SPARQL Rules{% endblock %}
 
 {% block content %}
+<style>
+  /* Remove white border from CodeMirror editors */
+  .CodeMirror {
+    border: none !important;
+  }
+  
+  .CodeMirror-focused {
+    border: none !important;
+    outline: none !important;
+  }
+</style>
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/lib/codemirror.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/theme/tomorrow-night-eighties.min.css">
+<script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/lib/codemirror.min.js"></script>
+
 <div class="container mt-4">
     <div class="row">
         <div class="col-12">
@@ -13,8 +29,7 @@
                     </h3>
                     
                     <p class="text-muted mb-4">
-                        Define custom rules that will be injected into the SPARQL generation prompt. 
-                        These rules help guide the AI to generate queries that match your specific requirements and domain knowledge.
+                        Define custom rules that will be either be injected into the SPARQL generation prompt (if checkbox below is checked) or evaluated once.
                     </p>
 
                     <form id="rulesForm" method="post" action="/rules">
@@ -24,15 +39,36 @@
                                 <small class="text-muted ms-2">(One rule per line or as a paragraph)</small>
                             </label>
                             <textarea 
-                                class="form-control bg-dark text-light border-secondary" 
                                 id="customRules" 
                                 name="custom_rules" 
-                                rows="15"
-                                placeholder="Enter your custom rules here. For example:&#10;&#10;- Always filter by active status unless specified otherwise&#10;- When querying for people, include their email addresses&#10;- Use case-insensitive matching for all name fields&#10;- Limit results to 100 unless user specifies a different limit&#10;- Always sort results by creation date descending"
-                                style="font-family: 'Courier New', monospace; font-size: 0.9rem;">{{ custom_rules }}</textarea>
-                            <div class="form-text text-muted">
-                                These rules will be added to the system prompt when generating SPARQL queries. 
-                                Be specific and clear in your instructions.
+                                placeholder="Enter your custom rules here. For example:&#10;&#10;- Always filter by active status unless specified otherwise&#10;- When querying for people, include their email addresses&#10;- Use case-insensitive matching for all name fields&#10;- Limit results to 100 unless user specifies a different limit&#10;- Always sort results by creation date descending">{{ custom_rules }}</textarea>
+                            <script>
+                                // Create global CodeMirror editor instance for rules
+                                window.rulesEditor = CodeMirror.fromTextArea(document.getElementById("customRules"), {
+                                    mode: "text/plain",
+                                    lineNumbers: true,
+                                    theme: "tomorrow-night-eighties",
+                                    lineWrapping: true
+                                });
+                                
+                                function resizeRulesEditor(cm) {
+                                    var doc = cm.getDoc();
+                                    var lineCount = doc.lineCount();
+                                    var newHeight = Math.max((lineCount + 1) * 24, 360); // Minimum 360px (15 rows * 24px)
+                                    cm.setSize(null, newHeight + "px");
+                                }
+                                
+                                resizeRulesEditor(window.rulesEditor);
+                                window.rulesEditor.on("change", function (cm) {
+                                    resizeRulesEditor(cm);
+                                });
+                            </script>
+                            <div class="form-check mt-3">
+                                <input class="form-check-input" type="checkbox" id="injectRulesCheckbox" name="inject_rules">
+                                <label class="form-check-label" for="injectRulesCheckbox">
+                                    Inject these rules into every SPARQL generation request
+                                    <small class="text-muted d-block">When checked, rules will be automatically included in all NL2SPARQL queries</small>
+                                </label>
                             </div>
                         </div>
 
@@ -42,7 +78,7 @@
                                     <i class="bi bi-save me-1"></i>Save Rules
                                 </button>
                                 <button type="button" class="btn btn-outline-warning me-2" id="verifyRulesBtn">
-                                    <i class="bi bi-check-circle me-1"></i>Verify Rules
+                                    <i class="bi bi-check-circle me-1"></i>Evaluate Rules
                                 </button>
                                 <button type="button" class="btn btn-outline-secondary" id="clearRulesBtn">
                                     <i class="bi bi-trash me-1"></i>Clear Rules
@@ -59,7 +95,7 @@
                     <!-- Verification Results Section -->
                     <div id="verificationResults" class="mt-4" style="display: none;">
                         <h5 class="mb-3">
-                            <i class="bi bi-clipboard-check me-2"></i>Verification Results
+                            <i class="bi bi-clipboard-check me-2"></i>Evaluation Results
                         </h5>
                         <div id="verificationContent"></div>
                     </div>
@@ -94,27 +130,36 @@
 <script>
 (function() {
     const STORAGE_KEY = 'sparql_custom_rules';
+    const INJECT_KEY = 'sparql_inject_rules';
     const form = document.getElementById('rulesForm');
-    const textarea = document.getElementById('customRules');
     const clearBtn = document.getElementById('clearRulesBtn');
     const verifyBtn = document.getElementById('verifyRulesBtn');
     const verificationResults = document.getElementById('verificationResults');
     const verificationContent = document.getElementById('verificationContent');
+    const injectCheckbox = document.getElementById('injectRulesCheckbox');
 
-    // Load saved rules from sessionStorage on page load if textarea is empty
-    if (!textarea.value.trim()) {
+    // Load saved rules from sessionStorage on page load if editor is empty
+    if (!window.rulesEditor.getValue().trim()) {
         const savedRules = sessionStorage.getItem(STORAGE_KEY);
         if (savedRules) {
-            textarea.value = savedRules;
+            window.rulesEditor.setValue(savedRules);
         }
+    }
+
+    // Load checkbox state from sessionStorage
+    const savedInjectState = sessionStorage.getItem(INJECT_KEY);
+    if (savedInjectState === 'true') {
+        injectCheckbox.checked = true;
     }
 
     // Save to sessionStorage when form is submitted
     form.addEventListener('submit', function(e) {
-        const rules = textarea.value.trim();
+        const rules = window.rulesEditor.getValue().trim();
+        const injectRules = injectCheckbox.checked;
         console.log('[RULES PAGE] Form submitted');
         console.log('[RULES PAGE] Rules to save:', rules);
         console.log('[RULES PAGE] Rules length:', rules.length);
+        console.log('[RULES PAGE] Inject rules:', injectRules);
         if (rules) {
             sessionStorage.setItem(STORAGE_KEY, rules);
             console.log('[RULES PAGE] Saved to sessionStorage with key:', STORAGE_KEY);
@@ -123,13 +168,18 @@
             sessionStorage.removeItem(STORAGE_KEY);
             console.log('[RULES PAGE] Removed from sessionStorage (empty rules)');
         }
+        // Save inject checkbox state
+        sessionStorage.setItem(INJECT_KEY, injectRules.toString());
+        console.log('[RULES PAGE] Saved inject state to sessionStorage:', injectRules);
     });
 
     // Clear rules button
     clearBtn.addEventListener('click', function() {
         if (confirm('Are you sure you want to clear all custom rules?')) {
-            textarea.value = '';
+            window.rulesEditor.setValue('');
+            injectCheckbox.checked = false;
             sessionStorage.removeItem(STORAGE_KEY);
+            sessionStorage.removeItem(INJECT_KEY);
             // Submit the form to clear on server side as well
             form.submit();
         }
@@ -137,18 +187,18 @@
 
     // Verify rules button
     verifyBtn.addEventListener('click', async function() {
-        const rules = textarea.value.trim();
+        const rules = window.rulesEditor.getValue().trim();
         
         if (!rules) {
-            alert('Please enter some rules to verify.');
+            alert('Please enter some rules to evaluate.');
             return;
         }
 
         // Disable button and show loading state
         verifyBtn.disabled = true;
-        verifyBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Verifying...';
+        verifyBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Evaluating...';
         verificationResults.style.display = 'block';
-        verificationContent.innerHTML = '<div class="text-center"><div class="spinner-border text-warning" role="status"><span class="visually-hidden">Loading...</span></div><p class="mt-2">Verifying rules...</p></div>';
+        verificationContent.innerHTML = '<div class="text-center"><div class="spinner-border text-warning" role="status"><span class="visually-hidden">Loading...</span></div><p class="mt-2">Evaluating rules...</p></div>';
 
         try {
             const formData = new FormData();
@@ -167,12 +217,12 @@
                 verificationContent.innerHTML = `
                     <div class="alert alert-danger">
                         <i class="bi bi-exclamation-triangle me-2"></i>
-                        <strong>Verification Failed:</strong> ${data.error || 'Unknown error'}
+                        <strong>Evaluation Failed:</strong> ${data.error || 'Unknown error'}
                     </div>
                 `;
             }
         } catch (error) {
-            console.error('Verification error:', error);
+            console.error('Evaluation error:', error);
             verificationContent.innerHTML = `
                 <div class="alert alert-danger">
                     <i class="bi bi-exclamation-triangle me-2"></i>
@@ -182,7 +232,7 @@
         } finally {
             // Re-enable button
             verifyBtn.disabled = false;
-            verifyBtn.innerHTML = '<i class="bi bi-check-circle me-1"></i>Verify Rules';
+            verifyBtn.innerHTML = '<i class="bi bi-check-circle me-1"></i>Evaluate Rules';
         }
     });
 
@@ -192,8 +242,8 @@
 
         let html = `
             <div class="alert alert-${successCount === totalRules ? 'success' : 'warning'} mb-3">
-                <strong>Summary:</strong> ${successCount} / ${totalRules} rules verified successfully
-                ${failureCount > 0 ? `<br><small>${failureCount} rule(s) failed to verify</small>` : ''}
+                <strong>Summary:</strong> ${successCount} / ${totalRules} rules evaluated successfully
+                ${failureCount > 0 ? `<br><small>${failureCount} rule(s) failed to evaluate</small>` : ''}
             </div>
         `;
 
@@ -334,10 +384,10 @@
 
     // Auto-save to sessionStorage on change (debounced)
     let saveTimeout;
-    textarea.addEventListener('input', function() {
+    window.rulesEditor.on('change', function() {
         clearTimeout(saveTimeout);
         saveTimeout = setTimeout(function() {
-            const rules = textarea.value.trim();
+            const rules = window.rulesEditor.getValue().trim();
             if (rules) {
                 sessionStorage.setItem(STORAGE_KEY, rules);
             } else {
