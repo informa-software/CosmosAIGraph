@@ -50,7 +50,15 @@ class Prompts:
             logging.warning(f"PROMPTS.PY - Placeholder replacement complete. Looking for '{{custom_rules}}' in template...")
             logging.warning(f"PROMPTS.PY - Placeholder found in template: {'{custom_rules}' in template}")
             logging.warning(f"PROMPTS.PY - Rules section in final prompt: {rules_section in prompt_with_rules if rules_section else 'N/A (no rules)'}")
-            return prompt_with_rules.format(minimized_owl)
+            
+            # Auto-escape literal braces in SPARQL code examples to prevent .format() errors
+            # Replace single { and } with {{ and }}, but preserve the ontology placeholder {}
+            # Strategy: Replace all braces with doubled versions, then restore the single {} placeholder
+            safe_prompt = prompt_with_rules.replace("{", "{{").replace("}", "}}")
+            # Restore the single {} for the ontology placeholder (now it's {{{{}}}} after doubling)
+            safe_prompt = safe_prompt.replace("{{{{}}}}", "{}")
+            
+            return safe_prompt.format(minimized_owl)
         except Exception as e:
             logging.critical(
                 "Exception in generate_sparql_system_prompt: {}".format(str(e))

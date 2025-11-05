@@ -364,66 +364,208 @@ python main_common.py owl_visualizer ontologies/libraries.owl
   // the page under #owl_div <code> block. This keeps the view Jinja2-friendly
   // and generates nodes/edges on page load without hardcoding the graph.
 
+  // Parse Turtle/OWL using rdflib.js for robust parsing
+  async function rdflibToGraph(turtleText) {
+    try {
+      console.log('rdflibToGraph: Starting parse, text length:', turtleText.length);
+      
+      // Decode any URL-encoded characters in the Turtle text
+      // This fixes issues where class/property names have URL encoding (%20, %2F, etc.)
+      let decodedText = turtleText;
+      try {
+        // Use a regex to find and decode all URL-encoded sequences
+        decodedText = turtleText.replace(/%[0-9A-Fa-f]{2}/g, (match) => {
+          try {
+            return decodeURIComponent(match);
+          } catch (e) {
+            // If decoding fails for a specific sequence, keep it as-is
+            return match;
+          }
+        });
+      } catch (e) {
+        console.warn('URL decoding failed, using original text:', e);
+      }
+      
+      const store = $rdf.graph();
+      const contentType = 'text/turtle';
+      const baseURI = 'http://schema.org/ontology#';
+      
+      // Parse the Turtle text
+      await new Promise((resolve, reject) => {
+        try {
+          $rdf.parse(decodedText, store, baseURI, contentType);
+          console.log('rdflibToGraph: Parse completed, statements:', store.statements.length);
+          resolve();
+        } catch (e) {
+          // Silently fail - fallback parser will handle it
+          console.debug('rdflibToGraph: Parse failed, will use fallback parser:', e.message);
+          reject(e);
+        }
+      });
+
+      const nodesSet = new Map();
+      const edges = [];
+
+      // Extract classes and properties
+      const statements = store.statements;
+      
+      for (const stmt of statements) {
+        const subj = stmt.subject.value;
+        const pred = stmt.predicate.value;
+        const obj = stmt.object.value;
+
+        // Normalize URIs to local names
+        const normUri = (uri) => {
+          if (!uri) return null;
+          // Extract local name from URI
+          const match = uri.match(/[#\/]([^#\/]+)$/);
+          if (match) {
+            try {
+              // Decode any remaining URL-encoded characters in the local name
+              return decodeURIComponent(match[1]);
+            } catch (e) {
+              // If decoding fails, return as-is
+              return match[1];
+            }
+          }
+          return uri;
+        };
+
+        const subjId = normUri(subj);
+        const predId = normUri(pred);
+        const objId = normUri(obj);
+
+        // Skip literals and metadata triples
+        if (!subjId || !predId || !objId) continue;
+        if (subjId === 'ontology' || objId === 'ontology') continue;
+
+        // Add nodes
+        if (subjId) nodesSet.set(subjId, { id: subjId, label: subjId });
+        if (objId && stmt.object.termType === 'NamedNode') {
+          nodesSet.set(objId, { id: objId, label: objId });
+          
+          // Add edge
+          edges.push({
+            from: subjId,
+            to: objId,
+            label: predId,
+            title: predId
+          });
+        }
+      }
+
+      const nodes = Array.from(nodesSet.values());
+      console.log(`rdflib parsed: ${nodes.length} nodes, ${edges.length} edges`);
+      if (nodes.length > 0) {
+        console.log('rdflib sample nodes:', nodes.slice(0, 5));
+        console.log('rdflib sample edges:', edges.slice(0, 5));
+      }
+      return { nodes, edges };
+    } catch (e) {
+      // Silently return null to trigger fallback parser
+      console.debug('rdflibToGraph failed, using fallback parser');
+      return null;
+    }
+  }
+
   function simpleTurtleToGraph(turtleText) {
-    // Very small heuristic parser: extract triples of the form
-    // subject predicate object .  Handles multiple objects separated by commas.
+    // Improved heuristic parser for Turtle/OWL syntax
     const nodesSet = new Map(); // id -> {id,label}
     const edges = [];
 
     const lines = turtleText.split(/\r?\n/);
+    let currentSubject = null;
+    
     for (let raw of lines) {
       let line = raw.replace(/#.*$/, '').trim();
       if (!line) continue;
-      // Only handle simple triple lines ending with a dot
-      if (!line.endsWith('.')) continue;
-      // remove trailing dot
-      line = line.slice(0, -1).trim();
+      
+      // Handle prefix declarations and blank lines
+      if (line.startsWith('@prefix') || line.toLowerCase().startsWith('prefix') || 
+          line.startsWith('@base') || line.toLowerCase().startsWith('base')) {
+        continue;
+      }
 
-      // split subject, predicate, objects (objects may include commas or ';')
-      const m = line.match(/^([^\s]+)\s+([^\s]+)\s+(.+)$/);
-      if (!m) continue;
-      let subj = m[1];
-      let pred = m[2];
-      let objs = m[3];
+      // Remove trailing punctuation but remember what it was
+      const endsWithDot = line.endsWith('.');
+      const endsWithSemicolon = line.endsWith(';');
+      const endsWithComma = line.endsWith(',');
+      
+      line = line.replace(/[.;,]\s*$/, '').trim();
+      if (!line) continue;
 
-      // split objects on comma (ignore language tags / nested constructs)
-      objs = objs.split(',').map(s => s.trim());
-
-      // normalize token function: strip prefixes and angle brackets
+      // Normalize token function: strip prefixes and angle brackets
       const norm = (token) => {
         if (!token) return token;
-        // literal string
+        token = token.trim();
+        // Skip literals
         if (token.startsWith('"') || token.startsWith("'")) return null;
-        // remove trailing punctuation
+        // Remove angle brackets
         token = token.replace(/^<|>$/g, '');
-        // if contains ':' return local part after ':' else return token
-        if (token.indexOf(':') >= 0) {
-          return token.split(':').pop();
+        // Handle 'a' as rdf:type
+        if (token === 'a') return 'type';
+        // Extract local name after : or # or /
+        const match = token.match(/[:#\/]([^:#\/\s]+)$/);
+        if (match) {
+          try {
+            // Decode all URL-encoded characters
+            return decodeURIComponent(match[1]);
+          } catch (e) {
+            // If decoding fails, return as-is
+            return match[1];
+          }
         }
         return token;
       };
 
-      const sId = norm(subj);
-      if (sId) nodesSet.set(sId, { id: sId, label: sId });
+      // Parse triple pattern - split on whitespace
+      const parts = line.split(/\s+/).filter(p => p.length > 0);
+      if (parts.length < 2) continue;
 
-      for (let objRaw of objs) {
-        // remove predicate modifiers like ; ... (we only handle commas already split)
-        // also chop off trailing whitespace or comments
-        let obj = objRaw.replace(/;.*$/, '').trim();
-        const oId = norm(obj);
-        if (!oId) continue; // skip literals
-        nodesSet.set(oId, { id: oId, label: oId });
+      // Check if this is a new subject line or a continuation
+      const isNewSubject = parts.length >= 3 && (currentSubject === null || endsWithDot);
+      
+      if (isNewSubject) {
+        // New triple: subject predicate object
+        currentSubject = norm(parts[0]);
+        const pred = norm(parts[1]);
+        const objParts = parts.slice(2);
+        
+        for (const objToken of objParts) {
+          const obj = norm(objToken);
+          if (currentSubject && pred && obj) {
+            nodesSet.set(currentSubject, { id: currentSubject, label: currentSubject });
+            nodesSet.set(obj, { id: obj, label: obj });
+            edges.push({ from: currentSubject, to: obj, title: pred, label: pred });
+          }
+        }
+      } else if (currentSubject && parts.length >= 2) {
+        // Continuation: predicate object (reuse currentSubject)
+        const pred = norm(parts[0]);
+        const objParts = parts.slice(1);
+        
+        for (const objToken of objParts) {
+          const obj = norm(objToken);
+          if (pred && obj) {
+            nodesSet.set(obj, { id: obj, label: obj });
+            edges.push({ from: currentSubject, to: obj, title: pred, label: pred });
+          }
+        }
+      }
 
-        // derive predicate label
-        const pLabel = norm(pred) || pred;
-        if (!pLabel) continue;
-
-        edges.push({ from: sId, to: oId, title: pLabel, label: pLabel });
+      // Reset subject on dot (end of statement)
+      if (endsWithDot) {
+        currentSubject = null;
       }
     }
 
     // Convert nodesSet to array
     const nodes = Array.from(nodesSet.values());
+    console.log(`simpleTurtleToGraph parsed: ${nodes.length} nodes, ${edges.length} edges`);
+    if (nodes.length > 0) {
+      console.log('Sample nodes:', nodes.slice(0, 5));
+      console.log('Sample edges:', edges.slice(0, 5));
+    }
     return { nodes, edges };
   }
 
@@ -440,10 +582,11 @@ python main_common.py owl_visualizer ontologies/libraries.owl
           graph = await rdflibToGraph(turtleText);
           // If rdflib produced no nodes, fall back
           if (!graph || !graph.nodes || graph.nodes.length === 0) {
+            console.log('Using fallback Turtle parser');
             graph = simpleTurtleToGraph(turtleText);
           }
         } catch (e) {
-          console.warn('rdflib parsing failed, falling back to heuristic parser:', e);
+          console.log('Using fallback Turtle parser');
           graph = simpleTurtleToGraph(turtleText);
         }
       }
@@ -508,8 +651,7 @@ python main_common.py owl_visualizer ontologies/libraries.owl
           font: {
             color: "#fff",
             size: isLargeOntology ? 14 : 18,
-            face: 'Lucida Console',
-            bold: !isLargeOntology // Remove bold for large ontologies
+            face: 'Lucida Console'
           },
           borderWidth: 0,
           margin: isLargeOntology ? 5 : 10
@@ -553,7 +695,6 @@ python main_common.py owl_visualizer ontologies/libraries.owl
           font: {
             size: isLargeOntology ? 14 : 18,
             face: 'Lucida Console',
-            bold: !isLargeOntology,
             color: "#fff"
           }
         },
