@@ -16,12 +16,25 @@ async def test_with_nosql():
 
     await EntitiesService.initialize()
 
-    assert EntitiesService.libraries_count() > 10000  # 10760 is expected
-    assert EntitiesService.libraries_count() < 20000
+    # Test generic entity methods
+    assert EntitiesService.entities_count() > 10000  # 10760 is expected
+    assert EntitiesService.entities_count() < 20000
 
-    assert EntitiesService.library_present("flask") == True
-    assert EntitiesService.library_present("pydantic-core") == True
-    assert EntitiesService.library_present("pypi") == False
+    assert EntitiesService.entity_present("flask") == True
+    assert EntitiesService.entity_present("pydantic-core") == True
+    assert EntitiesService.entity_present("pypi") == False
+
+    # Test entity type retrieval
+    assert EntitiesService.get_entity_type("flask") == "pypi"
+    assert EntitiesService.get_entity_type("pydantic-core") == "pypi"
+    assert EntitiesService.get_entity_type("nonexistent") is None
+
+    # Test entity type counts
+    assert EntitiesService.entities_by_type_count("pypi") > 10000
+    assert EntitiesService.entities_by_type_count("pypi") < 20000
+
+    # Verify consistency between total count and type-specific count
+    assert EntitiesService.entities_count() == EntitiesService.entities_by_type_count("pypi")
 
     # identify case 1
     counter: Counter = EntitiesService.identify(None)

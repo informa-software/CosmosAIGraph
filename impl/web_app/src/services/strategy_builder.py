@@ -128,7 +128,7 @@ class StrategyBuilder:
                 lookup_words = "lookup,find,fetch,search,get,retrieve,show".split(",")
                 if nl_words[0].lower() in lookup_words:
                     for word in nl_words[1:]:
-                        if EntitiesService.library_present(word):
+                        if EntitiesService.entity_present(word):
                             strategy["strategy"] = "db"
                             strategy["name"] = word.lower()
         except Exception as e:

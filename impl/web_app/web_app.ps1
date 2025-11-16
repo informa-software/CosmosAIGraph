@@ -14,4 +14,17 @@ Write-Host 'activating the venv ...'
 Write-Host '.env file contents ...'
 Get-Content .env 
 
-hypercorn web_app:app --bind 127.0.0.1:8000 --workers 1 
+# Load environment variables from .env file
+Get-Content .env | ForEach-Object {
+    if ($_ -match '^\s*([^#][^=]*?)\s*=\s*(.+?)\s*$') {
+        $name = $matches[1]
+        $value = $matches[2] -replace '^"' -replace '"$'
+        [Environment]::SetEnvironmentVariable($name, $value, 'Process')
+    }
+}
+
+# Get port from environment variable, default to 8000 if not set
+$port = if ($env:CAIG_WEB_APP_PORT) { $env:CAIG_WEB_APP_PORT } else { "8000" }
+Write-Host "Starting web app on port $port ..."
+
+hypercorn web_app:app --bind "127.0.0.1:$port" --workers 1 

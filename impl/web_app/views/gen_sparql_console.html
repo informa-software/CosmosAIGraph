@@ -20,7 +20,7 @@
 </style>
 
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/lib/codemirror.min.css">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/theme/tomorrow-night-eighties.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/theme/yonce.min.css">
 <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/lib/codemirror.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/mode/sparql/sparql.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/mode/turtle/turtle.min.js"></script>
@@ -93,7 +93,7 @@
             window.editor = CodeMirror.fromTextArea(document.getElementById("sparql"), {
               mode: "sparql",
               lineNumbers: true,
-              theme: "tomorrow-night-eighties"
+              theme: "yonce"
             });
             function resizeCodeMirrorToContent(cm) {
               var doc = cm.getDoc();
@@ -129,7 +129,7 @@
       {% if results %}
       <pre><code class="language-json">{{ results | tojson | safe }}</code></pre> {% endif %}
       <!-- Prism.js for JSON syntax highlighting -->
-      <link href="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/themes/prism.css" rel="stylesheet" />
+      <link href="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
       <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/prism.js"></script>
       <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-json.min.js"></script>
       <br/>
@@ -866,7 +866,7 @@ python main_common.py owl_visualizer ontologies/libraries.owl
       owlEditor = CodeMirror.fromTextArea(ta, {
         mode: format === 'xml' ? 'xml' : 'turtle',
         lineNumbers: true,
-        theme: 'tomorrow-night-eighties'
+        theme: 'yonce'
       });
       resizeEditor(owlEditor);
       owlEditor.on('change', resizeEditor);

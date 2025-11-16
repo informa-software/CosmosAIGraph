@@ -114,8 +114,8 @@ async def lifespan(app: FastAPI):
         logging.error("FastAPI lifespan - CosmosNoSQLService initialized")
         await EntitiesService.initialize()
         logging.error(
-            "FastAPI lifespan - EntitiesService initialized, libraries_count: {}".format(
-                EntitiesService.libraries_count()
+            "FastAPI lifespan - EntitiesService initialized, entities_count: {}".format(
+                EntitiesService.entities_count()
             )
         )
         logging.error("ConfigService.graph_service_url():  {}".format(ConfigService.graph_service_url()))
