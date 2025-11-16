@@ -60,11 +60,11 @@ class CosmosNoSQLService:
             if auth_mechanism == "key":
                 logging.info("Initializing CosmosClient with key authentication.")
                 key = ConfigService.cosmosdb_nosql_key()
-                self._client = CosmosClient(uri, credential=key)
+                self._client = CosmosClient(uri, credential=key, connection_mode="Direct")
             else:
                 logging.info("Initializing CosmosClient with DefaultAzureCredential.")
                 credential = DefaultAzureCredential()
-                self._client = CosmosClient(uri, credential=credential)
+                self._client = CosmosClient(uri, credential=credential, connection_mode="Direct")
 
             logging.info("CosmosClient initialized successfully.")
             self.set_db(ConfigService.graph_source_db())

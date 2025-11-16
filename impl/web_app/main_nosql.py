@@ -202,7 +202,7 @@ async def test_cosmos_service(dbname):
         cname = "libraries_v1"
         ctrproxy = nosql_svc.set_container(cname)
         print("ctrproxy: {}".format(ctrproxy))
-        flask_doc = FS.read_json("../../data/pypi/wrangled_libs/flask.json")
+        flask_doc = FS.read_json("{}/flask.json".format(ConfigService.data_source_dir()))
         embedding = flask_doc["embedding"]
         sql_parameters = [dict(name="@embedding", value=embedding)]
         sql_template = """
@@ -221,7 +221,7 @@ ORDER BY VectorDistance(c.embedding, {})""".strip().format(
         cname = "libraries_v1"
         ctrproxy = nosql_svc.set_container(cname)
         print("ctrproxy: {}".format(ctrproxy))
-        flask_doc = FS.read_json("../../data/pypi/wrangled_libs/flask.json")
+        flask_doc = FS.read_json("{}/flask.json".format(ConfigService.data_source_dir()))
         embedding = flask_doc["embedding"]
         sql_parameters = [dict(name="@embedding", value=embedding)]
         sql_template = """
@@ -268,19 +268,16 @@ ORDER BY VectorDistance(c.embedding, @embedding)""".strip().format(
 
 
 async def load_data(dbname, cname, max_docs):
-    logging.info(
-        "load_data, dbname: {}, cname: {}, max_docs: {}".format(
-            dbname, cname, max_docs
-        )
-    )
+    logging.info("load_data, dbname: %s, cname: %s, max_docs: %s", dbname, cname, max_docs)
     try:
         opts = dict()
         nosql_svc = CosmosNoSQLService(opts)
         await nosql_svc.initialize()
         nosql_svc.set_db(dbname)
         nosql_svc.set_container(cname)
+        data_dir = ConfigService.data_source_dir()
         await load_docs_from_directory(
-            nosql_svc, "../../data/pypi/wrangled_libs", max_docs
+            nosql_svc, data_dir, max_docs
         )
     except Exception as e:
         logging.info(str(e))
@@ -288,66 +285,107 @@ async def load_data(dbname, cname, max_docs):
     await nosql_svc.close()
 
 
-async def load_docs_from_directory(nosql_svc, wrangled_libs_dir, max_docs):
-    files_list = FS.list_files_in_dir(wrangled_libs_dir)
+async def load_single_doc(nosql_svc, fq_name, filename, pk_field, max_retries=3, retry_delay=2):
+    """Load a single document with retry logic."""
+    result = {"success": False, "error": None}
+    try:
+        doc = FS.read_json(fq_name)
+        
+        # Validate partition key field exists
+        if pk_field not in doc:
+            result["error"] = f"missing_pk_{pk_field}"
+            return result
+        
+        # Ensure id field exists, using filename without extension as default
+        if "id" not in doc:
+            doc["id"] = filename.replace(".json", "")
+        
+        # Create the document with retry logic
+        for attempt in range(max_retries):
+            try:
+                await nosql_svc.create_item(doc)
+                result["success"] = True
+                return result
+            except Exception as create_error:
+                if attempt < max_retries - 1:
+                    wait_time = retry_delay * (2 ** attempt)
+                    logging.warning(
+                        "Create failed for {} (attempt {}/{}), retrying in {} seconds: {}".format(
+                            fq_name, attempt + 1, max_retries, wait_time, str(create_error)
+                        )
+                    )
+                    await asyncio.sleep(wait_time)
+                else:
+                    result["error"] = f"create_failed: {str(create_error)}"
+                    return result
+    except Exception as e:
+        result["error"] = f"read_failed: {str(e)}"
+    return result
+
+
+async def load_docs_from_directory(nosql_svc, source_dir, max_docs):
+    files_list = FS.list_files_in_dir(source_dir)
     filtered_files_list = filter_files_list(files_list, ".json")
     max_idx = len(filtered_files_list) - 1
-    batch_number, batch_size, batch_operations = 0, 10, list()
     load_counter = Counter()
-    pk = "pypi"  # libtype is 'pypi'; dataset easily fits into one physical partition
-
-    for idx, filename in enumerate(filtered_files_list):
-        if filename.endswith(".json"):
-            if idx < max_docs:
-                fq_name = "{}/{}".format(wrangled_libs_dir, filename)
-                try:
-                    logging.info(
-                        "reading file {} of {}: {}".format(idx, max_idx, fq_name)
-                    )
-                    doc = FS.read_json(fq_name)
-                    load_counter.increment("document_files_read")
-                    doc["_id"] = (
-                        "{}_{}".format(doc["libtype"].strip(), doc["name"].strip())
-                        .replace("-", "_")
-                        .lower()
-                    )
-                    doc["pk"] = pk
-
-                    op = ("upsert", (doc,))  # create, upsert
-                    batch_operations.append(op)
-                    if len(batch_operations) >= batch_size:
-                        batch_number = batch_number + 1
-                        await load_batch(
-                            nosql_svc, load_counter, batch_number, batch_operations, pk
-                        )
-                        batch_operations = list()
-                        # Small delay between batches to avoid overwhelming the database
-                        await asyncio.sleep(0.1)
-                except Exception as e:
-                    logging.info("error processing {}: {}".format(fq_name, str(e)))
-                    logging.info(traceback.format_exc())
-                    return
-
-    if len(batch_operations) > 0:
-        batch_number = batch_number + 1
-        await load_batch(nosql_svc, load_counter, batch_number, batch_operations, pk)
-
+    pk_field = ConfigService.graph_source_pk()
+    
+    # Process documents in concurrent batches for better performance
+    batch_size = 50  # Number of concurrent operations
+    
+    for batch_start in range(0, min(max_docs, len(filtered_files_list)), batch_size):
+        batch_end = min(batch_start + batch_size, max_docs, len(filtered_files_list))
+        tasks = []
+        
+        for idx in range(batch_start, batch_end):
+            filename = filtered_files_list[idx]
+            if filename.endswith(".json"):
+                fq_name = "{}{}{}".format(
+                    source_dir if source_dir else "",
+                    "/" if source_dir and not (source_dir.endswith("/") or source_dir.endswith("\\")) else "",
+                    filename
+                )
+                tasks.append(load_single_doc(nosql_svc, fq_name, filename, pk_field))
+        
+        # Execute batch concurrently
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        # Update counters
+        for idx, result in enumerate(results):
+            if isinstance(result, Exception):
+                load_counter.increment("exception")
+                logging.error(f"Batch task {batch_start + idx} raised exception: {result}")
+            elif result.get("success"):
+                load_counter.increment("create_success")
+            elif result.get("error"):
+                if "missing_pk" in result["error"]:
+                    load_counter.increment("missing_partition_key")
+                elif "read_failed" in result["error"]:
+                    load_counter.increment("file_read_error")
+                else:
+                    load_counter.increment("create_failure")
+        
+        logging.info(
+            "Processed batch {}-{} of {}, cumulative results: {}".format(
+                batch_start, batch_end - 1, max_idx, json.dumps(load_counter.get_data())
+            )
+        )
+    
     logging.info(
         "load_docs_from_directory completed; results: {}".format(
             json.dumps(load_counter.get_data())
         )
-        # load_docs_from_directory completed; results: {"document_files_read": 10855, "201": 10761, "200": 94}
     )
 
 
-async def load_batch(nosql_svc, load_counter, batch_number, batch_operations, pk):
+async def load_batch(nosql_svc, load_counter, batch_number, batch_operations):
     batch_counter = Counter()
     max_retries = 3
     retry_delay = 2  # seconds
     
     for attempt in range(max_retries):
         try:
-            results = await nosql_svc.execute_item_batch(batch_operations, pk)
+            results = await nosql_svc.execute_item_batch(batch_operations)
             for result in results:
                 try:
                     status_code = str(result["statusCode"])

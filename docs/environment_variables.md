@@ -24,6 +24,7 @@ All of these begin with the prefix `CAIG_`.
 | CAIG_COSMOSDB_NOSQL_KEY | The key of your Cosmos DB NoSQL account.   | RUNTIME |
 | CAIG_COSMOSDB_NOSQL_RG | The Resource Group of your Cosmos DB NoSQL account.   | DEV ENV |
 | CAIG_COSMOSDB_NOSQL_URI | The URI of your Cosmos DB NoSQL account.   | RUNTIME |
+| CAIG_DATA_SOURCE_DIR | The directory path containing source data files for loading into Cosmos DB.   | DEV ENV |
 | CAIG_FEEDBACK_CONTAINER | The Cosmos DB container where user feedback is persisted.   | WEB RUNTIME |
 | CAIG_GRAPH_DUMP_OUTFILE | The file to write to if CAIG_GRAPH_DUMP_UPON_BUILD is true.   | GRAPH RUNTIME |
 | CAIG_GRAPH_DUMP_UPON_BUILD | Boolean true/false to dump the Java/Jena model to CAIG_GRAPH_DUMP_OUTFILE.   | GRAPH RUNTIME |
@@ -33,6 +34,7 @@ All of these begin with the prefix `CAIG_`.
 | CAIG_GRAPH_SERVICE_URL | http://127.0.0.1 or determined by ACA.   | WEB RUNTIME |
 | CAIG_GRAPH_SOURCE_CONTAINER | The graph Cosmos DB container name, if CAIG_GRAPH_SOURCE_TYPE is 'cosmos_nosql'.   | GRAPH RUNTIME |
 | CAIG_GRAPH_SOURCE_DB | The graph Cosmos DB database name, if CAIG_GRAPH_SOURCE_TYPE is 'cosmos_nosql'.   | GRAPH RUNTIME |
+| CAIG_GRAPH_SOURCE_PK | The partition key name for the graph source container.   | GRAPH RUNTIME |
 | CAIG_GRAPH_SOURCE_OWL_FILENAME | The input RDF OWL ontology file path or HTTPS URL (e.g., Azure Blob Storage). Supports both local files for dev and blob URLs for production.   | GRAPH RUNTIME |
 | CAIG_GRAPH_SOURCE_PATH | The RDF input file/folder path or HTTPS URL (e.g., Azure Blob Storage), if CAIG_GRAPH_SOURCE_TYPE is 'rdf_file'. Supports both local paths for dev and blob URLs for production. Can be a directory path (local or blob URL ending with /) to load multiple RDF files.   | GRAPH RUNTIME |
 | CAIG_GRAPH_SOURCE_TYPE | The RDF graph data source type, either 'cosmos_nosql', or 'json_docs_file' or 'rdf_file'.   | GRAPH RUNTIME |

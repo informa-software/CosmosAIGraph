@@ -12,9 +12,11 @@ CAIG_COSMOSDB_NOSQL_AUTH_MECHANISM  <-- Authentication mechanism - key or RBAC (
 
 CAIG_GRAPH_SOURCE_DB                <-- defaults to 'caig'
 CAIG_GRAPH_SOURCE_CONTAINER         <-- defaults to 'libraries'
+CAIG_GRAPH_SOURCE_PK                <-- defaults to 'pk'
 CAIG_CONFIG_CONTAINER               <-- defaults to 'config'
 CAIG_CONVERSATIONS_CONTAINER        <-- defaults to 'conversations'
 CAIG_FEEDBACK_CONTAINER             <-- defaults to 'feedback'
+CAIG_DATA_SOURCE_DIR                <-- defaults to '../../data/pypi/wrangled_libs'
 ```
 
 ## Create containers in Azure Cosmos DB for NoSQL

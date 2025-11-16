@@ -142,6 +142,9 @@ class ConfigService:
         d["CAIG_GRAPH_SOURCE_CONTAINER"] = (
             "The graph Cosmos DB container name, if CAIG_GRAPH_SOURCE_TYPE is 'cosmos_nosql'.  (GRAPH RUNTIME)"
         )
+        d["CAIG_GRAPH_SOURCE_PK"] = (
+            "The partition key name for the graph source container.  (GRAPH RUNTIME)"
+        )
         d["CAIG_CONFIG_CONTAINER"] = (
             "The Cosmos DB container for configuration JSON values.  (RUNTIME)"
         )
@@ -160,6 +163,7 @@ class ConfigService:
             "The Cosmos DB NoSQL authentication mechanism; key or rbac.  (RUNTIME)"
         )
         d["CAIG_COSMOSDB_NOSQL_KEY"] = "The key of your Cosmos DB NoSQL account.  (RUNTIME)"
+        d["CAIG_DATA_SOURCE_DIR"] = "The directory path containing source data files for loading into Cosmos DB.  (DEV ENV)"
 
         d["CAIG_AZURE_OPENAI_URL"] = "The URL of your Azure OpenAI account.  (WEB RUNTIME)"
         d["CAIG_AZURE_OPENAI_KEY"] = "The Key of your Azure OpenAI account.  (WEB RUNTIME)"
@@ -224,6 +228,7 @@ class ConfigService:
         d["CAIG_GRAPH_SOURCE_PATH"] = "rdf/libraries-graph.nt"
         d["CAIG_GRAPH_SOURCE_DB"] = "caig"
         d["CAIG_GRAPH_SOURCE_CONTAINER"] = "libraries"
+        d["CAIG_GRAPH_SOURCE_PK"] = "pypi"
         d["CAIG_GRAPH_DUMP_UPON_BUILD"] = "false"
         d["CAIG_GRAPH_DUMP_OUTFILE"] = ""
         d["CAIG_CONFIG_CONTAINER"] = "config"
@@ -247,6 +252,7 @@ class ConfigService:
         d["CAIG_PROMPT_SPARQL_PATH"] = "prompts/gen_sparql_generic.txt"
         d["CAIG_PROMPT_COMPLETION_PATH"] = "prompts/gen_completion_generic.txt"
         d["CAIG_PROMPT_RULE_EVALUATION_PATH"] = "prompts/rule_evaluation.txt"
+        d["CAIG_DATA_SOURCE_DIR"] = "../../data/pypi/wrangled_libs"
         return d
 
     @classmethod
@@ -324,6 +330,10 @@ class ConfigService:
         return cls.envvar("CAIG_GRAPH_SOURCE_CONTAINER", "libraries")
 
     @classmethod
+    def graph_source_pk(cls) -> str:
+        return cls.envvar("CAIG_GRAPH_SOURCE_PK", "pypi")
+
+    @classmethod
     def config_container(cls) -> str:
         return cls.envvar("CAIG_CONFIG_CONTAINER", "config")
 
@@ -334,6 +344,10 @@ class ConfigService:
     @classmethod
     def feedback_container(cls) -> str:
         return cls.envvar("CAIG_FEEDBACK_CONTAINER", "feedback")
+
+    @classmethod
+    def data_source_dir(cls) -> str:
+        return cls.envvar("CAIG_DATA_SOURCE_DIR", "../../data/pypi/wrangled_libs")
 
     @classmethod
     def cosmosdb_nosql_uri(cls) -> str:
