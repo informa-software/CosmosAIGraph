@@ -2,10 +2,8 @@
 Usage:
     python main_nosql.py test_cosmos_service <dbname>
     python main_nosql.py test_cosmos_service dev
-    python main_nosql.py load_entities <dbname> <cname>
-    python main_nosql.py load_entities caig config
-    python main_nosql.py load_libraries <dbname> <cname> <max_docs>
-    python main_nosql.py load_libraries caig libraries 999999
+    python main_nosql.py load_data <dbname> <cname> <max_docs>
+    python main_nosql.py load_data caig libraries 999999
     python main_nosql.py vector_search_words <word1> <word2> <word3> ...
     python main_nosql.py vector_search_words asynchronous web framework with pydantic
     python main_nosql.py ad_hoc dev
@@ -250,28 +248,28 @@ ORDER BY VectorDistance(c.embedding, @embedding)""".strip().format(
     logging.info("end of test_cosmos_service")
 
 
-async def load_entities(dbname, cname):
-    logging.info("load_entities, dbname: {}, cname: {}".format(dbname, cname))
-    try:
-        opts = dict()
-        nosql_svc = CosmosNoSQLService(opts)
-        await nosql_svc.initialize()
-        nosql_svc.set_db(dbname)
-        nosql_svc.set_container(cname)
-        doc = FS.read_json("../../data/entities/entities_doc.json")
-        print(doc)
-        resp = await nosql_svc.upsert_item(doc)
-        print(resp)
+# async def load_entities(dbname, cname):
+#     logging.info("load_entities, dbname: {}, cname: {}".format(dbname, cname))
+#     try:
+#         opts = dict()
+#         nosql_svc = CosmosNoSQLService(opts)
+#         await nosql_svc.initialize()
+#         nosql_svc.set_db(dbname)
+#         nosql_svc.set_container(cname)
+#         doc = FS.read_json("../../data/entities/entities_doc.json")
+#         print(doc)
+#         resp = await nosql_svc.upsert_item(doc)
+#         print(resp)
 
-    except Exception as e:
-        logging.info(str(e))
-        logging.info(traceback.format_exc())
-    await nosql_svc.close()
+#     except Exception as e:
+#         logging.info(str(e))
+#         logging.info(traceback.format_exc())
+#     await nosql_svc.close()
 
 
-async def load_libraries(dbname, cname, max_docs):
+async def load_data(dbname, cname, max_docs):
     logging.info(
-        "load_libraries, dbname: {}, cname: {}, max_docs: {}".format(
+        "load_data, dbname: {}, cname: {}, max_docs: {}".format(
             dbname, cname, max_docs
         )
     )
@@ -455,15 +453,15 @@ if __name__ == "__main__":
             if func == "test_cosmos_service":
                 dbname = sys.argv[2]
                 asyncio.run(test_cosmos_service(dbname))
-            elif func == "load_entities":
-                dbname = sys.argv[2]
-                cname = sys.argv[3]
-                asyncio.run(load_entities(dbname, cname))
-            elif func == "load_libraries":
+            # elif func == "load_entities":
+            #     dbname = sys.argv[2]
+            #     cname = sys.argv[3]
+            #     asyncio.run(load_entities(dbname, cname))
+            elif func == "load_data":
                 dbname = sys.argv[2]
                 cname = sys.argv[3]
                 max_docs = int(sys.argv[4])
-                asyncio.run(load_libraries(dbname, cname, max_docs))
+                asyncio.run(load_data(dbname, cname, max_docs))
             elif func == "test_db_service":
                 source = sys.argv[2]
                 dbname = sys.argv[3]

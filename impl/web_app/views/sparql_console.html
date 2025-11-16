@@ -2462,18 +2462,18 @@
       // Load CSS first
       const link = document.createElement('link');
       link.rel = 'stylesheet';
-      link.href = 'https://cdn.jsdelivr.net/npm/prismjs@1.29.0/themes/prism.css';
+      link.href = 'https://cdn.jsdelivr.net/npm/prismjs/themes/prism-tomorrow.min.css';
       document.head.appendChild(link);
       
       // Load main Prism.js
       const script1 = document.createElement('script');
-      script1.src = 'https://cdn.jsdelivr.net/npm/prismjs@1.29.0/prism.js';
+      script1.src = 'https://cdn.jsdelivr.net/npm/prismjs/prism.js';
       script1.onload = () => {
         console.log('Prism.js core loaded');
         
         // Load JSON component
         const script2 = document.createElement('script');
-        script2.src = 'https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-json.min.js';
+        script2.src = 'https://cdn.jsdelivr.net/npm/prismjs/components/prism-json.min.js';
         script2.onload = () => {
           console.log('Prism.js JSON component loaded successfully');
           resolve();

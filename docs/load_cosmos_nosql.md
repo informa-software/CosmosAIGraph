@@ -66,47 +66,14 @@ the following commands:
 
 ---
 
-## Load the entities document into the config container
-
-This step will load one document into the **config** container.
-The document contains a list of the known entities in the system.
-
-```
-python main_nosql.py load_entities caig config
-```
-
-The input file/document is **impl/data/entities/entities_doc.json**, 
-which looks like the following:
-
-{
-  "id": "entities",
-  "pk": "entities",
-  "created_at": 1724621802.222312,
-  "created_date": "2024-08-25 17:36:42.222312",
-  "docs_read": 10855,
-  "elapsed_seconds": "0.454175900",
-  "exception": "",
-  "libraries": {
-    "aiotask-context": "pypi",
-    "pyxirr": "pypi",
-    "price-parser": "pypi",
-    "rl-renderpm": "pypi",
-    "mypy-boto3-lexv2-models": "pypi",
-    ... many other libraries ...
-  }
-}
-
-This list of entities is used in Graph Java app to construct the graph in Apache Jena during its initialization.
-For your CosmosAIGraph implementation, create and upload a similar file.
-
-## Load the "Libraries" dataset into Azure Cosmos DB for NoSQL
+## Load the data into Azure Cosmos DB for NoSQL
 
 This step will load the main dataset into a libraries container:
 
 ```
-> python main_nosql.py load_libraries caig libraries 999999
+> python main_nosql.py load_data caig libraries 999999
 
-2024-09-05 12:27:28,239 - load_libraries, dbname: caig, cname: libraries, max_docs: 999999
+2024-09-05 12:27:28,239 - load_data, dbname: caig, cname: libraries, max_docs: 999999
 2024-09-05 12:27:28,239 - CosmosNoSQLService - constructor
 2024-09-05 12:27:28,282 - CosmosNoSQLService - initialize() completed
 2024-09-05 12:27:28,724 - reading file 0 of 10854: ../data/pypi/wrangled_libs/2captcha-python.json
