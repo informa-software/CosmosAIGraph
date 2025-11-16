@@ -129,7 +129,7 @@ class ConfigService:
             "Root directory of the CosmosAIGraph GitHub repository on your system.  (DEV ENV)"
         )
         d["CAIG_GRAPH_SOURCE_TYPE"] = (
-            "The RDF graph data source type, either 'cosmos_nosql', or 'json_docs_file' or 'rdf_file'.  (GRAPH RUNTIME)"
+            "The RDF graph data source type, either 'cosmos_nosql', or 'json_docs_file' or 'rdf_file' or ''.  (GRAPH RUNTIME)"
         )
         d["CAIG_GRAPH_NAMESPACE"] = "The custom namespace for the RED graph.  (GRAPH RUNTIME)"
         d["CAIG_GRAPH_SOURCE_OWL_FILENAME"] = "The input RDF OWL ontology file.  (GRAPH RUNTIME)"
@@ -144,6 +144,9 @@ class ConfigService:
         )
         d["CAIG_GRAPH_SOURCE_PK"] = (
             "The partition key name for the graph source container.  (GRAPH RUNTIME)"
+        )
+        d["CAIG_FULLTEXT_SEARCH_FIELDS"] = (
+            "Comma-separated list of document fields to search for fulltext search operations.  (WEB RUNTIME)"
         )
         d["CAIG_CONFIG_CONTAINER"] = (
             "The Cosmos DB container for configuration JSON values.  (RUNTIME)"
@@ -229,6 +232,7 @@ class ConfigService:
         d["CAIG_GRAPH_SOURCE_DB"] = "caig"
         d["CAIG_GRAPH_SOURCE_CONTAINER"] = "libraries"
         d["CAIG_GRAPH_SOURCE_PK"] = "pypi"
+        d["CAIG_FULLTEXT_SEARCH_FIELDS"] = "description,summary,name"
         d["CAIG_GRAPH_DUMP_UPON_BUILD"] = "false"
         d["CAIG_GRAPH_DUMP_OUTFILE"] = ""
         d["CAIG_CONFIG_CONTAINER"] = "config"
@@ -332,6 +336,12 @@ class ConfigService:
     @classmethod
     def graph_source_pk(cls) -> str:
         return cls.envvar("CAIG_GRAPH_SOURCE_PK", "pypi")
+
+    @classmethod
+    def fulltext_search_fields(cls) -> list:
+        """Return the list of fields to search for fulltext search operations."""
+        fields_str = cls.envvar("CAIG_FULLTEXT_SEARCH_FIELDS", "description")
+        return [field.strip() for field in fields_str.split(",") if field.strip()]
 
     @classmethod
     def config_container(cls) -> str:

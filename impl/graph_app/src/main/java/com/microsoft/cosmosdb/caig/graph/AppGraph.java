@@ -71,7 +71,12 @@ public class AppGraph {
     }
 
     public static void setSingleton(AppGraph g) {
-        logger.debug("setSingleton - model impl class: " + g.getModel().getClass().getName());
+        if (g == null || g.getModel() == null) {
+            logger.warn("setSingleton - graph is not initialized");
+            return;
+        } else {
+            logger.debug("setSingleton - model impl class: " + g.getModel().getClass().getName());
+        }
         singleton = g;
     }
 

@@ -26,6 +26,7 @@ All of these begin with the prefix `CAIG_`.
 | CAIG_COSMOSDB_NOSQL_URI | The URI of your Cosmos DB NoSQL account.   | RUNTIME |
 | CAIG_DATA_SOURCE_DIR | The directory path containing source data files for loading into Cosmos DB.   | DEV ENV |
 | CAIG_FEEDBACK_CONTAINER | The Cosmos DB container where user feedback is persisted.   | WEB RUNTIME |
+| CAIG_FULLTEXT_SEARCH_FIELDS | Comma-separated list of document fields to search for fulltext search operations.   | WEB RUNTIME |
 | CAIG_GRAPH_DUMP_OUTFILE | The file to write to if CAIG_GRAPH_DUMP_UPON_BUILD is true.   | GRAPH RUNTIME |
 | CAIG_GRAPH_DUMP_UPON_BUILD | Boolean true/false to dump the Java/Jena model to CAIG_GRAPH_DUMP_OUTFILE.   | GRAPH RUNTIME |
 | CAIG_GRAPH_NAMESPACE | The custom namespace for the RED graph.   | GRAPH RUNTIME |

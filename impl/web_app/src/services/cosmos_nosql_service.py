@@ -333,10 +333,26 @@ class CosmosNoSQLService:
             docs = list()
             items_paged = self._ctrproxy.query_items(query=sql, parameters=[])
             async for item in items_paged:
-                cdf = CosmosDocFilter(item["c"])
-                doc_dict = cdf.filter_out_embedding(embedding_attr, truncate=False)
-                doc_dict["_score"] = item["score"]
-                docs.append(doc_dict)
+                # Handle different query result structures
+                if "c" in item and "score" in item:
+                    # Expected structure: {"c": {...}, "score": 0.123}
+                    cdf = CosmosDocFilter(item["c"])
+                    doc_dict = cdf.filter_out_embedding(embedding_attr, truncate=False)
+                    doc_dict["_score"] = item["score"]
+                    docs.append(doc_dict)
+                elif "score" in item:
+                    # Alternative structure where item itself is the doc with score
+                    cdf = CosmosDocFilter(item)
+                    doc_dict = cdf.filter_out_embedding(embedding_attr, truncate=False)
+                    doc_dict["_score"] = item["score"]
+                    docs.append(doc_dict)
+                else:
+                    # No score returned - likely missing embedding field
+                    logging.warning(f"vector_search: Item missing 'score' field. Item keys: {list(item.keys())[:10]}, has embedding: {embedding_attr in item}")
+                    cdf = CosmosDocFilter(item.get("c", item))
+                    doc_dict = cdf.filter_out_embedding(embedding_attr, truncate=False)
+                    doc_dict["_score"] = None  # No score available
+                    docs.append(doc_dict)
             
             # Get Cosmos DB activity ID from response headers
             activity_id = self.last_response_header('x-ms-activity-id') or 'N/A'
@@ -352,53 +368,58 @@ class CosmosNoSQLService:
         Pass all tokenized words as a single string separated by commas for FullTextScore.
         """
         if not search_text:
+            logging.warning("fulltext_search: Empty search_text provided")
             return []
 
         # Tokenize the input text into words longer than one character
         tokens = [word for word in search_text.split() if len(word) > 1][-5:]
         if not tokens:
+            logging.warning(f"fulltext_search: No valid tokens from search_text: '{search_text}'")
             return []
 
-        # Combine tokens into a single string separated by commas
-        search_expr = ','.join(f'"{token}"' for token in tokens)
+        logging.info(f"fulltext_search: search_text='{search_text}', tokens={tokens}, limit={limit}")
 
-        # Simplified query using just the description field - include score
-        sql = f"""
-        SELECT TOP {limit} c, FullTextScore(c.description, {search_expr}) AS score
-        FROM c 
-        ORDER BY RANK FullTextScore(c.description, {search_expr})
-        """
-
-        logging.debug(f"Full-text search SQL: {sql}")
+        # Get search fields from configuration
+        search_fields = ConfigService.fulltext_search_fields()
+        logging.info(f"fulltext_search: Using configured search fields: {search_fields}")
         docs = list()
-        try:
-            items_paged = self._ctrproxy.query_items(query=sql, parameters=[])
-            async for item in items_paged:
-                cdf = CosmosDocFilter(item["c"])
-                doc_dict = cdf.filter_out_embedding("embedding", truncate=False)
-                doc_dict["_score"] = item.get("score", 0.0)
-                docs.append(doc_dict)
-        except Exception as e:
-            # If description field doesn't support FullTextScore, try summary field
-            logging.error(f"Full-text search on description failed: {e}")
+        
+        for field in search_fields:
+            if docs:  # If we found results, stop trying other fields
+                break
+                
             try:
+                # Combine tokens into a single string separated by commas
+                search_expr = ','.join(f'"{token}"' for token in tokens)
+                
+                # Try FullTextScore first
                 sql = f"""
-                SELECT TOP {limit} c, FullTextScore(c.summary, {search_expr}) AS score
+                SELECT TOP {limit} c, FullTextScore(c.{field}, {search_expr}) AS score
                 FROM c 
-                ORDER BY RANK FullTextScore(c.summary, {search_expr})
+                WHERE IS_DEFINED(c.{field})
+                ORDER BY RANK FullTextScore(c.{field}, {search_expr})
                 """
-                logging.debug(f"Full-text search SQL: {sql}")
+                
+                logging.info(f"fulltext_search: Trying field '{field}' with SQL: {sql[:150]}...")
                 items_paged = self._ctrproxy.query_items(query=sql, parameters=[])
                 async for item in items_paged:
                     cdf = CosmosDocFilter(item["c"])
                     doc_dict = cdf.filter_out_embedding("embedding", truncate=False)
                     doc_dict["_score"] = item.get("score", 0.0)
                     docs.append(doc_dict)
-            except Exception as e2:
-                # If FullTextScore is not supported, fall back to CONTAINS
-                logging.error(f"Full-text search on summary also failed: {e2}")
-                docs = await self._fallback_text_search(search_text, limit)
+                
+                if docs:
+                    logging.info(f"fulltext_search: Found {len(docs)} results using field '{field}'")
+            except Exception as e:
+                logging.warning(f"fulltext_search: Field '{field}' failed with FullTextScore: {str(e)[:200]}")
+                continue
+        
+        # If FullTextScore didn't work on any field, fall back to CONTAINS
+        if not docs:
+            logging.warning("fulltext_search: FullTextScore failed on all fields, falling back to CONTAINS")
+            docs = await self._fallback_text_search(search_text, limit)
 
+        logging.info(f"fulltext_search: Returning {len(docs)} documents")
         return docs
     
     async def _fallback_text_search(self, search_text, limit=4):
@@ -407,24 +428,49 @@ class CosmosNoSQLService:
         Uses a parameterized query to avoid malformed SQL when the input contains quotes
         """
         docs = list()
-        try:
-            # Use parameterized CONTAINS for basic text search to avoid injection/errors
-            sql = f"""
-            SELECT TOP {limit} *
-            FROM c 
-            WHERE CONTAINS(c.description, @search_text) OR 
-                  CONTAINS(c.summary, @search_text) OR 
-                  CONTAINS(c.name, @search_text)
-            """
+        logging.info(f"_fallback_text_search: search_text='{search_text}', limit={limit}")
+        
+        # Try different field combinations
+        field_combinations = [
+            ['description', 'summary', 'name'],
+            ['long_description', 'benefits', 'designation'],
+            ['name', 'designation'],  # Minimal fallback
+        ]
+        
+        for fields in field_combinations:
+            if docs:  # If we found results, stop
+                break
+                
+            try:
+                # Build WHERE clause with IS_DEFINED checks
+                conditions = []
+                for field in fields:
+                    conditions.append(f"(IS_DEFINED(c.{field}) AND CONTAINS(c.{field}, @search_text))")
+                where_clause = " OR ".join(conditions)
+                
+                sql = f"""
+                SELECT TOP {limit} c
+                FROM c 
+                WHERE {where_clause}
+                """
 
-            params = [dict(name="@search_text", value=search_text)]
-            items_paged = self._ctrproxy.query_items(query=sql, parameters=params)
-            async for item in items_paged:
-                cdf = CosmosDocFilter(item)
-                docs.append(cdf.filter_out_embedding("embedding"))
-        except Exception as e:
-            logging.error(f"Fallback text search also failed: {e}")
-            logging.debug(traceback.format_exc())
+                logging.info(f"_fallback_text_search: Trying fields {fields}")
+                params = [dict(name="@search_text", value=search_text)]
+                items_paged = self._ctrproxy.query_items(query=sql, parameters=params)
+                async for item in items_paged:
+                    cdf = CosmosDocFilter(item.get("c", item))
+                    doc_dict = cdf.filter_out_embedding("embedding", truncate=False)
+                    doc_dict["_score"] = 0.0  # No score for CONTAINS search
+                    docs.append(doc_dict)
+                
+                if docs:
+                    logging.info(f"_fallback_text_search: Found {len(docs)} results using fields {fields}")
+            except Exception as e:
+                logging.warning(f"_fallback_text_search: Fields {fields} failed: {str(e)[:200]}")
+                continue
+        
+        if not docs:
+            logging.warning(f"_fallback_text_search: No results found for '{search_text}'")
         
         return docs
 

@@ -101,12 +101,16 @@ async def lifespan(app: FastAPI):
                 ConfigService.application_version()
             )
         )
-        await OntologyService.initialize()
-        logging.info(
-            "FastAPI lifespan - OntologyService initialized, ontology length: {}".format(
-                len(OntologyService.get_owl_content()) if OntologyService.get_owl_content() is not None else 0)
-            )
-        
+
+        if ConfigService.graph_source != "":
+            await OntologyService.initialize()
+            logging.info(
+                "FastAPI lifespan - OntologyService initialized, ontology length: {}".format(
+                    len(OntologyService.get_owl_content()) if OntologyService.get_owl_content() is not None else 0)
+                )
+            logging.error("ConfigService.graph_service_url():  {}".format(ConfigService.graph_service_url()))
+            logging.error("ConfigService.graph_service_port(): {}".format(ConfigService.graph_service_port()))  
+
         # logging.error("owl:\n{}".format(OntologyService.get_owl_content()))
         await ai_svc.initialize()
         logging.error("FastAPI lifespan - AiService initialized")
@@ -118,8 +122,7 @@ async def lifespan(app: FastAPI):
                 EntitiesService.entities_count()
             )
         )
-        logging.error("ConfigService.graph_service_url():  {}".format(ConfigService.graph_service_url()))
-        logging.error("ConfigService.graph_service_port(): {}".format(ConfigService.graph_service_port()))                  
+                
                     
     except Exception as e:
         logging.error("FastAPI lifespan exception: {}".format(str(e)))
@@ -780,7 +783,7 @@ async def post_vector_search_console(req: Request):
     if results_obj:
         view_data["results_json"] = json.dumps(results_obj, indent=2)
     else:
-        view_data["results_json"] = None
+        view_data["results_json"] = json.dumps([], indent=2)  # Show empty array instead of None
     
     view_data["results"] = results_obj
     view_data["current_page"] = "vector_search_console"  # Set active page for navbar

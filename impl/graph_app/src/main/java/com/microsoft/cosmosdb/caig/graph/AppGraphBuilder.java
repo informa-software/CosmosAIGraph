@@ -97,7 +97,10 @@ public class AppGraphBuilder {
                     appGraph.setModel(model);
                     populateFromRdfFile(appGraph);
                     break;
-
+                case "":
+                    logger.warn("Empty graph source. Skipping...");
+                    return null;
+                    
                 default:
                     logger.error("build() - unknown graph source: " + source);
             }

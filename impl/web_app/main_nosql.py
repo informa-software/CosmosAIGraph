@@ -14,10 +14,7 @@ Options:
 """
 
 # This program is for CLI functionality related to Cosmos DB NoSQL API.
-# When you run this program it is assumed that you have your
-# CAIG_GRAPH_SOURCE_TYPE environment variable set to "cosmos_nosql".
-# See https://learn.microsoft.com/en-us/azure/postgresql/single-server/connect-python
-# Chris Joakim, Microsoft, 2025
+# Chris Joakim, Aleksey Savateyev, 2025
 
 
 import asyncio
