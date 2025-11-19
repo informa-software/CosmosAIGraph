@@ -1,0 +1,277 @@
+<div class="compliance-dashboard-container">
+  <!-- Header -->
+  <div class="page-header">
+    <div class="header-left">
+      <h2>Compliance Dashboard</h2>
+      <p class="subtitle">Overview of contract compliance evaluation results</p>
+    </div>
+    <div class="header-right">
+      <button class="btn btn-outline" (click)="refresh()">
+        🔄 Refresh
+      </button>
+      <button class="btn btn-outline" (click)="viewResults()">
+        📊 View Results
+      </button>
+      <button class="btn btn-outline" (click)="viewJobs()">
+        📋 View Jobs
+      </button>
+      <button class="btn btn-outline" (click)="viewAllRules()">
+        📜 All Rules
+      </button>
+      <button class="btn btn-outline" (click)="createRule()">
+        ➕ New Rule
+      </button>
+      <button class="btn btn-primary" (click)="startEvaluation()">
+        ▶️ Start Evaluation
+      </button>
+    </div>
+  </div>
+
+  <!-- Loading State -->
+  <div *ngIf="loading" class="loading-state">
+    <div class="spinner"></div>
+    <p>Loading dashboard data...</p>
+  </div>
+
+  <!-- Dashboard Content -->
+  <div *ngIf="!loading && summary">
+    <!-- Summary Cards -->
+    <div class="summary-cards">
+      <div class="summary-card">
+        <div class="card-icon">📝</div>
+        <div class="card-content">
+          <div class="card-label">Total Rules</div>
+          <div class="card-value">{{ summary.total_rules }}</div>
+          <div class="card-sublabel">{{ summary.active_rules }} active</div>
+        </div>
+      </div>
+
+      <div class="summary-card">
+        <div class="card-icon">✅</div>
+        <div class="card-content">
+          <div class="card-label">Total Evaluations</div>
+          <div class="card-value">{{ summary.total_contracts_evaluated }}</div>
+          <div class="card-sublabel">Contracts evaluated</div>
+        </div>
+      </div>
+
+      <div class="summary-card" [class]="'pass-rate-' + getPassRateColor(summary.overall_pass_rate)">
+        <div class="card-icon">📊</div>
+        <div class="card-content">
+          <div class="card-label">Overall Pass Rate</div>
+          <div class="card-value">{{ summary.overall_pass_rate }}%</div>
+          <div class="card-sublabel">Across all rules</div>
+        </div>
+      </div>
+
+      <div class="summary-card" [class]="'stale-' + getStaleResultsBadge(getTotalStaleResults())">
+        <div class="card-icon">⚠️</div>
+        <div class="card-content">
+          <div class="card-label">Stale Results</div>
+          <div class="card-value">{{ getTotalStaleResults() }}</div>
+          <div class="card-sublabel">Need re-evaluation</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Stale Results Alert -->
+    <div *ngIf="getRulesWithStaleResults().length > 0" class="alert alert-warning">
+      <div class="alert-icon">⚠️</div>
+      <div class="alert-content">
+        <div class="alert-title">Rules Need Re-evaluation</div>
+        <p>
+          {{ getRulesWithStaleResults().length }} rule(s) have been updated since their last evaluation.
+          <strong>{{ getTotalStaleResults() }}</strong> contract evaluation(s) may be outdated.
+        </p>
+        <div class="stale-rules-list">
+          <span *ngFor="let rule of getRulesWithStaleResults()" class="stale-rule-chip">
+            {{ rule.rule_name }} ({{ rule.stale_count }})
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="filters-section">
+      <div class="filter-group">
+        <label for="category-filter">Category:</label>
+        <select
+          id="category-filter"
+          [(ngModel)]="filterCategory"
+          (change)="onFilterChange()"
+          class="form-select"
+        >
+          <option value="">All Categories</option>
+          <option *ngFor="let cat of CATEGORIES" [value]="cat.name">
+            {{ cat.display_name }}
+          </option>
+        </select>
+      </div>
+
+      <div class="filter-group">
+        <label for="severity-filter">Severity:</label>
+        <select
+          id="severity-filter"
+          [(ngModel)]="filterSeverity"
+          (change)="onFilterChange()"
+          class="form-select"
+        >
+          <option value="">All Severities</option>
+          <option *ngFor="let sev of SEVERITY_OPTIONS" [value]="sev.value">
+            {{ sev.label }}
+          </option>
+        </select>
+      </div>
+
+      <div class="filter-stats">
+        <span>Showing {{ filteredRulesSummary.length }} of {{ summary.rules_summary.length }} rules</span>
+      </div>
+
+      <div class="sort-actions">
+        <button class="btn btn-sm btn-outline" (click)="sortByPassRate()">
+          Sort by Pass Rate
+        </button>
+        <button class="btn btn-sm btn-outline" (click)="sortByFailCount()">
+          Sort by Fail Count
+        </button>
+      </div>
+    </div>
+
+    <!-- Filtered Summary -->
+    <div *ngIf="filterCategory || filterSeverity" class="filtered-summary">
+      <div class="filtered-stat">
+        <span class="stat-label">Filtered Evaluations:</span>
+        <span class="stat-value">{{ getFilteredStats().evaluated }}</span>
+      </div>
+      <div class="filtered-stat">
+        <span class="stat-label">Pass:</span>
+        <span class="stat-value text-success">{{ getFilteredStats().pass }}</span>
+      </div>
+      <div class="filtered-stat">
+        <span class="stat-label">Fail:</span>
+        <span class="stat-value text-danger">{{ getFilteredStats().fail }}</span>
+      </div>
+      <div class="filtered-stat">
+        <span class="stat-label">Pass Rate:</span>
+        <span class="stat-value" [class]="'text-' + getPassRateColor(getFilteredStats().passRate)">
+          {{ getFilteredStats().passRate }}%
+        </span>
+      </div>
+    </div>
+
+    <!-- Rules Statistics Table -->
+    <div class="rules-stats-container">
+      <table class="rules-stats-table">
+        <thead>
+          <tr>
+            <th class="col-rule">Rule Name</th>
+            <th class="col-severity">Severity</th>
+            <th class="col-category">Category</th>
+            <th class="col-total">Evaluations</th>
+            <th class="col-pass">Pass</th>
+            <th class="col-fail">Fail</th>
+            <th class="col-partial">Partial</th>
+            <th class="col-na">N/A</th>
+            <th class="col-pass-rate">Pass Rate</th>
+            <th class="col-stale">Stale</th>
+            <th class="col-actions">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let rule of filteredRulesSummary" [class.has-stale]="rule.stale_count > 0">
+            <td class="col-rule">
+              <a (click)="viewRule(rule.rule_id)" class="rule-link">
+                {{ rule.rule_name }}
+              </a>
+            </td>
+            <td class="col-severity">
+              <span class="badge badge-{{ getSeverityColor(rule.severity) }}">
+                {{ rule.severity }}
+              </span>
+            </td>
+            <td class="col-category">
+              <span class="category-tag">{{ getCategoryName(rule.category) }}</span>
+            </td>
+            <td class="col-total">
+              <strong>{{ rule.total_evaluated }}</strong>
+            </td>
+            <td class="col-pass">
+              <span class="count-badge count-pass">{{ rule.pass_count }}</span>
+              <span class="percentage">{{ getPercentage(rule.pass_count, rule.total_evaluated) }}%</span>
+            </td>
+            <td class="col-fail">
+              <span class="count-badge count-fail">{{ rule.fail_count }}</span>
+              <span class="percentage">{{ getPercentage(rule.fail_count, rule.total_evaluated) }}%</span>
+            </td>
+            <td class="col-partial">
+              <span class="count-badge count-partial">{{ rule.partial_count }}</span>
+              <span class="percentage">{{ getPercentage(rule.partial_count, rule.total_evaluated) }}%</span>
+            </td>
+            <td class="col-na">
+              <span class="count-badge count-na">{{ rule.not_applicable_count }}</span>
+              <span class="percentage">{{ getPercentage(rule.not_applicable_count, rule.total_evaluated) }}%</span>
+            </td>
+            <td class="col-pass-rate">
+              <div class="pass-rate-bar">
+                <div
+                  class="pass-rate-fill"
+                  [class]="'fill-' + getPassRateColor(getPercentage(rule.pass_count, rule.total_evaluated))"
+                  [style.width.%]="getPercentage(rule.pass_count, rule.total_evaluated)"
+                ></div>
+                <span class="pass-rate-text">
+                  {{ getPercentage(rule.pass_count, rule.total_evaluated) }}%
+                </span>
+              </div>
+            </td>
+            <td class="col-stale">
+              <span *ngIf="rule.stale_count > 0" class="stale-badge">
+                ⚠️ {{ rule.stale_count }}
+              </span>
+              <span *ngIf="rule.stale_count === 0" class="no-stale">
+                ✓
+              </span>
+            </td>
+            <td class="col-actions">
+              <div class="action-buttons">
+                <button
+                  class="btn-icon"
+                  (click)="viewRule(rule.rule_id)"
+                  title="View Details"
+                >
+                  👁️
+                </button>
+                <button
+                  class="btn-icon"
+                  (click)="editRule(rule.rule_id)"
+                  title="Edit Rule"
+                >
+                  ✏️
+                </button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Empty State for Filtered Results -->
+    <div *ngIf="filteredRulesSummary.length === 0" class="empty-state">
+      <div style="font-size: 4rem; margin-bottom: 1rem;">🔍</div>
+      <h3>No Rules Match Filters</h3>
+      <p>Try adjusting your category or severity filters.</p>
+      <button class="btn btn-outline" (click)="filterCategory = ''; filterSeverity = ''; onFilterChange()">
+        Clear Filters
+      </button>
+    </div>
+  </div>
+
+  <!-- Empty State for No Data -->
+  <div *ngIf="!loading && !summary" class="empty-state">
+    <div style="font-size: 4rem; margin-bottom: 1rem;">📊</div>
+    <h3>No Data Available</h3>
+    <p>No compliance rules or evaluations found.</p>
+    <button class="btn btn-primary" (click)="createRule()">
+      ➕ Create First Rule
+    </button>
+  </div>
+</div>

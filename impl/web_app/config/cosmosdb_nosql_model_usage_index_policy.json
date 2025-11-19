@@ -1,0 +1,98 @@
+{
+  "indexingMode": "consistent",
+  "automatic": true,
+  "includedPaths": [
+    {
+      "path": "/*"
+    }
+  ],
+  "excludedPaths": [
+    {
+      "path": "/\"_etag\"/?"
+    }
+  ],
+  "compositeIndexes": [
+    [
+      {
+        "path": "/user_email",
+        "order": "ascending"
+      },
+      {
+        "path": "/timestamp",
+        "order": "descending"
+      }
+    ],
+    [
+      {
+        "path": "/operation",
+        "order": "ascending"
+      },
+      {
+        "path": "/timestamp",
+        "order": "descending"
+      }
+    ],
+    [
+      {
+        "path": "/model",
+        "order": "ascending"
+      },
+      {
+        "path": "/timestamp",
+        "order": "descending"
+      }
+    ],
+    [
+      {
+        "path": "/user_email",
+        "order": "ascending"
+      },
+      {
+        "path": "/operation",
+        "order": "ascending"
+      },
+      {
+        "path": "/timestamp",
+        "order": "descending"
+      }
+    ],
+    [
+      {
+        "path": "/user_email",
+        "order": "ascending"
+      },
+      {
+        "path": "/model",
+        "order": "ascending"
+      },
+      {
+        "path": "/timestamp",
+        "order": "descending"
+      }
+    ],
+    [
+      {
+        "path": "/type",
+        "order": "ascending"
+      },
+      {
+        "path": "/timestamp",
+        "order": "descending"
+      }
+    ],
+    [
+      {
+        "path": "/api_type",
+        "order": "ascending"
+      },
+      {
+        "path": "/user_email",
+        "order": "ascending"
+      },
+      {
+        "path": "/timestamp",
+        "order": "descending"
+      }
+    ]
+  ]
+}

@@ -1,0 +1,262 @@
+<div class="job-monitor-container">
+  <!-- Header -->
+  <div class="page-header">
+    <div class="header-left">
+      <h2>Evaluation Jobs</h2>
+      <p class="subtitle">Monitor and manage compliance evaluation jobs</p>
+    </div>
+    <div class="header-right">
+      <button class="btn btn-outline" (click)="viewDashboard()">
+        📊 Dashboard
+      </button>
+      <button class="btn btn-primary" (click)="newEvaluation()">
+        ➕ New Evaluation
+      </button>
+    </div>
+  </div>
+
+  <!-- Job Statistics -->
+  <div class="job-stats">
+    <div class="stat-item">
+      <span class="stat-label">Total Jobs</span>
+      <span class="stat-value">{{ jobs.length }}</span>
+    </div>
+    <div class="stat-item running">
+      <span class="stat-label">Running</span>
+      <span class="stat-value">{{ getRunningJobsCount() }}</span>
+    </div>
+    <div class="stat-item completed">
+      <span class="stat-label">Completed</span>
+      <span class="stat-value">{{ getCompletedJobsCount() }}</span>
+    </div>
+    <div class="stat-item failed">
+      <span class="stat-label">Failed</span>
+      <span class="stat-value">{{ getFailedJobsCount() }}</span>
+    </div>
+  </div>
+
+  <!-- Controls -->
+  <div class="controls-bar">
+    <div class="filters">
+      <select
+        [(ngModel)]="statusFilter"
+        (change)="onFilterChange()"
+        class="filter-select"
+      >
+        <option value="">All Statuses</option>
+        <option value="pending">Pending</option>
+        <option value="in_progress">In Progress</option>
+        <option value="completed">Completed</option>
+        <option value="failed">Failed</option>
+        <option value="cancelled">Cancelled</option>
+      </select>
+
+      <select
+        [(ngModel)]="jobTypeFilter"
+        (change)="onFilterChange()"
+        class="filter-select"
+      >
+        <option value="">All Types</option>
+        <option value="evaluate_contract">Evaluate Contract</option>
+        <option value="evaluate_rule">Evaluate Rule</option>
+        <option value="batch_evaluate">Batch Evaluate</option>
+      </select>
+    </div>
+
+    <div class="auto-refresh-toggle">
+      <label class="toggle-label">
+        <input
+          type="checkbox"
+          [(ngModel)]="autoRefresh"
+          (change)="toggleAutoRefresh()"
+        />
+        <span class="toggle-text">Auto-refresh ({{ pollingInterval / 1000 }}s)</span>
+      </label>
+      <button class="btn btn-icon" (click)="refresh()" [disabled]="loading">
+        🔄
+      </button>
+    </div>
+  </div>
+
+  <!-- Loading State -->
+  <div *ngIf="loading && jobs.length === 0" class="loading-state">
+    <div class="spinner"></div>
+    <p>Loading jobs...</p>
+  </div>
+
+  <!-- Jobs Content -->
+  <div *ngIf="!loading || jobs.length > 0" class="jobs-content">
+    <!-- Jobs List -->
+    <div class="jobs-list">
+      <div *ngIf="jobs.length === 0" class="empty-state">
+        <div class="empty-icon">📋</div>
+        <h3>No evaluation jobs found</h3>
+        <p>Start a new evaluation to see jobs here</p>
+        <button class="btn btn-primary" (click)="newEvaluation()">
+          ➕ New Evaluation
+        </button>
+      </div>
+
+      <div
+        *ngFor="let job of jobs"
+        class="job-item"
+        [class.selected]="selectedJob?.id === job.id"
+        [class.running]="!isJobComplete(job)"
+        (click)="selectJob(job)"
+      >
+        <div class="job-status">
+          <span class="status-icon">{{ getStatusIcon(job.status) }}</span>
+          <span class="status-badge" [class]="'badge-' + getStatusColor(job.status)">
+            {{ job.status.replace('_', ' ') }}
+          </span>
+        </div>
+
+        <div class="job-info">
+          <div class="job-id">{{ job.id }}</div>
+          <div class="job-type">{{ job.job_type.replace('_', ' ') }}</div>
+        </div>
+
+        <div class="job-progress">
+          <div *ngIf="!isJobComplete(job)" class="progress-bar">
+            <div class="progress-fill indeterminate"></div>
+          </div>
+          <div *ngIf="isJobComplete(job)" class="job-time">
+            Completed in {{ getElapsedTime(job) }}
+          </div>
+        </div>
+
+        <div class="job-timing">
+          <div class="timing-label">Started</div>
+          <div class="timing-value">{{ formatDate(job.started_date) }}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Job Details Panel -->
+    <div class="job-details" *ngIf="selectedJob">
+      <div class="details-header">
+        <h3>Job Details</h3>
+        <button class="btn btn-icon" (click)="deselectJob()">✖️</button>
+      </div>
+
+      <div class="details-content">
+        <!-- Status Section -->
+        <div class="detail-section">
+          <h4>Status</h4>
+          <div class="status-display">
+            <span class="status-icon large">{{ getStatusIcon(selectedJob.status) }}</span>
+            <div class="status-info">
+              <span class="status-badge large" [class]="'badge-' + getStatusColor(selectedJob.status)">
+                {{ selectedJob.status.replace('_', ' ') }}
+              </span>
+              <div *ngIf="!isJobComplete(selectedJob)" class="elapsed-time">
+                Running for {{ getElapsedTime(selectedJob) }}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Job Information -->
+        <div class="detail-section">
+          <h4>Job Information</h4>
+          <div class="info-grid">
+            <div class="info-item">
+              <span class="info-label">Job ID</span>
+              <span class="info-value">{{ selectedJob.id }}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">Job Type</span>
+              <span class="info-value">{{ selectedJob.job_type.replace('_', ' ') }}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">Started</span>
+              <span class="info-value">{{ formatDate(selectedJob.started_date) }}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">Completed</span>
+              <span class="info-value">{{ formatDate(selectedJob.completed_date) }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Contract/Rule Information -->
+        <div class="detail-section">
+          <h4>Evaluation Target</h4>
+          <div class="info-grid">
+            <div class="info-item" *ngIf="selectedJob.contract_id">
+              <span class="info-label">Contract ID</span>
+              <span class="info-value">{{ selectedJob.contract_id }}</span>
+            </div>
+            <div class="info-item" *ngIf="selectedJob.rule_ids && Array.isArray(selectedJob.rule_ids) && selectedJob.rule_ids.length > 0">
+              <span class="info-label">Rules</span>
+              <span class="info-value">{{ selectedJob.rule_ids.length }} rule(s)</span>
+            </div>
+          </div>
+          <div *ngIf="selectedJob.rule_ids && Array.isArray(selectedJob.rule_ids) && selectedJob.rule_ids.length > 0" class="rule-ids-list">
+            <div *ngFor="let ruleId of selectedJob.rule_ids" class="rule-id-chip">
+              {{ ruleId }}
+            </div>
+          </div>
+        </div>
+
+        <!-- Progress/Results Section -->
+        <div class="detail-section" *ngIf="selectedJob.total_items > 0">
+          <h4>Progress</h4>
+          <div class="progress-info">
+            <div class="progress-stat">
+              <span class="progress-label">Processed</span>
+              <span class="progress-value">{{ selectedJob.completed_items }} / {{ selectedJob.total_items }}</span>
+            </div>
+            <div class="progress-bar-container">
+              <div
+                class="progress-bar-fill"
+                [style.width.%]="selectedJob.progress_percentage"
+              ></div>
+            </div>
+            <div *ngIf="selectedJob.failed_items > 0" class="progress-stat">
+              <span class="progress-label">Failed Items</span>
+              <span class="progress-value error-text">{{ selectedJob.failed_items }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Error Information -->
+        <div class="detail-section error-section" *ngIf="selectedJob.error_message">
+          <h4>Error Details</h4>
+          <div class="error-message">
+            <span class="error-icon">❌</span>
+            <span class="error-text">{{ selectedJob.error_message }}</span>
+          </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="detail-actions">
+          <button
+            *ngIf="canCancelJob(selectedJob)"
+            class="btn btn-danger"
+            (click)="cancelJob(selectedJob)"
+          >
+            🚫 Cancel Job
+          </button>
+
+          <button
+            *ngIf="isJobComplete(selectedJob) && selectedJob.status === 'completed'"
+            class="btn btn-primary"
+            (click)="viewResults(selectedJob)"
+          >
+            👁️ View Results
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Empty Details Panel -->
+    <div class="job-details empty" *ngIf="!selectedJob && jobs.length > 0">
+      <div class="empty-details">
+        <div class="empty-icon">📋</div>
+        <h3>Select a job to view details</h3>
+        <p>Click on a job from the list to see detailed information</p>
+      </div>
+    </div>
+  </div>
+</div>

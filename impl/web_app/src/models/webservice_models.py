@@ -136,3 +136,45 @@ class VectorizeResponseModel(BaseModel):
     elapsed: float
     error: str | None
 
+
+class QueryContractsRequestModel(BaseModel):
+    question: str
+    contract_ids: list[str]
+
+
+class QueryContractsResponseModel(BaseModel):
+    answer: str
+    contracts_analyzed: list[str]
+    was_truncated: bool
+    truncated_contracts: list[str] | None
+    total_tokens_used: int
+    elapsed: float
+    error: str | None
+
+
+class QueryContractsDirectRequestModel(BaseModel):
+    """Request model for direct contract query (no LLM completion)"""
+    query: str
+    limit: int = 20
+    strategy_override: str | None = None  # Optional: "db", "vector", or "graph"
+    # Filter parameters for programmatic query building (bypasses LLM)
+    # Support both single values and arrays for multi-select
+    contractor_party: str | list[str] | None = None
+    contracting_party: str | list[str] | None = None
+    governing_law_state: str | list[str] | None = None
+    contract_type: str | list[str] | None = None
+    offset: int = 0  # For pagination
+
+
+class QueryContractsDirectResponseModel(BaseModel):
+    """Response model for direct contract query"""
+    query: str
+    result_format: str
+    strategy: str
+    documents: list[dict]
+    document_count: int
+    ru_cost: float
+    execution_time_ms: float
+    error: str | None
+    execution_trace: dict | None
+

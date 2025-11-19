@@ -1,0 +1,310 @@
+<div class="clause-viewer-container">
+  <!-- Loading State -->
+  <div *ngIf="isLoading" class="loading-container">
+    <div class="spinner"></div>
+    <p>Loading clause details...</p>
+  </div>
+
+  <!-- Clause Details -->
+  <div *ngIf="!isLoading && clause" class="clause-viewer">
+    <!-- Header -->
+    <header class="viewer-header">
+      <button class="back-button" (click)="goBack()">
+        ← Back to Library
+      </button>
+
+      <div class="header-content">
+        <div class="title-section">
+          <h1>{{ clause.name }}</h1>
+          <div class="header-badges">
+            <span class="badge" [ngClass]="getStatusBadgeClass(clause.status)">
+              {{ clause.status }}
+            </span>
+            <span class="version-badge">
+              v{{ clause.version.version_number }} - {{ clause.version.version_label }}
+            </span>
+            <span class="badge" [ngClass]="getRiskBadgeClass(clause.metadata.risk_level)">
+              Risk: {{ clause.metadata.risk_level }}
+            </span>
+            <span class="badge" [ngClass]="getComplexityBadgeClass(clause.metadata.complexity)">
+              Complexity: {{ clause.metadata.complexity }}
+            </span>
+          </div>
+        </div>
+
+        <div class="header-actions">
+          <button class="btn btn-secondary" (click)="createNewVersion()">
+            📋 New Version
+          </button>
+          <button class="btn btn-primary" (click)="editClause()">
+            ✏️ Edit
+          </button>
+          <button class="btn btn-danger" (click)="deleteClause()">
+            🗑️ Delete
+          </button>
+        </div>
+      </div>
+
+      <div class="description">
+        <p>{{ clause.description }}</p>
+      </div>
+    </header>
+
+    <!-- Tabs -->
+    <div class="tabs">
+      <button
+        class="tab"
+        [class.active]="activeTab === 'content'"
+        (click)="setActiveTab('content')">
+        📄 Content
+      </button>
+      <button
+        class="tab"
+        [class.active]="activeTab === 'metadata'"
+        (click)="setActiveTab('metadata')">
+        🏷️ Metadata
+      </button>
+      <button
+        class="tab"
+        [class.active]="activeTab === 'variables'"
+        (click)="setActiveTab('variables')">
+        🔤 Variables ({{ clause.variables.length }})
+      </button>
+      <button
+        class="tab"
+        [class.active]="activeTab === 'versions'"
+        (click)="setActiveTab('versions')">
+        📚 Version History ({{ versionHistory.length }})
+      </button>
+      <button
+        class="tab"
+        [class.active]="activeTab === 'usage'"
+        (click)="setActiveTab('usage')">
+        📊 Usage Stats
+      </button>
+    </div>
+
+    <!-- Tab Content -->
+    <div class="tab-content">
+      <!-- Content Tab -->
+      <div *ngIf="activeTab === 'content'" class="content-section">
+        <div class="section-card">
+          <h2>Clause Content</h2>
+
+          <div class="content-view">
+            <div class="content-format-toggle">
+              <!-- Future: Add toggle for HTML/Plain Text/Word XML view -->
+            </div>
+
+            <div class="content-html" [innerHTML]="getSafeHtml(clause.content.html)">
+            </div>
+          </div>
+
+          <div class="content-text-section">
+            <h3>Plain Text Version</h3>
+            <div class="plain-text-view">
+              {{ clause.content.plain_text }}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Metadata Tab -->
+      <div *ngIf="activeTab === 'metadata'" class="metadata-section">
+        <div class="section-card">
+          <h2>Classification & Metadata</h2>
+
+          <div class="metadata-grid">
+            <div class="meta-item">
+              <label>Category</label>
+              <div class="meta-value">{{ clause.category_path_display }}</div>
+            </div>
+
+            <div class="meta-item">
+              <label>Risk Level</label>
+              <div class="meta-value">
+                <span class="badge" [ngClass]="getRiskBadgeClass(clause.metadata.risk_level)">
+                  {{ clause.metadata.risk_level }}
+                </span>
+              </div>
+            </div>
+
+            <div class="meta-item">
+              <label>Complexity</label>
+              <div class="meta-value">
+                <span class="badge" [ngClass]="getComplexityBadgeClass(clause.metadata.complexity)">
+                  {{ clause.metadata.complexity }}
+                </span>
+              </div>
+            </div>
+
+            <div class="meta-item">
+              <label>Status</label>
+              <div class="meta-value">
+                <span class="badge" [ngClass]="getStatusBadgeClass(clause.status)">
+                  {{ clause.status }}
+                </span>
+              </div>
+            </div>
+
+            <div class="meta-item full-width">
+              <label>Tags</label>
+              <div class="meta-value">
+                <span class="tag" *ngFor="let tag of clause.metadata.tags">{{ tag }}</span>
+                <span *ngIf="clause.metadata.tags.length === 0" class="text-muted">No tags</span>
+              </div>
+            </div>
+
+            <div class="meta-item full-width">
+              <label>Contract Types</label>
+              <div class="meta-value">
+                <span class="tag" *ngFor="let type of clause.metadata.contract_types">{{ type }}</span>
+                <span *ngIf="clause.metadata.contract_types.length === 0" class="text-muted">No contract types</span>
+              </div>
+            </div>
+
+            <div class="meta-item full-width">
+              <label>Jurisdictions</label>
+              <div class="meta-value">
+                <span class="tag" *ngFor="let jurisdiction of clause.metadata.jurisdictions">{{ jurisdiction }}</span>
+                <span *ngIf="clause.metadata.jurisdictions.length === 0" class="text-muted">No jurisdictions</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="section-card">
+          <h2>Audit Information</h2>
+
+          <div class="metadata-grid">
+            <div class="meta-item">
+              <label>Created By</label>
+              <div class="meta-value">{{ clause.audit.created_by }}</div>
+            </div>
+
+            <div class="meta-item">
+              <label>Created Date</label>
+              <div class="meta-value">{{ formatDate(clause.audit.created_date) }}</div>
+            </div>
+
+            <div class="meta-item">
+              <label>Modified By</label>
+              <div class="meta-value">{{ clause.audit.modified_by }}</div>
+            </div>
+
+            <div class="meta-item">
+              <label>Modified Date</label>
+              <div class="meta-value">{{ formatDate(clause.audit.modified_date) }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Variables Tab -->
+      <div *ngIf="activeTab === 'variables'" class="variables-section">
+        <div class="section-card">
+          <h2>Clause Variables</h2>
+          <p class="section-description">Variables that can be replaced with actual values when using this clause.</p>
+
+          <div *ngIf="clause.variables.length === 0" class="empty-state-small">
+            <p>No variables defined for this clause.</p>
+          </div>
+
+          <div *ngIf="clause.variables.length > 0" class="variables-list">
+            <div class="variable-item" *ngFor="let variable of clause.variables">
+              <div class="variable-header">
+                <h3>{{ variable.name }}</h3>
+                <span class="badge" [ngClass]="getVariableTypeBadgeClass(variable.type)">
+                  {{ variable.type }}
+                </span>
+              </div>
+              <p class="variable-description">{{ variable.description }}</p>
+              <div class="variable-default">
+                <strong>Default Value:</strong> {{ variable.default_value }}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Version History Tab -->
+      <div *ngIf="activeTab === 'versions'" class="versions-section">
+        <div class="section-card">
+          <h2>Version History</h2>
+          <p class="section-description">Track changes and previous versions of this clause.</p>
+
+          <div *ngIf="isLoadingVersions" class="loading-small">
+            <div class="spinner-small"></div>
+            <p>Loading versions...</p>
+          </div>
+
+          <div *ngIf="!isLoadingVersions && versionHistory.length === 0" class="empty-state-small">
+            <p>No version history available.</p>
+          </div>
+
+          <div *ngIf="!isLoadingVersions && versionHistory.length > 0" class="version-timeline">
+            <div class="version-item" *ngFor="let version of versionHistory">
+              <div class="version-marker"></div>
+              <div class="version-content">
+                <div class="version-header">
+                  <h3>
+                    {{ version.version.version_label }}
+                    <span *ngIf="version.version.is_current" class="current-badge">CURRENT</span>
+                  </h3>
+                  <span class="version-date">{{ formatDate(version.version.created_date) }}</span>
+                </div>
+                <p class="version-author">By {{ version.version.created_by }}</p>
+                <p class="version-notes" *ngIf="version.version.change_notes">
+                  {{ version.version.change_notes }}
+                </p>
+                <button class="btn-link" (click)="viewVersion(version.id)">
+                  View this version →
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Usage Stats Tab -->
+      <div *ngIf="activeTab === 'usage'" class="usage-section">
+        <div class="section-card">
+          <h2>Usage Statistics</h2>
+
+          <div class="stats-grid">
+            <div class="stat-card">
+              <div class="stat-icon">📊</div>
+              <div class="stat-content">
+                <h3>{{ clause.usage_stats.times_used }}</h3>
+                <p>Times Used</p>
+              </div>
+            </div>
+
+            <div class="stat-card" *ngIf="clause.usage_stats.last_used_date">
+              <div class="stat-icon">📅</div>
+              <div class="stat-content">
+                <h3>{{ formatDate(clause.usage_stats.last_used_date) }}</h3>
+                <p>Last Used</p>
+              </div>
+            </div>
+
+            <div class="stat-card" *ngIf="clause.usage_stats.average_comparison_score">
+              <div class="stat-icon">⭐</div>
+              <div class="stat-content">
+                <h3>{{ (clause.usage_stats.average_comparison_score * 100).toFixed(1) }}%</h3>
+                <p>Avg Similarity Score</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="usage-info">
+            <p>This clause has been used in contract comparisons {{ clause.usage_stats.times_used }} times.</p>
+            <p *ngIf="clause.usage_stats.average_comparison_score">
+              Average similarity score: {{ (clause.usage_stats.average_comparison_score * 100).toFixed(1) }}%
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

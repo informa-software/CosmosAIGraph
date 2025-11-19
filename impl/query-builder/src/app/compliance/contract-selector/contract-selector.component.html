@@ -1,0 +1,182 @@
+<!-- Contract Selector Component - Simplified Dropdown Version -->
+<div class="contract-selector">
+  <!-- Header -->
+  <div class="selector-header">
+    <h4>Select Contracts</h4>
+    <p class="subtitle">
+      {{ selectedContractIds.length }} contract(s) selected
+      <span *ngIf="filteredContracts.length < contracts.length">
+        ({{ filteredContracts.length }} of {{ contracts.length }} shown)
+      </span>
+    </p>
+  </div>
+
+  <!-- Filters -->
+  <div class="filters-section">
+    <div class="filter-row">
+      <select
+        [(ngModel)]="contractingPartyFilter"
+        (change)="applyFilters()"
+        class="filter-select"
+      >
+        <option value="">All Contracting Parties</option>
+        <option *ngFor="let party of contractingParties" [value]="party">
+          {{ party }}
+        </option>
+      </select>
+
+      <select
+        [(ngModel)]="contractorPartyFilter"
+        (change)="applyFilters()"
+        class="filter-select"
+      >
+        <option value="">All Contractor Parties</option>
+        <option *ngFor="let party of contractorParties" [value]="party">
+          {{ party }}
+        </option>
+      </select>
+
+      <select
+        [(ngModel)]="contractTypeFilter"
+        (change)="applyFilters()"
+        class="filter-select"
+      >
+        <option value="">All Types</option>
+        <option *ngFor="let type of contractTypes" [value]="type">
+          {{ type }}
+        </option>
+      </select>
+
+      <select
+        [(ngModel)]="governingLawFilter"
+        (change)="applyFilters()"
+        class="filter-select"
+      >
+        <option value="">All Governing Law States</option>
+        <option *ngFor="let law of governingLaws" [value]="law">
+          {{ law }}
+        </option>
+      </select>
+
+      <button class="btn btn-sm btn-outline" (click)="clearFilters()">
+        Clear All
+      </button>
+    </div>
+  </div>
+
+  <!-- Selection Actions -->
+  <div class="selection-actions" *ngIf="multiSelect">
+    <button class="btn btn-sm btn-outline" (click)="selectAll()">
+      Select All ({{ filteredContracts.length }})
+    </button>
+    <button
+      class="btn btn-sm btn-outline"
+      (click)="clearSelection()"
+      [disabled]="selectedContractIds.length === 0"
+    >
+      Clear Selection
+    </button>
+  </div>
+
+  <!-- Loading State -->
+  <div *ngIf="loading" class="loading-state">
+    <div class="spinner"></div>
+    <p>Loading contracts...</p>
+  </div>
+
+  <!-- Contract List -->
+  <div *ngIf="!loading" class="contracts-list">
+    <div *ngIf="filteredContracts.length === 0" class="empty-state">
+      <div class="empty-icon">📄</div>
+      <h4>No contracts found</h4>
+      <p *ngIf="contractingPartyFilter || contractorPartyFilter || contractTypeFilter || governingLawFilter">
+        Try adjusting your filters
+      </p>
+      <p *ngIf="!contractingPartyFilter && !contractorPartyFilter && !contractTypeFilter && !governingLawFilter">
+        No contracts are available in the system
+      </p>
+    </div>
+
+    <div
+      *ngFor="let contract of getPagedContracts()"
+      class="contract-item"
+      [class.selected]="isContractSelected(contract.id)"
+      (click)="toggleContract(contract.id)"
+    >
+      <div class="contract-checkbox">
+        <input
+          type="checkbox"
+          [checked]="isContractSelected(contract.id)"
+          (click)="$event.stopPropagation()"
+          (change)="toggleContract(contract.id)"
+        />
+      </div>
+
+      <div class="contract-info">
+        <div class="contract-main">
+          <div class="contract-title-row">
+            <span class="contract-title">{{ contract.title }}</span>
+            <span class="contract-badges">
+              <span *ngIf="contract.contract_type" class="badge badge-primary">{{ contract.contract_type }}</span>
+              <span *ngIf="contract.governing_law_state" class="badge badge-info">{{ contract.governing_law_state }}</span>
+              <span *ngIf="contract.effective_date" class="badge badge-secondary">{{ formatDate(contract.effective_date) }}</span>
+            </span>
+          </div>
+          <div class="contract-parties">
+            <span *ngIf="contract.contractor_party" class="party-label">Contractor: <span class="party-value">{{ contract.contractor_party }}</span></span>
+            <span *ngIf="contract.contracting_party" class="party-label">Contracting Party: <span class="party-value">{{ contract.contracting_party }}</span></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Pagination -->
+  <div class="pagination" *ngIf="!loading && totalPages > 1">
+    <button
+      class="btn btn-sm btn-outline"
+      (click)="goToPage(1)"
+      [disabled]="currentPage === 1"
+    >
+      ⏮️ First
+    </button>
+    <button
+      class="btn btn-sm btn-outline"
+      (click)="goToPage(currentPage - 1)"
+      [disabled]="currentPage === 1"
+    >
+      ◀️ Prev
+    </button>
+
+    <div class="page-numbers">
+      <button
+        *ngFor="let page of getPageNumbers()"
+        class="btn btn-sm"
+        [class.btn-primary]="page === currentPage"
+        [class.btn-outline]="page !== currentPage"
+        (click)="goToPage(page)"
+      >
+        {{ page }}
+      </button>
+    </div>
+
+    <button
+      class="btn btn-sm btn-outline"
+      (click)="goToPage(currentPage + 1)"
+      [disabled]="currentPage === totalPages"
+    >
+      Next ▶️
+    </button>
+    <button
+      class="btn btn-sm btn-outline"
+      (click)="goToPage(totalPages)"
+      [disabled]="currentPage === totalPages"
+    >
+      Last ⏭️
+    </button>
+
+    <span class="page-info">
+      Page {{ currentPage }} of {{ totalPages }} ({{ filteredContracts.length }} total)
+    </span>
+  </div>
+</div>

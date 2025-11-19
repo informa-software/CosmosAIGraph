@@ -6,13 +6,16 @@ in a single call. Provides reasoning for strategy choices and handles complex
 query patterns that regex-based approaches struggle with.
 """
 
+import asyncio
 import json
 import logging
+import time
 from typing import Dict, Optional
 from dataclasses import dataclass
 from openai import AzureOpenAI
 
 from src.services.config_service import ConfigService
+from src.services.llm_usage_tracker import LLMUsageTracker
 from src.services.strategy_schema_builder import StrategySchemaBuilder
 
 logger = logging.getLogger(__name__)
@@ -30,7 +33,8 @@ class LLMQueryPlan:
     execution_plan: Dict
     confidence: float
     reasoning: str
-    result_format: str  # "list_summary" or "full_context"
+    result_format: str  # "list_summary" or "full_context" or "clause_analysis"
+    entities: Dict  # Entity extraction for normalization
     raw_response: Dict
 
 
@@ -68,16 +72,26 @@ Your task: Analyze the user's natural language query and return a complete query
 
 # CRITICAL RULES
 
-1. **ENTITY_FIRST Requirements**:
-   - EXACTLY ONE positive entity from ONE collection
+**PRIMARY RULE - ALWAYS QUERY CONTRACTS COLLECTION**:
+   - For ALL contract data queries, ALWAYS use the "contracts" collection
+   - Entity collections (contractor_parties, contracting_parties, governing_law_states, contract_types) are for internal optimization ONLY
+   - NEVER generate queries against entity collections directly
+   - Use WHERE clauses on contracts collection: c.contracting_party, c.contractor_party, c.governing_law_state, c.contract_type
+
+1. **CONTRACT_DIRECT Strategy** (PRIMARY - USE THIS FOR MOST QUERIES):
+   - Use for: ALL contract queries including entity filters, text search, date ranges, any filters
+   - Query the "contracts" collection with WHERE clauses
+   - Use placeholders for entity values: :contractor_party_1, :contracting_party_1, etc.
+   - Operators: = (single), != (negation), IN (OR list), NOT IN (multiple negations)
+   - Example: SELECT TOP 50 * FROM c WHERE c.contracting_party = :party_1 AND FULLTEXTCONTAINS(c.contract_text, 'term')
+
+2. **ENTITY_FIRST Strategy** (INTERNAL OPTIMIZATION - RARELY USED):
+   - DO NOT USE for queries with text search or multiple filters
+   - Only for: EXACTLY ONE positive entity with NO other filters
    - NO negations ("not", "excluding", "except")
    - NO OR lists ("California or Texas")
-   - Multi-step execution: query entity collection → get contract IDs → batch retrieve contracts
-
-2. **CONTRACT_DIRECT Requirements**:
-   - Use for: multiple entities, negations, OR lists, complex filters
-   - Operators: = (single), != (negation), IN (OR list), NOT IN (multiple negations)
-   - Direct SQL on contracts collection
+   - NO text search or additional filters
+   - System handles this internally - prefer CONTRACT_DIRECT instead
 
 3. **ENTITY_AGGREGATION Requirements**:
    - Count/sum/average queries on single entity
@@ -95,20 +109,35 @@ Your task: Analyze the user's natural language query and return a complete query
      * Cross-container subqueries (SELECT ... WHERE id IN (SELECT id FROM other_container))
      * Subqueries across different containers
      * Each query must target EXACTLY ONE collection
+   - **Full-Text Search**: Use FULLTEXTCONTAINS(c.contract_text, 'term') for searching within contract text
+     * Example: WHERE c.contracting_party = 'acme' AND FULLTEXTCONTAINS(c.contract_text, 'liability')
+     * DO NOT use CONTAINS() - it is not supported for full-text search
    - SPARQL: Include PREFIX declarations, use correct property directions
-   - Entity normalization: lowercase, underscores replace spaces, remove special chars
-   - Examples: "California" → "california", "New York" → "new_york", "Microsoft Corp" → "microsoft"
+   - **Entity Normalization** (CRITICAL - ALWAYS REQUIRED):
+     * **ALWAYS use placeholders** for ANY entity values (party names, states, types, clauses)
+     * Party names: "Malone Forestry" → use :contractor_party_1 placeholder
+     * States: "California" → use :governing_law_state_1 placeholder
+     * Contract types: "MSA" → use :contract_type_1 placeholder
+     * Clause types: "termination obligations" → use :clause_type_1 placeholder
+     * **MUST include "entities" dict** mapping each placeholder to {{"raw_value": "...", "entity_type": "..."}}
+     * Python will normalize using fuzzy matching (85% threshold) and replace placeholders
 
-6. **Result Format Rules**:
-   - **"list_summary"**: Use when query returns a LIST of contracts for display
-     * Examples: "Show all contracts...", "List contracts...", "Find contracts where..."
-     * Only summary fields needed: id, contractor_party, contracting_party, governing_law_state, contract_type, effective_date, expiration_date, maximum_contract_value, filename
+6. **Result Format Rules** (Choose carefully based on query intent):
+   - **"list_summary"**: Use when query wants a LIST/OVERVIEW of multiple contracts
+     * Examples: "Show all contracts...", "List contracts...", "Find contracts where...", "How many contracts..."
+     * Returns summary fields only (no contract_text): id, contractor_party, contracting_party, governing_law_state, contract_type, effective_date, expiration_date, maximum_contract_value, filename
      * Avoids filling context with contract_text, clause_id arrays, chunk_id arrays
 
-   - **"full_context"**: Use when query requires REASONING about entire contract
-     * Examples: "Summarize this contract...", "What are all the key terms..."
-     * Requires full contract_text for complete contract analysis
-     * Used for whole contract analysis
+   - **"full_context"**: Use when query needs to ANALYZE/REASON about specific contract content
+     * Examples:
+       - "What are the risks in the contract with X?"
+       - "What does the contract say about Y?"
+       - "Summarize the contract with Z"
+       - "Analyze the terms in X's contract"
+       - "What are the key obligations for X?"
+     * **CRITICAL**: Returns full contract_text for AI reasoning
+     * Use when answer requires reading and analyzing the actual contract text
+     * Typically returns 1-5 contracts (not large lists)
 
    - **"clause_analysis"**: Use when query is specifically about CLAUSES
      * Examples: "What are the termination clauses...", "Find indemnification clauses...", "Compare payment obligations..."
@@ -121,32 +150,53 @@ Your task: Analyze the user's natural language query and return a complete query
 
 # RESPONSE FORMAT
 
-Return ONLY valid JSON (no markdown, no code blocks):
+**CRITICAL**: Return ONLY valid JSON - no markdown, no code blocks, no comments (// or #).
+
+**Valid Values**:
+- strategy: ENTITY_FIRST, CONTRACT_DIRECT, CLAUSE_DIRECT, ENTITY_AGGREGATION, GRAPH_TRAVERSAL, VECTOR_SEARCH
+- fallback_strategy: Same options as strategy
+- query.type: SQL or SPARQL
+- result_format: list_summary, full_context, clause_analysis
+- confidence: Number between 0.0 and 1.0
+
+**CRITICAL - "entities" field is MANDATORY**:
+- If your query uses ANY placeholders (:contractor_party_1, :governing_law_state_1, etc.), you MUST include entities dict
+- Map EVERY placeholder to its original raw value from the user's query
+- Specify the entity_type for each (contractor_party, contracting_party, governing_law_state, contract_type, clause_type)
+- ONLY use empty object {{}} if your query has absolutely NO placeholders
+- Example: Query has ":contractor_party_1" → entities MUST have "contractor_party_1" entry
+
+**Example Response Format**:
 
 {{
-  "strategy": "ENTITY_FIRST|CONTRACT_DIRECT|ENTITY_AGGREGATION|GRAPH_TRAVERSAL|VECTOR_SEARCH",
-  "fallback_strategy": "strategy to use if primary fails",
+  "strategy": "CONTRACT_DIRECT",
+  "fallback_strategy": "VECTOR_SEARCH",
 
   "query": {{
-    "type": "SQL|SPARQL",
-    "text": "complete executable query"
+    "type": "SQL",
+    "text": "SELECT TOP 20 * FROM c WHERE c.contractor_party = :contractor_party_1"
   }},
 
   "execution_plan": {{
-    "collection": "collection name",
-    "estimated_ru_cost": number,
-    "estimated_results": number,
-    "aggregation_field": "field name for aggregation queries (optional)",
-    "multi_step": [  // Only for ENTITY_FIRST
-      "Step 1: Query governing_law_states for 'california'",
-      "Step 2: Extract contract IDs from contracts array",
-      "Step 3: Batch retrieve contracts by IDs"
-    ]
+    "collection": "contracts",
+    "estimated_ru_cost": 10,
+    "estimated_results": 5
   }},
 
-  "result_format": "list_summary|full_context|clause_analysis",
-  "confidence": 0.0-1.0,
-  "reasoning": "clear explanation of strategy choice and query structure"
+  "entities": {{
+    "contractor_party_1": {{
+      "raw_value": "Original name from user query",
+      "entity_type": "contractor_party"
+    }},
+    "governing_law_state_1": {{
+      "raw_value": "Original state name",
+      "entity_type": "governing_law_state"
+    }}
+  }},
+
+  "result_format": "list_summary",
+  "confidence": 0.95,
+  "reasoning": "Clear explanation of strategy choice and query structure"
 }}
 
 # EXAMPLES
@@ -298,7 +348,7 @@ Response:
   "reasoning": "Count query on single clause type entity. Pre-computed clause_count in clause_types collection provides instant 1 RU result. Similar to contract entity aggregations."
 }}
 
-**Example 8: Governing Law Query (CONTRACT_DIRECT - not clause)**
+**Example 8: Entity Extraction with Normalization (CONTRACT_DIRECT)**
 User: "Show me the governing law for Malone Forestry contracts"
 Response:
 {{
@@ -306,16 +356,56 @@ Response:
   "fallback_strategy": "VECTOR_SEARCH",
   "query": {{
     "type": "SQL",
-    "text": "SELECT TOP 20 c.id, c.governing_law_state, c.contractor_party, c.contracting_party FROM c WHERE c.contractor_party = 'malone_forestry' OR c.contracting_party = 'malone_forestry'"
+    "text": "SELECT TOP 20 c.id, c.governing_law_state, c.contractor_party, c.contracting_party FROM c WHERE c.contractor_party = :contractor_party_1 OR c.contracting_party = :contracting_party_1"
   }},
   "execution_plan": {{
     "collection": "contracts",
     "estimated_ru_cost": 10,
     "estimated_results": 5
   }},
+  "entities": {{
+    "contractor_party_1": {{
+      "raw_value": "Malone Forestry",
+      "entity_type": "contractor_party"
+    }},
+    "contracting_party_1": {{
+      "raw_value": "Malone Forestry",
+      "entity_type": "contracting_party"
+    }}
+  }},
   "result_format": "list_summary",
   "confidence": 0.95,
-  "reasoning": "Governing_law_state is a field on contracts collection, NOT a clause type. Query contracts directly. Cannot use subqueries in CosmosDB - each query targets one collection only."
+  "reasoning": "Governing_law_state is a field on contracts collection, NOT a clause type. Query contracts directly. Use placeholders for 'Malone Forestry' - Python will normalize using fuzzy matching to handle variations like 'malone forestry', 'Malone Forestry LLC', etc."
+}}
+
+**Example 9: Contract Analysis Query (CONTRACT_DIRECT with full_context)**
+User: "What are the risks in the contract with Mark Conley?"
+Response:
+{{
+  "strategy": "CONTRACT_DIRECT",
+  "fallback_strategy": "VECTOR_SEARCH",
+  "query": {{
+    "type": "SQL",
+    "text": "SELECT TOP 5 * FROM c WHERE c.contractor_party = :contractor_party_1 OR c.contracting_party = :contracting_party_1"
+  }},
+  "execution_plan": {{
+    "collection": "contracts",
+    "estimated_ru_cost": 10,
+    "estimated_results": 2
+  }},
+  "entities": {{
+    "contractor_party_1": {{
+      "raw_value": "Mark Conley",
+      "entity_type": "contractor_party"
+    }},
+    "contracting_party_1": {{
+      "raw_value": "Mark Conley",
+      "entity_type": "contracting_party"
+    }}
+  }},
+  "result_format": "full_context",
+  "confidence": 0.92,
+  "reasoning": "Query asks to ANALYZE contract content ('What are the risks'). Need full contract_text for AI to read and reason about. Use placeholders for party name. Returns full_context so AI gets contract_text for analysis."
 }}
 
 Analyze the user's query and generate the complete query plan.
@@ -323,13 +413,15 @@ Analyze the user's query and generate the complete query plan.
 
     def __init__(self,
                  schema_builder: Optional[StrategySchemaBuilder] = None,
-                 azure_client: Optional[AzureOpenAI] = None):
+                 azure_client: Optional[AzureOpenAI] = None,
+                 cosmos_service = None):
         """
         Initialize LLM query planner.
 
         Args:
             schema_builder: Schema builder instance (creates new if None)
             azure_client: Azure OpenAI client (creates new if None)
+            cosmos_service: CosmosDB service for usage tracking (optional)
         """
         self.schema_builder = schema_builder or StrategySchemaBuilder()
 
@@ -340,6 +432,9 @@ Analyze the user's query and generate the complete query plan.
         )
 
         self.deployment = ConfigService.azure_openai_completions_deployment()
+
+        # Initialize usage tracker if cosmos service provided
+        self.llm_tracker = LLMUsageTracker(cosmos_service) if cosmos_service else None
 
         # Load context once at initialization
         self.context = self.schema_builder.build_llm_context()
@@ -391,7 +486,10 @@ Classes:
             strategy_text += f"  Description: {strat_info['description']}\n"
             strategy_text += f"  Use When: {strat_info['use_when']}\n"
             strategy_text += f"  RU Cost: {strat_info['ru_cost']}\n"
-            strategy_text += f"  Example: {strat_info['example']}\n"
+            if 'example' in strat_info:
+                strategy_text += f"  Example: {strat_info['example']}\n"
+            if 'note' in strat_info:
+                strategy_text += f"  Note: {strat_info['note']}\n"
 
         return self.SYSTEM_PROMPT_TEMPLATE.format(
             database_schema=db_schema_text,
@@ -418,6 +516,8 @@ Classes:
         system_prompt = self._build_system_prompt()
 
         try:
+            t1 = time.perf_counter()
+
             # Single LLM call for strategy + query generation
             response = self.client.chat.completions.create(
                 model=self.deployment,
@@ -430,8 +530,47 @@ Classes:
                 timeout=timeout
             )
 
+            t2 = time.perf_counter()
+
+            # Track query planning usage
+            if self.llm_tracker:
+                asyncio.create_task(
+                    self.llm_tracker.track_completion(
+                        user_email="system",  # TODO: Get actual user email from request context
+                        operation="query_planning",
+                        model=response.model,
+                        prompt_tokens=response.usage.prompt_tokens if response.usage else 0,
+                        completion_tokens=response.usage.completion_tokens if response.usage else 0,
+                        elapsed_time=t2 - t1,
+                        operation_details={
+                            "query_preview": natural_language_query[:100],
+                            "timeout": timeout
+                        },
+                        success=True
+                    )
+                )
+
+            # Get raw response content
+            raw_content = response.choices[0].message.content
+            logger.info(f"LLM raw response (first 500 chars): {raw_content[:500]}")
+
             # Parse JSON response
-            llm_response = json.loads(response.choices[0].message.content)
+            llm_response = json.loads(raw_content)
+
+            # Debug: Log if entities are present
+            query_text = llm_response.get('query', {}).get('text', '')
+            has_placeholders = ':' in query_text and any(f':{name}' in query_text for name in ['contractor_party', 'contracting_party', 'governing_law_state', 'contract_type', 'clause_type'])
+
+            if 'entities' in llm_response and llm_response['entities']:
+                logger.info(f"LLM returned entities: {llm_response['entities']}")
+            elif has_placeholders:
+                logger.error(f"CRITICAL: Query contains placeholders but 'entities' field is missing or empty!")
+                logger.error(f"Query: {query_text}")
+                logger.error(f"Entities in response: {llm_response.get('entities', 'MISSING')}")
+                logger.error(f"Full LLM response:\n{json.dumps(llm_response, indent=2)}")
+                logger.error("This will cause query execution to fail. LLM must include entities dict when using placeholders.")
+            else:
+                logger.info("No placeholders in query, entities field not needed")
 
             # Extract query plan
             plan = LLMQueryPlan(
@@ -443,6 +582,7 @@ Classes:
                 confidence=llm_response.get('confidence', 0.0),
                 reasoning=llm_response.get('reasoning', ''),
                 result_format=llm_response.get('result_format', 'list_summary'),
+                entities=llm_response.get('entities', {}),
                 raw_response=llm_response
             )
 
@@ -452,9 +592,36 @@ Classes:
             return plan
 
         except json.JSONDecodeError as e:
+            # Log the full response for debugging
             logger.error(f"Invalid JSON response from LLM: {e}")
-            raise
+            logger.error(f"Raw LLM response:\n{raw_content}")
+
+            # Return error plan with raw response for trace file
+            return LLMQueryPlan(
+                strategy="VECTOR_SEARCH",
+                fallback_strategy="VECTOR_SEARCH",
+                query_type="SQL",
+                query_text="",
+                execution_plan={"error_response": raw_content},
+                confidence=0.0,
+                reasoning=f"JSON parsing error at {e}",
+                result_format="list_summary",
+                entities={},
+                raw_response={"error": str(e), "raw_content": raw_content}
+            )
 
         except Exception as e:
             logger.error(f"LLM query planning failed: {e}")
-            raise
+            # Return error plan for trace file
+            return LLMQueryPlan(
+                strategy="VECTOR_SEARCH",
+                fallback_strategy="VECTOR_SEARCH",
+                query_type="SQL",
+                query_text="",
+                execution_plan={"error_info": str(e)},
+                confidence=0.0,
+                reasoning=f"LLM planning error: {str(e)}",
+                result_format="list_summary",
+                entities={},
+                raw_response={"error": str(e)}
+            )

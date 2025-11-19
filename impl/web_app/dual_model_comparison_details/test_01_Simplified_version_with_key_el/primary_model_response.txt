@@ -1,0 +1,116 @@
+================================================================================
+PRIMARY MODEL ANALYSIS: gpt-4.1
+================================================================================
+
+Test Case: Simplified version with key elements but missing some protections
+Expected Similarity: high
+Processing Time: 35.131s
+Tokens Used: 1388
+
+--------------------------------------------------------------------------------
+CONTRACT TEXT ANALYZED
+--------------------------------------------------------------------------------
+Each party shall indemnify and defend the other party from any claims arising from
+        its breach of this agreement or negligent acts. Notice must be provided promptly.
+
+--------------------------------------------------------------------------------
+SIMILARITY ANALYSIS
+--------------------------------------------------------------------------------
+Score: 0.550
+
+--------------------------------------------------------------------------------
+DIFFERENCES IDENTIFIED
+--------------------------------------------------------------------------------
+
+1. MISSING - high
+   Location: main clause
+   Library: hold harmless
+
+2. MISSING - high
+   Location: main clause
+   Library: its affiliates, and their respective officers, directors, employees, and agents
+
+3. MISSING - medium
+   Location: scope of indemnification
+   Library: any and all claims, demands, losses, liabilities, damages, costs, and expenses (including reasonable attorneys' fees and court costs)
+   Contract: any claims
+
+4. MISSING - high
+   Location: scope of triggers
+   Library: Any infringement or alleged infringement of any intellectual property rights by the Indemnifying Party; Any violation of applicable laws or regulations by the Indemnifying Party.
+
+5. DIFFERENT - medium
+   Location: notice and cooperation
+   Library: The Indemnified Party shall provide the Indemnifying Party with prompt written notice of any claim and shall cooperate with the Indemnifying Party in the defense of such claim.
+   Contract: Notice must be provided promptly.
+
+6. MISSING - medium
+   Location: defense cooperation
+   Library: shall cooperate with the Indemnifying Party in the defense of such claim.
+
+--------------------------------------------------------------------------------
+RISK ANALYSIS
+--------------------------------------------------------------------------------
+Overall Risk: high
+Risk Score: 0.80
+
+Identified Risks:
+
+1. LIABILITY - high
+   Description: No 'hold harmless' language exposes parties to potential liability for damages that could otherwise be shielded.
+   Impact: The indemnified party may not be fully protected from third-party claims or damages.
+   Location: main clause
+
+2. SCOPE OF COVERAGE - high
+   Description: Affiliates, officers, directors, employees, and agents are not covered by indemnification.
+   Impact: Key related parties may be left unprotected, increasing organizational risk.
+   Location: main clause
+
+3. SCOPE OF TRIGGERS - high
+   Description: No coverage for IP infringement or violation of laws/regulations.
+   Impact: Significant exposures for claims related to IP or regulatory breaches are not addressed.
+   Location: scope of triggers
+
+4. DEFENSE PROCESS - medium
+   Description: No obligation for the indemnified party to cooperate in defense.
+   Impact: May impede effective defense and increase costs or liability.
+   Location: notice and cooperation
+
+5. COST RECOVERY - medium
+   Description: No explicit mention of recovery of attorneys' fees and court costs.
+   Impact: Indemnified party may not be able to recover full costs of defense.
+   Location: scope of indemnification
+
+--------------------------------------------------------------------------------
+RECOMMENDATIONS
+--------------------------------------------------------------------------------
+
+1. ADDITION - Priority: high
+   Add 'hold harmless' language to ensure full protection from liability.
+   Suggested Text:
+   Each party shall indemnify, defend, and hold harmless the other party...
+   Rationale: Including 'hold harmless' is standard and essential for comprehensive risk transfer.
+
+2. ADDITION - Priority: high
+   Extend indemnification to affiliates, officers, directors, employees, and agents.
+   Suggested Text:
+   Each party shall indemnify, defend, and hold harmless the other party, its affiliates, and their respective officers, directors, employees, and agents...
+   Rationale: Protects all relevant parties, reducing organizational exposure.
+
+3. ADDITION - Priority: high
+   Add triggers for IP infringement and violation of law.
+   Suggested Text:
+   from and against any and all claims, demands, losses, liabilities, damages, costs, and expenses (including reasonable attorneys' fees and court costs) arising out of or relating to: any breach of this Agreement; any negligent acts or omissions or willful misconduct; any infringement or alleged infringement of any intellectual property rights; and any violation of applicable laws or regulations.
+   Rationale: Covers major sources of third-party claims and regulatory risk.
+
+4. MODIFICATION - Priority: medium
+   Clarify notice and cooperation requirements.
+   Suggested Text:
+   The Indemnified Party shall provide the Indemnifying Party with prompt written notice of any claim and shall cooperate with the Indemnifying Party in the defense of such claim.
+   Rationale: Ensures effective defense and timely response to claims.
+
+5. ADDITION - Priority: medium
+   Specify recovery of attorneys' fees and court costs.
+   Suggested Text:
+   from and against any and all claims, demands, losses, liabilities, damages, costs, and expenses (including reasonable attorneys' fees and court costs)...
+   Rationale: Ensures indemnified party is not left with unreimbursed legal expenses.

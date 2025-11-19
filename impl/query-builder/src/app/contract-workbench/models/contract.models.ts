@@ -21,7 +21,7 @@ export interface Contract {
   contract_value?: string;
   clauses: { [key: string]: string };
   hasFullText?: boolean;
-  textTokens?: number;
+  text_tokens?: number;
 }
 
 export interface ContractFilter {
@@ -66,16 +66,25 @@ export interface ContractComparisonRequest {
   compareContractIds: string[];
   comparisonMode: 'clauses' | 'full';
   selectedClauses?: string[] | 'all';
+  modelSelection?: string;  // "primary" or "secondary"
+  userEmail?: string;
+  forceBatch?: boolean;  // Force batch mode regardless of number of contracts
 }
 
 export interface ContractComparisonResponse {
   success: boolean;
-  standardContractId: string;
-  compareContractIds: string[];
-  comparisonMode: 'clauses' | 'full';
+  // Real-time mode fields
+  standardContractId?: string;
+  compareContractIds?: string[];
+  comparisonMode?: 'clauses' | 'full';
   selectedClauses?: string[] | 'all';
-  results: ComparisonResults;
+  results?: ComparisonResults;
   error?: string;
+  // Batch mode fields
+  batch_mode?: boolean;
+  job_id?: string;
+  message?: string;
+  status?: string;
 }
 
 export interface ComparisonResults {

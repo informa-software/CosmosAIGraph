@@ -1,0 +1,23 @@
+{
+  "indexingMode": "consistent",
+  "automatic": true,
+  "includedPaths": [
+    {
+      "path": "/*"
+    }
+  ],
+  "excludedPaths": [
+    {
+      "path": "/embedding/*"
+    },
+    {
+      "path": "/content/word_compatible_xml/*"
+    }
+  ],
+  "vectorIndexes": [
+    {
+      "path": "/embedding",
+      "type": "quantizedFlat"
+    }
+  ]
+}

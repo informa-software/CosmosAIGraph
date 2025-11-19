@@ -1,0 +1,69 @@
+{
+  "indexingMode": "consistent",
+  "automatic": true,
+  "includedPaths": [
+    {
+      "path": "/*"
+    }
+  ],
+  "excludedPaths": [
+    {
+      "path": "/evidence/*"
+    },
+    {
+      "path": "/explanation/?"
+    },
+    {
+      "path": "/rule_description/?"
+    },
+    {
+      "path": "/\"_etag\"/?"
+    }
+  ],
+  "compositeIndexes": [
+    [
+      {
+        "path": "/rule_id",
+        "order": "ascending"
+      },
+      {
+        "path": "/evaluation_result",
+        "order": "ascending"
+      }
+    ],
+    [
+      {
+        "path": "/contract_id",
+        "order": "ascending"
+      },
+      {
+        "path": "/evaluated_date",
+        "order": "descending"
+      }
+    ],
+    [
+      {
+        "path": "/rule_id",
+        "order": "ascending"
+      },
+      {
+        "path": "/rule_version_date",
+        "order": "ascending"
+      }
+    ],
+    [
+      {
+        "path": "/rule_id",
+        "order": "ascending"
+      },
+      {
+        "path": "/evaluation_result",
+        "order": "ascending"
+      },
+      {
+        "path": "/evaluated_date",
+        "order": "descending"
+      }
+    ]
+  ]
+}

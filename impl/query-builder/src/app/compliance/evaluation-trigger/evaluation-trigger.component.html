@@ -1,0 +1,296 @@
+<div class="evaluation-trigger-container">
+  <!-- Header -->
+  <div class="page-header">
+    <div class="header-left">
+      <h2>Evaluate Compliance</h2>
+      <p class="subtitle">Evaluate contracts against compliance rules</p>
+    </div>
+    <div class="header-right">
+      <button class="btn btn-outline" (click)="viewDashboard()">
+        📊 Dashboard
+      </button>
+      <button class="btn btn-outline" (click)="viewJobs()">
+        📋 Jobs
+      </button>
+    </div>
+  </div>
+
+  <!-- Mode Selector -->
+  <div class="mode-selector">
+    <button
+      class="mode-btn"
+      [class.active]="evaluationMode === 'contract'"
+      (click)="evaluationMode = 'contract'"
+    >
+      📄 Evaluate Contract
+    </button>
+    <button
+      class="mode-btn"
+      [class.active]="evaluationMode === 'rule'"
+      (click)="evaluationMode = 'rule'"
+    >
+      📋 Evaluate Rule
+    </button>
+    <button
+      class="mode-btn"
+      [class.active]="evaluationMode === 'batch'"
+      (click)="evaluationMode = 'batch'"
+    >
+      📦 Batch Evaluate
+    </button>
+  </div>
+
+  <!-- Loading State -->
+  <div *ngIf="loading" class="loading-state">
+    <div class="spinner"></div>
+    <p>Loading rules...</p>
+  </div>
+
+  <!-- Contract Evaluation Mode -->
+  <div *ngIf="!loading && evaluationMode === 'contract'" class="evaluation-form">
+    <h3>Evaluate Single Contract</h3>
+    <p class="form-description">
+      Select a contract from the Contracts collection and evaluate it against compliance rules.
+    </p>
+
+    <div class="form-section">
+      <div class="form-group">
+        <label>Select Contract <span class="required">*</span></label>
+        <app-contract-selector
+          [multiSelect]="false"
+          [selectedContractIds]="selectedContractIds"
+          (contractsSelected)="onContractsSelected($event)"
+        ></app-contract-selector>
+      </div>
+
+      <div class="form-group">
+        <label for="rule-set-select">Rule Set (Optional)</label>
+        <select
+          id="rule-set-select"
+          [(ngModel)]="selectedRuleSetId"
+          class="form-select"
+        >
+          <option value="">-- All Active Rules --</option>
+          <option *ngFor="let ruleSet of availableRuleSets" [value]="ruleSet.id">
+            {{ ruleSet.name }} ({{ ruleSet.rule_count }} rules)
+          </option>
+        </select>
+        <p class="field-hint">
+          Select a rule set to evaluate only those specific rules, or leave blank to use all active rules
+        </p>
+      </div>
+
+      <div class="form-group">
+        <label class="checkbox-label">
+          <input
+            type="checkbox"
+            [(ngModel)]="evaluateAllRules"
+          />
+          Evaluate against all active rules (ignores rule set and individual rule selection)
+        </label>
+      </div>
+
+      <!-- Rule Selection -->
+      <div *ngIf="!evaluateAllRules" class="rules-selection">
+        <label>Select Rules <span class="required">*</span></label>
+        <div class="rules-list">
+          <div *ngFor="let rule of availableRules" class="rule-item">
+            <label class="checkbox-label">
+              <input
+                type="checkbox"
+                [checked]="isRuleSelected(rule.id)"
+                (change)="toggleRuleSelection(rule.id)"
+              />
+              <span class="rule-name">{{ rule.name }}</span>
+              <span class="badge badge-{{ rule.severity }}">{{ rule.severity }}</span>
+            </label>
+          </div>
+        </div>
+        <p class="field-hint">{{ selectedRuleIds.length }} rule(s) selected</p>
+      </div>
+
+      <div class="form-group">
+        <label class="checkbox-label">
+          <input
+            type="checkbox"
+            [(ngModel)]="asyncMode"
+          />
+          Run in background (async mode)
+        </label>
+        <p class="field-hint">Async mode is recommended for large evaluations</p>
+      </div>
+
+      <div class="form-actions">
+        <button
+          class="btn btn-primary"
+          (click)="evaluateContract()"
+          [disabled]="evaluating || selectedContractIds.length === 0 || (!evaluateAllRules && selectedRuleIds.length === 0)"
+        >
+          <span *ngIf="!evaluating">▶️ Evaluate Contract</span>
+          <span *ngIf="evaluating">⏳ Evaluating...</span>
+        </button>
+        <button
+          class="btn btn-outline"
+          (click)="resetContractForm()"
+          [disabled]="evaluating"
+        >
+          🔄 Reset
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Rule Evaluation Mode -->
+  <div *ngIf="!loading && evaluationMode === 'rule'" class="evaluation-form">
+    <h3>Evaluate Rule Against Contracts</h3>
+    <p class="form-description">
+      Evaluate a specific compliance rule against all contracts in the system.
+      This will create a background job.
+    </p>
+
+    <div class="form-section">
+      <div class="form-group">
+        <label for="rule-select">Select Rule <span class="required">*</span></label>
+        <select
+          id="rule-select"
+          [(ngModel)]="selectedRuleId"
+          class="form-select"
+        >
+          <option value="">-- Select a rule --</option>
+          <option *ngFor="let rule of availableRules" [value]="rule.id">
+            {{ rule.name }} ({{ rule.severity }})
+          </option>
+        </select>
+        <p class="field-hint">The rule will be evaluated against all contracts in the system</p>
+      </div>
+
+      <div *ngIf="selectedRuleId" class="selected-rule-info">
+        <h4>Selected Rule</h4>
+        <div class="info-card" *ngIf="getSelectedRule()">
+          <p><strong>Name:</strong> {{ getSelectedRule()?.name }}</p>
+          <p><strong>Description:</strong> {{ getSelectedRule()?.description }}</p>
+          <p><strong>Severity:</strong>
+            <span class="badge badge-{{ getSelectedRule()?.severity }}">
+              {{ getSelectedRule()?.severity }}
+            </span>
+          </p>
+        </div>
+      </div>
+
+      <div class="form-actions">
+        <button
+          class="btn btn-primary"
+          (click)="evaluateRule()"
+          [disabled]="evaluating || !selectedRuleId"
+        >
+          <span *ngIf="!evaluating">▶️ Evaluate Rule</span>
+          <span *ngIf="evaluating">⏳ Starting Job...</span>
+        </button>
+        <button
+          class="btn btn-outline"
+          (click)="resetRuleForm()"
+          [disabled]="evaluating"
+        >
+          🔄 Reset
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Batch Evaluation Mode -->
+  <div *ngIf="!loading && evaluationMode === 'batch'" class="evaluation-form">
+    <h3>Batch Evaluate Contracts</h3>
+    <p class="form-description">
+      Select multiple contracts from the Contracts collection and evaluate them in a single batch job.
+    </p>
+
+    <div class="form-section">
+      <div class="form-group">
+        <label>Select Contracts <span class="required">*</span></label>
+        <app-contract-selector
+          [multiSelect]="true"
+          [selectedContractIds]="batchSelectedContractIds"
+          (contractsSelected)="onBatchContractsSelected($event)"
+        ></app-contract-selector>
+      </div>
+
+      <div class="form-group">
+        <label class="checkbox-label">
+          <input
+            type="checkbox"
+            [(ngModel)]="evaluateAllRulesInBatch"
+          />
+          Evaluate against all active rules
+        </label>
+      </div>
+
+      <!-- Batch Rule Selection -->
+      <div *ngIf="!evaluateAllRulesInBatch" class="rules-selection">
+        <label>Select Rules <span class="required">*</span></label>
+        <div class="rules-list">
+          <div *ngFor="let rule of availableRules" class="rule-item">
+            <label class="checkbox-label">
+              <input
+                type="checkbox"
+                [checked]="isBatchRuleSelected(rule.id)"
+                (change)="toggleBatchRuleSelection(rule.id)"
+              />
+              <span class="rule-name">{{ rule.name }}</span>
+              <span class="badge badge-{{ rule.severity }}">{{ rule.severity }}</span>
+            </label>
+          </div>
+        </div>
+        <p class="field-hint">{{ batchRuleIds.length }} rule(s) selected</p>
+      </div>
+
+      <div class="batch-summary">
+        <div class="summary-item">
+          <span class="summary-label">Contracts:</span>
+          <span class="summary-value">{{ getBatchContractCount() }}</span>
+        </div>
+        <div class="summary-item">
+          <span class="summary-label">Rules:</span>
+          <span class="summary-value">{{ evaluateAllRulesInBatch ? availableRules.length : batchRuleIds.length }}</span>
+        </div>
+        <div class="summary-item">
+          <span class="summary-label">Total Evaluations:</span>
+          <span class="summary-value">{{ getBatchTotalEvaluations() }}</span>
+        </div>
+      </div>
+
+      <div class="form-actions">
+        <button
+          class="btn btn-primary"
+          (click)="executeBatchEvaluation()"
+          [disabled]="evaluating || batchSelectedContractIds.length === 0 || (!evaluateAllRulesInBatch && batchRuleIds.length === 0)"
+        >
+          <span *ngIf="!evaluating">▶️ Start Batch Evaluation</span>
+          <span *ngIf="evaluating">⏳ Starting Job...</span>
+        </button>
+        <button
+          class="btn btn-outline"
+          (click)="resetBatchForm()"
+          [disabled]="evaluating"
+        >
+          🔄 Reset
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Processing Modal -->
+<div *ngIf="evaluating" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3>⚡ Evaluating Contract</h3>
+    </div>
+    <div class="modal-body">
+      <div class="loading-container">
+        <div class="spinner"></div>
+        <p>Evaluating contract against compliance rules...</p>
+        <p class="help-text">This may take a few moments depending on the number of rules being evaluated.</p>
+      </div>
+    </div>
+  </div>
+</div>

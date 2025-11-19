@@ -96,6 +96,11 @@ class QueryExecutionTracker:
         if status == ExecutionStatus.SUCCESS:
             self.total_documents += docs_found
 
+    def update_step_metadata(self, step: ExecutionStep, metadata: Dict):
+        """Update metadata for a step without completing it"""
+        if metadata:
+            step.metadata.update(metadata)
+
     def add_alternative_comparison(self, strategy: str, estimated_cost: float,
                                    estimated_time_ms: float):
         """Add alternative strategy for comparison"""
@@ -165,7 +170,7 @@ class QueryExecutionTracker:
 
         # LLM comparison (if available)
         if self.llm_plan and self.llm_validation_status == "valid":
-            match_indicator = "[MATCH]" if self.strategy_match else "[MISMATCH]"
+            match_indicator = "[MATCH]" if self.strategy_match else "[MISMATCH - LLM OVERRIDING]"
             lines.append(f"LLM STRATEGY: {self.llm_strategy} {match_indicator}")
             lines.append(f"  Confidence: {self.llm_confidence:.2f}")
             lines.append(f"  Query Type: {self.llm_plan.get('query_type', 'N/A')}")
@@ -192,8 +197,64 @@ class QueryExecutionTracker:
                                                    subsequent_indent='    ')
                             for wrapped_line in wrapped:
                                 lines.append(f"    {wrapped_line}")
+
+            # Show entity normalization if present
+            if self.llm_plan and 'normalized_entities' in self.llm_plan.get('execution_plan', {}):
+                normalized_entities = self.llm_plan['execution_plan']['normalized_entities']
+                if normalized_entities:
+                    lines.append(f"  Entity Normalization:")
+                    for placeholder, info in normalized_entities.items():
+                        method = info['method']
+                        confidence = info['confidence']
+
+                        # Choose icon based on method
+                        if method == 'fuzzy_match':
+                            method_icon = "✅" if confidence >= 0.95 else "🔍"
+                        elif method == 'low_confidence_match':
+                            method_icon = "⚠️"
+                        elif method == 'not_found_in_database':
+                            method_icon = "❌"
+                        else:
+                            method_icon = "📝"
+
+                        # Format confidence string
+                        if method == 'not_found_in_database':
+                            confidence_str = " [NOT FOUND - likely 0 results]"
+                        elif method == 'low_confidence_match':
+                            confidence_str = f" ({confidence:.2f}) [LOW CONFIDENCE]"
+                        elif confidence < 1.0:
+                            confidence_str = f" ({confidence:.2f})"
+                        else:
+                            confidence_str = ""
+
+                        lines.append(f"    {method_icon} {info['raw_value']} → {info['normalized_value']}{confidence_str}")
+                    lines.append("")
         elif self.llm_plan:
             lines.append(f"LLM STRATEGY: [{self.llm_validation_status}]")
+
+            # Show error details if present (JSON parsing errors, etc.)
+            if self.llm_plan.get("error"):
+                error_msg = self.llm_plan["error"]
+                lines.append(f"  Error Details:")
+                lines.append(f"    {error_msg}")
+                lines.append("")
+
+            # Show raw LLM response if JSON parsing failed
+            if self.llm_plan.get("raw_response"):
+                raw_response = self.llm_plan["raw_response"]
+                lines.append(f"  Raw LLM Response (showing problem area):")
+                # Show first 800 chars with word wrapping
+                response_text = raw_response[:800] if len(raw_response) > 800 else raw_response
+                response_lines = response_text.split('\n')
+                for response_line in response_lines:
+                    if response_line.strip():
+                        wrapped = textwrap.wrap(response_line, width=68, break_long_words=False,
+                                               subsequent_indent='    ')
+                        for wrapped_line in wrapped:
+                            lines.append(f"    {wrapped_line}")
+                if len(raw_response) > 800:
+                    lines.append(f"    ... (response truncated, total length: {len(raw_response)} chars)")
+                lines.append("")
 
             # Show query text even if invalid (for debugging)
             if self.llm_query_text:

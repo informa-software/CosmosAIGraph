@@ -1,0 +1,74 @@
+================================================================================
+PRIMARY MODEL ANALYSIS: gpt-4.1
+================================================================================
+
+Test Case: Has key concepts but missing important details
+Expected Similarity: medium
+Processing Time: 21.873s
+Tokens Used: 1145
+
+--------------------------------------------------------------------------------
+CONTRACT TEXT ANALYZED
+--------------------------------------------------------------------------------
+Neither party is liable for consequential damages. Total liability is capped at fees paid.
+
+--------------------------------------------------------------------------------
+SIMILARITY ANALYSIS
+--------------------------------------------------------------------------------
+Score: 0.150
+
+--------------------------------------------------------------------------------
+DIFFERENCES IDENTIFIED
+--------------------------------------------------------------------------------
+
+1. MISSING - high
+   Location: entire clause
+   Library: Each party (the "Indemnifying Party") shall indemnify, defend, and hold harmless the other party (the "Indemnified Party"), its affiliates, and their respective officers, directors, employees, and agents from and against any and all claims, demands, losses, liabilities, damages, costs, and expenses (including reasonable attorneys' fees and court costs) arising out of or relating to: Any breach of this Agreement by the Indemnifying Party; Any negligent acts or omissions or willful misconduct by the Indemnifying Party; Any infringement or alleged infringement of any intellectual property rights by the Indemnifying Party; Any violation of applicable laws or regulations by the Indemnifying Party. The Indemnified Party shall provide the Indemnifying Party with prompt written notice of any claim and shall cooperate with the Indemnifying Party in the defense of such claim.
+
+2. EXTRA - high
+   Location: entire clause
+   Contract: Neither party is liable for consequential damages. Total liability is capped at fees paid.
+
+3. DIFFERENT - high
+   Location: entire clause
+   Library: Indemnification obligations for breaches, negligence, IP infringement, and legal violations.
+   Contract: Limitation of liability for consequential damages and overall liability cap.
+
+--------------------------------------------------------------------------------
+RISK ANALYSIS
+--------------------------------------------------------------------------------
+Overall Risk: high
+Risk Score: 0.85
+
+Identified Risks:
+
+1. INDEMNIFICATION - high
+   Description: Absence of any indemnification provision exposes both parties to unmitigated risks for third-party claims, breaches, negligence, IP infringement, and legal violations.
+   Impact: If a party suffers losses due to the other party's actions, there is no contractual obligation for the responsible party to cover those losses, potentially resulting in significant financial and reputational harm.
+   Location: entire clause
+
+2. LIABILITY LIMITATION - high
+   Description: Liability is capped at fees paid, which may be insufficient to cover actual damages, especially for breaches, IP infringement, or regulatory violations.
+   Impact: The party suffering damages may not be able to recover full losses, leading to substantial financial exposure.
+   Location: entire clause
+
+3. CONSEQUENTIAL DAMAGES EXCLUSION - medium
+   Description: Exclusion of consequential damages may prevent recovery for indirect losses, such as lost profits or reputational harm.
+   Impact: Limits the scope of recoverable damages, potentially leaving parties under-compensated for significant harm.
+   Location: entire clause
+
+--------------------------------------------------------------------------------
+RECOMMENDATIONS
+--------------------------------------------------------------------------------
+
+1. REPLACEMENT - Priority: high
+   Replace the current limitation of liability clause with a comprehensive mutual indemnification clause to ensure both parties are protected against third-party claims, breaches, negligence, IP infringement, and legal violations.
+   Suggested Text:
+   Each party (the "Indemnifying Party") shall indemnify, defend, and hold harmless the other party (the "Indemnified Party"), its affiliates, and their respective officers, directors, employees, and agents from and against any and all claims, demands, losses, liabilities, damages, costs, and expenses (including reasonable attorneys' fees and court costs) arising out of or relating to: Any breach of this Agreement by the Indemnifying Party; Any negligent acts or omissions or willful misconduct by the Indemnifying Party; Any infringement or alleged infringement of any intellectual property rights by the Indemnifying Party; Any violation of applicable laws or regulations by the Indemnifying Party. The Indemnified Party shall provide the Indemnifying Party with prompt written notice of any claim and shall cooperate with the Indemnifying Party in the defense of such claim.
+   Rationale: Indemnification is a critical risk allocation mechanism in contracts. Its absence exposes both parties to significant unmitigated risks. The limitation of liability clause does not address these risks and may be insufficient in many scenarios.
+
+2. ADDITION - Priority: medium
+   If limitation of liability is necessary, carve out indemnification obligations from the cap and consequential damages exclusion.
+   Suggested Text:
+   Notwithstanding the foregoing, the limitation of liability and exclusion of consequential damages shall not apply to a party's indemnification obligations under this Agreement.
+   Rationale: Ensures that indemnification obligations are enforceable and not subject to restrictive caps or exclusions, providing adequate protection for both parties.

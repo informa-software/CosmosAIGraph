@@ -1,0 +1,32 @@
+{
+  "indexingMode": "consistent",
+  "automatic": true,
+  "includedPaths": [
+    {
+      "path": "/*"
+    }
+  ],
+  "excludedPaths": [],
+  "compositeIndexes": [
+    [
+      {
+        "path": "/level",
+        "order": "ascending"
+      },
+      {
+        "path": "/order",
+        "order": "ascending"
+      }
+    ],
+    [
+      {
+        "path": "/parent_id",
+        "order": "ascending"
+      },
+      {
+        "path": "/order",
+        "order": "ascending"
+      }
+    ]
+  ]
+}

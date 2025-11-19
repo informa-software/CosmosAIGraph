@@ -1,0 +1,296 @@
+<div class="compliance-rules-container">
+  <!-- Header -->
+  <div class="page-header">
+    <div class="header-left">
+      <h2>Compliance Rules</h2>
+      <p class="subtitle">Manage contract compliance rules and requirements</p>
+    </div>
+    <div class="header-right">
+      <button class="btn btn-outline" (click)="viewDashboard()">
+        📊 Dashboard
+      </button>
+      <button class="btn btn-outline" (click)="manageRuleSets()">
+        📋 Manage Rule Sets
+      </button>
+      <button class="btn btn-primary" (click)="createRule()">
+        ➕ New Rule
+      </button>
+    </div>
+  </div>
+
+  <!-- Filters and Search -->
+  <div class="filters-section">
+    <div class="filter-group">
+      <label>
+        <input
+          type="checkbox"
+          [(ngModel)]="filterActiveOnly"
+          (change)="onFilterChange()"
+        />
+        Active Rules Only
+      </label>
+    </div>
+
+    <div class="filter-group">
+      <label for="category-filter">Category:</label>
+      <select
+        id="category-filter"
+        [(ngModel)]="filterCategory"
+        (change)="onFilterChange()"
+        class="form-select"
+      >
+        <option value="">All Categories</option>
+        <option *ngFor="let cat of CATEGORIES" [value]="cat.name">
+          {{ cat.display_name }}
+        </option>
+      </select>
+    </div>
+
+    <div class="filter-group">
+      <label for="severity-filter">Severity:</label>
+      <select
+        id="severity-filter"
+        [(ngModel)]="filterSeverity"
+        (change)="onFilterChange()"
+        class="form-select"
+      >
+        <option value="">All Severities</option>
+        <option *ngFor="let sev of SEVERITY_OPTIONS" [value]="sev.value">
+          {{ sev.label }}
+        </option>
+      </select>
+    </div>
+
+    <div class="filter-group">
+      <label for="ruleset-filter">Rule Set:</label>
+      <select
+        id="ruleset-filter"
+        [(ngModel)]="filterRuleSet"
+        (change)="onFilterChange()"
+        class="form-select"
+      >
+        <option value="">All Rule Sets</option>
+        <option *ngFor="let ruleSet of ruleSets" [value]="ruleSet.id">
+          {{ ruleSet.name }} ({{ ruleSet.rule_count }})
+        </option>
+      </select>
+    </div>
+
+    <div class="search-group">
+      <input
+        type="text"
+        [(ngModel)]="searchText"
+        (ngModelChange)="onSearchChange()"
+        placeholder="Search rules..."
+        class="form-input search-input"
+      />
+    </div>
+
+    <div class="actions-group">
+      <button
+        class="btn btn-sm btn-outline"
+        (click)="refresh()"
+        title="Refresh"
+      >
+        🔄
+      </button>
+      <button
+        class="btn btn-sm btn-outline"
+        (click)="exportToCSV()"
+        title="Export to CSV"
+        [disabled]="filteredRules.length === 0"
+      >
+        💾 Export
+      </button>
+    </div>
+  </div>
+
+  <!-- Summary Stats -->
+  <div class="stats-bar">
+    <div class="stat">
+      <span class="stat-label">Total Rules:</span>
+      <span class="stat-value">{{ rules.length }}</span>
+    </div>
+    <div class="stat">
+      <span class="stat-label">Filtered:</span>
+      <span class="stat-value">{{ filteredRules.length }}</span>
+    </div>
+    <div class="stat" *ngIf="filterRuleSet">
+      <span class="stat-label">Rule Set:</span>
+      <span class="stat-value">{{ getRuleSetName(filterRuleSet) }}</span>
+    </div>
+    <div class="stat" *ngIf="selectedRuleIds.size > 0">
+      <span class="stat-label">Selected:</span>
+      <span class="stat-value">{{ selectedRuleIds.size }}</span>
+      <button class="btn btn-sm btn-danger ml-2" (click)="deleteSelected()">
+        Delete Selected
+      </button>
+    </div>
+  </div>
+
+  <!-- Loading State -->
+  <div *ngIf="loading" class="loading-state">
+    <div class="spinner"></div>
+    <p>Loading compliance rules...</p>
+  </div>
+
+  <!-- Empty State -->
+  <div *ngIf="!loading && filteredRules.length === 0" class="empty-state">
+    <div style="font-size: 4rem; margin-bottom: 1rem;">📋</div>
+    <h3>No Compliance Rules Found</h3>
+    <p *ngIf="rules.length === 0">Get started by creating your first compliance rule.</p>
+    <p *ngIf="rules.length > 0">No rules match your current filters. Try adjusting your search criteria.</p>
+    <button *ngIf="rules.length === 0" class="btn btn-primary" (click)="createRule()">
+      ➕ Create First Rule
+    </button>
+  </div>
+
+  <!-- Rules Table -->
+  <div *ngIf="!loading && filteredRules.length > 0" class="rules-table-container">
+    <table class="rules-table">
+      <thead>
+        <tr>
+          <th class="col-select">
+            <input
+              type="checkbox"
+              [checked]="selectedRuleIds.size === getPaginatedRules().length && getPaginatedRules().length > 0"
+              (change)="selectedRuleIds.size > 0 ? deselectAll() : selectAll()"
+            />
+          </th>
+          <th class="col-name sortable" (click)="sortBy('name')">
+            Rule Name
+            <span *ngIf="sortField === 'name'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span>
+          </th>
+          <th class="col-description">Description</th>
+          <th class="col-severity sortable" (click)="sortBy('severity')">
+            Severity
+            <span *ngIf="sortField === 'severity'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span>
+          </th>
+          <th class="col-category sortable" (click)="sortBy('category')">
+            Category
+            <span *ngIf="sortField === 'category'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span>
+          </th>
+          <th class="col-status">Status</th>
+          <th class="col-updated sortable" (click)="sortBy('updated_date')">
+            Updated
+            <span *ngIf="sortField === 'updated_date'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span>
+          </th>
+          <th class="col-actions">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let rule of getPaginatedRules()" [class.selected]="selectedRuleIds.has(rule.id)">
+          <td class="col-select">
+            <input
+              type="checkbox"
+              [checked]="selectedRuleIds.has(rule.id)"
+              (change)="toggleSelection(rule.id)"
+            />
+          </td>
+          <td class="col-name">
+            <a (click)="viewRule(rule)" class="rule-link">{{ rule.name }}</a>
+            <div *ngIf="getRuleSetNames(rule).length > 0" class="rule-sets-badges">
+              <span *ngFor="let ruleSetName of getRuleSetNames(rule)" class="badge badge-rule-set" [title]="ruleSetName">
+                {{ ruleSetName }}
+              </span>
+            </div>
+          </td>
+          <td class="col-description">
+            <span class="description-text" [title]="rule.description">
+              {{ rule.description }}
+            </span>
+          </td>
+          <td class="col-severity">
+            <span class="badge badge-{{ getSeverityColor(rule.severity) }}">
+              {{ rule.severity }}
+            </span>
+          </td>
+          <td class="col-category">
+            <span class="category-tag">{{ getCategoryName(rule.category) }}</span>
+          </td>
+          <td class="col-status">
+            <span class="status-indicator" [class.active]="rule.active" [class.inactive]="!rule.active">
+              {{ rule.active ? 'Active' : 'Inactive' }}
+            </span>
+          </td>
+          <td class="col-updated">
+            <span class="date-text">{{ formatDate(rule.updated_date) }}</span>
+          </td>
+          <td class="col-actions">
+            <div class="action-buttons">
+              <button
+                class="btn-icon"
+                (click)="viewRule(rule)"
+                title="View Details"
+              >
+                👁️
+              </button>
+              <button
+                class="btn-icon"
+                (click)="editRule(rule)"
+                title="Edit Rule"
+              >
+                ✏️
+              </button>
+              <button
+                class="btn-icon"
+                (click)="toggleRuleStatus(rule)"
+                [title]="rule.active ? 'Deactivate' : 'Activate'"
+              >
+                {{ rule.active ? '⏸️' : '▶️' }}
+              </button>
+              <button
+                class="btn-icon btn-icon-danger"
+                (click)="deleteRule(rule)"
+                title="Delete Rule"
+              >
+                🗑️
+              </button>
+            </div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Pagination -->
+  <div *ngIf="!loading && filteredRules.length > 0" class="pagination-container">
+    <div class="pagination-info">
+      Showing {{ (currentPage - 1) * itemsPerPage + 1 }} to
+      {{ Math.min(currentPage * itemsPerPage, filteredRules.length) }} of
+      {{ filteredRules.length }} rules
+    </div>
+    <div class="pagination-controls">
+      <button
+        class="btn btn-sm"
+        (click)="goToPage(currentPage - 1)"
+        [disabled]="currentPage === 1"
+      >
+        Previous
+      </button>
+      <button
+        *ngFor="let page of getPageNumbers()"
+        class="btn btn-sm"
+        [class.active]="page === currentPage"
+        (click)="goToPage(page)"
+      >
+        {{ page }}
+      </button>
+      <button
+        class="btn btn-sm"
+        (click)="goToPage(currentPage + 1)"
+        [disabled]="currentPage === totalPages"
+      >
+        Next
+      </button>
+    </div>
+    <div class="pagination-size">
+      <select [(ngModel)]="itemsPerPage" (change)="onFilterChange()" class="form-select-sm">
+        <option [value]="10">10 per page</option>
+        <option [value]="20">20 per page</option>
+        <option [value]="50">50 per page</option>
+        <option [value]="100">100 per page</option>
+      </select>
+    </div>
+  </div>
+</div>

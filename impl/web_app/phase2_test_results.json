@@ -1,0 +1,182 @@
+{
+  "clauses_loaded": 8,
+  "comparison_tests": [
+    {
+      "test_case": "Simplified version with key elements but missing some protections",
+      "clause_name": "Standard Mutual Indemnification",
+      "similarity_score": 0.55,
+      "expected_similarity": "high",
+      "risk_level": "high",
+      "risk_count": 5,
+      "recommendation_count": 5,
+      "ai_model": "gpt-4.1",
+      "ai_tokens": 1430,
+      "first_run_time": 34.63041424751282,
+      "cached_run_time": 0.12299633026123047,
+      "cache_speedup": 281.55648362810246
+    },
+    {
+      "test_case": "Basic confidentiality with longer term but missing exceptions",
+      "clause_name": "Standard Confidentiality Clause",
+      "similarity_score": 0.45,
+      "expected_similarity": "medium",
+      "risk_level": "high",
+      "risk_count": 5,
+      "recommendation_count": 5,
+      "ai_model": "gpt-4.1",
+      "ai_tokens": 1290,
+      "first_run_time": 35.43752193450928,
+      "cached_run_time": 0.0809473991394043,
+      "cache_speedup": 437.7845651776931
+    },
+    {
+      "test_case": "Similar payment structure but different terms",
+      "clause_name": "Standard Payment Terms - Net 30",
+      "similarity_score": 0.65,
+      "expected_similarity": "high",
+      "risk_level": "medium",
+      "risk_count": 4,
+      "recommendation_count": 4,
+      "ai_model": "gpt-4.1",
+      "ai_tokens": 1081,
+      "first_run_time": 30.634300470352173,
+      "cached_run_time": 0.08122420310974121,
+      "cache_speedup": 377.1572917614529
+    },
+    {
+      "test_case": "Has key concepts but missing important details",
+      "clause_name": "Limitation of Liability - Cap and Exclusions",
+      "similarity_score": 0.35,
+      "expected_similarity": "medium",
+      "risk_level": "high",
+      "risk_count": 3,
+      "recommendation_count": 2,
+      "ai_model": "gpt-4.1",
+      "ai_tokens": 1219,
+      "first_run_time": 14.587299823760986,
+      "cached_run_time": 0.07951569557189941,
+      "cache_speedup": 183.45182946391895
+    },
+    {
+      "test_case": "Very simplified ownership clause missing critical legal protections",
+      "clause_name": "Intellectual Property - Work for Hire",
+      "similarity_score": 0.35,
+      "expected_similarity": "low",
+      "risk_level": "high",
+      "risk_count": 4,
+      "recommendation_count": 3,
+      "ai_model": "gpt-4.1",
+      "ai_tokens": 1234,
+      "first_run_time": 26.47332501411438,
+      "cached_run_time": 0.07951092720031738,
+      "cache_speedup": 332.9520349752469
+    }
+  ],
+  "vector_search_tests": [
+    {
+      "description": "Indemnification search",
+      "query_text": "indemnification and hold harmless obligations",
+      "expected_category": "indemnification",
+      "results_count": 5,
+      "search_time": 0.6459014415740967,
+      "top_suggestions": [
+        {
+          "name": "Standard Mutual Indemnification",
+          "score": 0.34015859450103436
+        },
+        {
+          "name": "Standard Mutual Indemnification",
+          "score": 0.3401694630598775
+        },
+        {
+          "name": "Standard Mutual Indemnification",
+          "score": 0.3401694630598775
+        }
+      ]
+    },
+    {
+      "description": "Confidentiality search",
+      "query_text": "confidential information and trade secrets",
+      "expected_category": "confidentiality",
+      "results_count": 5,
+      "search_time": 0.6012780666351318,
+      "top_suggestions": [
+        {
+          "name": "Standard Confidentiality Clause",
+          "score": 0.44351186389926933
+        },
+        {
+          "name": "Standard Confidentiality Clause",
+          "score": 0.44351186389926933
+        },
+        {
+          "name": "Standard Confidentiality Clause",
+          "score": 0.44351186389926933
+        }
+      ]
+    },
+    {
+      "description": "Payment terms search",
+      "query_text": "payment terms and invoice schedule",
+      "expected_category": "payment",
+      "results_count": 5,
+      "search_time": 0.6201131343841553,
+      "top_suggestions": [
+        {
+          "name": "Standard Payment Terms - Net 30",
+          "score": 0.41322691468458495
+        },
+        {
+          "name": "Standard Payment Terms - Net 30",
+          "score": 0.41322691468458495
+        },
+        {
+          "name": "Standard Payment Terms - Net 30",
+          "score": 0.41322691468458495
+        }
+      ]
+    },
+    {
+      "description": "IP rights search",
+      "query_text": "ownership of work product and intellectual property",
+      "expected_category": "intellectual_property",
+      "results_count": 5,
+      "search_time": 0.5978517532348633,
+      "top_suggestions": [
+        {
+          "name": "Intellectual Property - Work for Hire",
+          "score": 0.32877489936034476
+        },
+        {
+          "name": "Intellectual Property - Work for Hire",
+          "score": 0.32877489936034476
+        },
+        {
+          "name": "Intellectual Property - Work for Hire",
+          "score": 0.32877489936034476
+        }
+      ]
+    }
+  ],
+  "cache_performance": {
+    "comparison_cache": {
+      "size": 5,
+      "max_size": 100,
+      "ttl_seconds": 3600
+    },
+    "embedding_cache": {
+      "size": 12,
+      "max_size": 200,
+      "ttl_seconds": 7200
+    },
+    "metrics": {
+      "comparisons_total": 10,
+      "comparisons_cached": 5,
+      "embeddings_total": 12,
+      "embeddings_cached": 0,
+      "avg_comparison_time": 30.73381347580562,
+      "avg_embedding_time": 0.16949776808420816
+    }
+  },
+  "errors": []
+}

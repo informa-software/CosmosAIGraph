@@ -8,7 +8,7 @@ import { Entity, EntityGroup, QueryTemplate, StructuredQuery, QueryResult } from
   providedIn: 'root'
 })
 export class ApiService {
-  private baseUrl = 'http://localhost:8000/api';
+  private baseUrl = 'https://localhost:8000/api';
 
   constructor(private http: HttpClient) {}
 

@@ -18,6 +18,8 @@ from src.services.config_service import ConfigService
 from src.services.cosmos_nosql_service import CosmosNoSQLService
 from src.util.counter import Counter
 
+logger = logging.getLogger(__name__)
+
 # Service for managing contract-related entities:
 # - Contractor Parties
 # - Contracting Parties  
@@ -324,11 +326,34 @@ class ContractEntitiesService:
         return score
     
     @classmethod
+    def all_tokens_present(cls, input_text: str, entity_name: str) -> bool:
+        """
+        Check if all meaningful tokens from input are present in entity name.
+        Filters out common suffixes and short words.
+        """
+        # Get input tokens (normalized)
+        input_tokens = set(cls.normalize_entity_name(input_text).split('_'))
+
+        # Filter out very short tokens (like 'co', 'inc') which are common suffixes
+        input_tokens = {t for t in input_tokens if len(t) > 2}
+
+        # Get entity tokens (normalized)
+        entity_tokens = set(cls.normalize_entity_name(entity_name).split('_'))
+
+        # Check if all input tokens are in entity tokens
+        return input_tokens.issubset(entity_tokens)
+
+    @classmethod
     def identify_entities_in_text(cls, text: str) -> Dict:
         """
         Identify contract entities in the given text using hybrid matching.
         Returns a dictionary with lists of identified entities by type.
         Includes detailed confidence scores and matching methods.
+
+        Enhanced to prefer:
+        1. Entities containing ALL input tokens
+        2. Longer entity names when confidence is similar
+        3. Complete matches over partial matches
         """
         results = {
             "contractor_parties": [],
@@ -336,97 +361,327 @@ class ContractEntitiesService:
             "governing_law_states": [],
             "contract_types": [],
             "fuzzy_matches": [],  # Entities that matched with lower confidence
-            "match_details": []  # Detailed information about all matches
+            "match_details": [],  # Detailed information about all matches
+            "debug_all_scores": []  # ALL entity comparisons for debugging (even below threshold)
         }
-        
+
         if not text:
             return results
-            
+
         text_lower = text.lower()
-        
+
         # Check contractor parties with hybrid matching
+        all_contractor_matches = []
+        # Normalize the input text for comparison
+        normalized_input = cls.normalize_entity_name(text)
+
+        # Debug: Track all entity comparisons
+        logger.warning(f"[ENTITY MATCHING] Searching for '{text}' (normalized: '{normalized_input}') in contractor_parties")
+        logger.warning(f"[ENTITY MATCHING] Total contractor_parties in database: {len(cls.static_contractor_parties)}")
+
         for normalized_name, entity in cls.static_contractor_parties.items():
             display_name = entity.get("display_name", "")
-            
-            # Exact match on normalized name
-            if normalized_name in text_lower:
-                results["contractor_parties"].append({
+
+            # Exact match: compare normalized input to normalized entity name
+            if normalized_input == normalized_name:
+                match_info = {
                     "normalized_name": normalized_name,
                     "display_name": display_name,
                     "confidence": 1.0,
-                    "match_type": "exact_normalized"
-                })
+                    "match_type": "exact_normalized",
+                    "token_completeness": 1.0,
+                    "length": len(normalized_name)
+                }
+                all_contractor_matches.append(match_info)
+                results["debug_all_scores"].append(match_info)
             # Use hybrid matching for better accuracy
             elif display_name:
                 score, method = cls.hybrid_company_match(display_name, text)
+
+                # Check if all input tokens are present
+                has_all_tokens = cls.all_tokens_present(text, display_name)
+                token_bonus = 0.1 if has_all_tokens else 0.0
+
+                # Add length preference (longer names get slight bonus)
+                length_bonus = min(0.05, len(normalized_name) / 1000.0)
+
+                # Adjust score with bonuses
+                adjusted_score = min(1.0, score + token_bonus + length_bonus)
+
+                match_info = {
+                    "type": "contractor_party",
+                    "normalized_name": normalized_name,
+                    "display_name": display_name,
+                    "confidence": adjusted_score,
+                    "original_score": score,
+                    "match_method": method,
+                    "has_all_tokens": has_all_tokens,
+                    "token_completeness": 1.0 if has_all_tokens else 0.5,
+                    "length": len(normalized_name)
+                }
+
+                # Add to debug list (ALL comparisons, even below threshold)
+                results["debug_all_scores"].append(match_info)
+
+                # Only add to matches if above threshold
                 if score >= cls.FUZZY_MATCH_THRESHOLD:
-                    match_info = {
-                        "type": "contractor_party",
-                        "normalized_name": normalized_name,
-                        "display_name": display_name,
-                        "confidence": score,
-                        "match_method": method
-                    }
-                    
-                    # Add to high confidence matches if score is very high
-                    if score >= 0.95:
-                        results["contractor_parties"].append(match_info)
-                    else:
-                        results["fuzzy_matches"].append(match_info)
-                    
-                    # Always add to match details for debugging
+                    all_contractor_matches.append(match_info)
                     results["match_details"].append(match_info)
+
+        # Sort contractor matches by: token_completeness desc, confidence desc, length desc
+        all_contractor_matches.sort(
+            key=lambda m: (m.get("token_completeness", 0), m["confidence"], m["length"]),
+            reverse=True
+        )
+
+        # Categorize based on FUZZY_MATCH_THRESHOLD (0.85)
+        # Matches above threshold go to main collection, below go to fuzzy_matches
+        for match in all_contractor_matches:
+            if match.get("original_score", match["confidence"]) >= cls.FUZZY_MATCH_THRESHOLD:
+                results["contractor_parties"].append(match)
+            else:
+                results["fuzzy_matches"].append(match)
         
         # Check contracting parties with hybrid matching
+        all_contracting_matches = []
+
+        # Debug: Track all entity comparisons
+        logger.warning(f"[ENTITY MATCHING] Searching for '{text}' (normalized: '{normalized_input}') in contracting_parties")
+        logger.warning(f"[ENTITY MATCHING] Total contracting_parties in database: {len(cls.static_contracting_parties)}")
+
         for normalized_name, entity in cls.static_contracting_parties.items():
             display_name = entity.get("display_name", "")
-            
-            if normalized_name in text_lower:
-                results["contracting_parties"].append({
+
+            # Exact match: compare normalized input to normalized entity name
+            if normalized_input == normalized_name:
+                match_info = {
                     "normalized_name": normalized_name,
                     "display_name": display_name,
                     "confidence": 1.0,
-                    "match_type": "exact_normalized"
-                })
+                    "match_type": "exact_normalized",
+                    "token_completeness": 1.0,
+                    "length": len(normalized_name)
+                }
+                all_contracting_matches.append(match_info)
+                results["debug_all_scores"].append(match_info)
+            # Use hybrid matching for better accuracy
             elif display_name:
                 score, method = cls.hybrid_company_match(display_name, text)
+
+                # Check if all input tokens are present
+                has_all_tokens = cls.all_tokens_present(text, display_name)
+                token_bonus = 0.1 if has_all_tokens else 0.0
+
+                # Add length preference (longer names get slight bonus)
+                length_bonus = min(0.05, len(normalized_name) / 1000.0)
+
+                # Adjust score with bonuses
+                adjusted_score = min(1.0, score + token_bonus + length_bonus)
+
+                match_info = {
+                    "type": "contracting_party",
+                    "normalized_name": normalized_name,
+                    "display_name": display_name,
+                    "confidence": adjusted_score,
+                    "original_score": score,
+                    "match_method": method,
+                    "has_all_tokens": has_all_tokens,
+                    "token_completeness": 1.0 if has_all_tokens else 0.5,
+                    "length": len(normalized_name)
+                }
+
+                # Add to debug list (ALL comparisons, even below threshold)
+                results["debug_all_scores"].append(match_info)
+
+                # Only add to matches if above threshold
                 if score >= cls.FUZZY_MATCH_THRESHOLD:
-                    match_info = {
-                        "type": "contracting_party",
-                        "normalized_name": normalized_name,
-                        "display_name": display_name,
-                        "confidence": score,
-                        "match_method": method
-                    }
-                    
-                    # Add to high confidence matches if score is very high
-                    if score >= 0.95:
-                        results["contracting_parties"].append(match_info)
-                    else:
-                        results["fuzzy_matches"].append(match_info)
-                    
+                    all_contracting_matches.append(match_info)
                     results["match_details"].append(match_info)
+
+        # Sort contracting matches by: token_completeness desc, confidence desc, length desc
+        all_contracting_matches.sort(
+            key=lambda m: (m.get("token_completeness", 0), m["confidence"], m["length"]),
+            reverse=True
+        )
+
+        # Categorize based on FUZZY_MATCH_THRESHOLD (0.85)
+        # Matches above threshold go to main collection, below go to fuzzy_matches
+        for match in all_contracting_matches:
+            if match.get("original_score", match["confidence"]) >= cls.FUZZY_MATCH_THRESHOLD:
+                results["contracting_parties"].append(match)
+            else:
+                results["fuzzy_matches"].append(match)
         
-        # Check governing laws (usually state names, more straightforward)
+        # Check governing laws (states) - use same fuzzy matching as parties
+        all_state_matches = []
         for state_name, entity in cls.static_governing_law_states.items():
-            if state_name in text_lower:
-                results["governing_law_states"].append({
-                    "state": state_name,
-                    "display_name": entity.get("display_name", state_name),
+            display_name = entity.get("display_name", state_name)
+
+            # Normalize the input text for comparison
+            normalized_input = cls.normalize_entity_name(text)
+
+            # Exact match: compare normalized input to normalized state name
+            if normalized_input == state_name:
+                match_info = {
+                    "normalized_name": state_name,
+                    "display_name": display_name,
                     "confidence": 1.0,
-                    "match_type": "exact"
-                })
+                    "match_type": "exact_normalized",
+                    "type": "governing_law_state",
+                    "token_completeness": 1.0,
+                    "length": len(state_name)
+                }
+                all_state_matches.append(match_info)
+                results["debug_all_scores"].append(match_info)
+                continue
+
+            # Fuzzy match: use Jaro-Winkler for display name matching
+            if JELLYFISH_AVAILABLE:
+                try:
+                    similarity = jellyfish.jaro_winkler_similarity(text.lower(), display_name.lower())
+                except Exception as e:
+                    logger.debug(f"Jaro-Winkler error for states: {e}")
+                    similarity = SequenceMatcher(None, text.lower(), display_name.lower()).ratio()
+            else:
+                similarity = SequenceMatcher(None, text.lower(), display_name.lower()).ratio()
+
+            if similarity > 0:  # Add all comparisons to debug
+                # Token-based matching: does text contain all major tokens?
+                text_tokens = set(text.lower().split())
+                display_tokens = set(display_name.lower().split())
+
+                # Remove common words
+                common_words = {"the", "of", "and", "for", "state"}
+                display_tokens = display_tokens - common_words
+                text_tokens = text_tokens - common_words
+
+                # Check if all display tokens are in text
+                all_tokens_present = len(display_tokens) > 0 and display_tokens.issubset(text_tokens)
+                token_completeness = len(display_tokens.intersection(text_tokens)) / len(display_tokens) if len(display_tokens) > 0 else 0
+
+                # Boost confidence if all tokens present
+                adjusted_confidence = similarity
+                if all_tokens_present:
+                    adjusted_confidence = min(1.0, similarity + 0.15)
+
+                # Boost for longer matches
+                if len(state_name) > 10:
+                    adjusted_confidence = min(1.0, adjusted_confidence + 0.05)
+
+                match_info = {
+                    "normalized_name": state_name,
+                    "display_name": display_name,
+                    "confidence": adjusted_confidence,
+                    "original_score": similarity,
+                    "match_type": "fuzzy",
+                    "type": "governing_law_state",
+                    "has_all_tokens": all_tokens_present,
+                    "token_completeness": token_completeness,
+                    "length": len(state_name)
+                }
+
+                all_state_matches.append(match_info)
+                # Add to debug list (ALL comparisons, even below threshold)
+                results["debug_all_scores"].append(match_info)
+
+        # Sort state matches by: token_completeness desc, confidence desc, length desc
+        all_state_matches.sort(
+            key=lambda m: (m.get("token_completeness", 0), m["confidence"], m["length"]),
+            reverse=True
+        )
+
+        # Categorize based on FUZZY_MATCH_THRESHOLD (0.85)
+        for match in all_state_matches:
+            if match.get("original_score", match["confidence"]) >= cls.FUZZY_MATCH_THRESHOLD:
+                results["governing_law_states"].append(match)
+            else:
+                results["fuzzy_matches"].append(match)
         
-        # Check contract types
+        # Check contract types - use same fuzzy matching as parties
+        all_type_matches = []
         for type_name, entity in cls.static_contract_types.items():
-            if type_name in text_lower:
-                results["contract_types"].append({
-                    "type": type_name,
-                    "display_name": entity.get("display_name", type_name),
+            display_name = entity.get("display_name", type_name)
+
+            # Normalize the input text for comparison
+            normalized_input = cls.normalize_entity_name(text)
+
+            # Exact match: compare normalized input to normalized type name
+            if normalized_input == type_name:
+                match_info = {
+                    "normalized_name": type_name,
+                    "display_name": display_name,
                     "confidence": 1.0,
-                    "match_type": "exact"
-                })
-        
+                    "match_type": "exact_normalized",
+                    "type": "contract_type",
+                    "token_completeness": 1.0,
+                    "length": len(type_name)
+                }
+                all_type_matches.append(match_info)
+                results["debug_all_scores"].append(match_info)
+                continue
+
+            # Fuzzy match: use Jaro-Winkler for display name matching
+            if JELLYFISH_AVAILABLE:
+                try:
+                    similarity = jellyfish.jaro_winkler_similarity(text.lower(), display_name.lower())
+                except Exception as e:
+                    logger.debug(f"Jaro-Winkler error for contract types: {e}")
+                    similarity = SequenceMatcher(None, text.lower(), display_name.lower()).ratio()
+            else:
+                similarity = SequenceMatcher(None, text.lower(), display_name.lower()).ratio()
+
+            if similarity > 0:  # Add all comparisons to debug
+                # Token-based matching: does text contain all major tokens?
+                text_tokens = set(text.lower().split())
+                display_tokens = set(display_name.lower().split())
+
+                # Remove common words
+                common_words = {"the", "of", "and", "for", "agreement", "contract"}
+                display_tokens = display_tokens - common_words
+                text_tokens = text_tokens - common_words
+
+                # Check if all display tokens are in text
+                all_tokens_present = len(display_tokens) > 0 and display_tokens.issubset(text_tokens)
+                token_completeness = len(display_tokens.intersection(text_tokens)) / len(display_tokens) if len(display_tokens) > 0 else 0
+
+                # Boost confidence if all tokens present
+                adjusted_confidence = similarity
+                if all_tokens_present:
+                    adjusted_confidence = min(1.0, similarity + 0.15)
+
+                # Boost for longer matches
+                if len(type_name) > 5:
+                    adjusted_confidence = min(1.0, adjusted_confidence + 0.05)
+
+                match_info = {
+                    "normalized_name": type_name,
+                    "display_name": display_name,
+                    "confidence": adjusted_confidence,
+                    "original_score": similarity,
+                    "match_type": "fuzzy",
+                    "type": "contract_type",
+                    "has_all_tokens": all_tokens_present,
+                    "token_completeness": token_completeness,
+                    "length": len(type_name)
+                }
+
+                all_type_matches.append(match_info)
+                # Add to debug list (ALL comparisons, even below threshold)
+                results["debug_all_scores"].append(match_info)
+
+        # Sort type matches by: token_completeness desc, confidence desc, length desc
+        all_type_matches.sort(
+            key=lambda m: (m.get("token_completeness", 0), m["confidence"], m["length"]),
+            reverse=True
+        )
+
+        # Categorize based on FUZZY_MATCH_THRESHOLD (0.85)
+        for match in all_type_matches:
+            if match.get("original_score", match["confidence"]) >= cls.FUZZY_MATCH_THRESHOLD:
+                results["contract_types"].append(match)
+            else:
+                results["fuzzy_matches"].append(match)
+
         return results
     
     @classmethod

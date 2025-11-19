@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ title }}</title>
+    <style type="text/css">
+        {{ css_content|safe }}
+    </style>
+</head>
+<body>
+    <!-- Report Header -->
+    <div class="report-header">
+        <h1 class="report-title">Contract Query Report</h1>
+        <p class="report-subtitle">{{ title }}</p>
+
+        <div class="report-meta">
+            <div class="meta-item">
+                <span class="meta-label">Report ID:</span>
+                <span class="meta-value">{{ result_id }}</span>
+            </div>
+            <div class="meta-item">
+                <span class="meta-label">Generated:</span>
+                <span class="meta-value">{{ created_at.strftime('%B %d, %Y at %I:%M %p UTC') }}</span>
+            </div>
+            {% if execution_time %}
+            <div class="meta-item">
+                <span class="meta-label">Execution Time:</span>
+                <span class="meta-value">{{ "%.2f"|format(execution_time) }} seconds</span>
+            </div>
+            {% endif %}
+        </div>
+
+        {% if description %}
+        <p class="report-subtitle">{{ description }}</p>
+        {% endif %}
+    </div>
+
+    <!-- Query Section -->
+    <div class="query-section">
+        <h3 class="mb-1">Query</h3>
+        <p class="query-text">"{{ query_text }}"</p>
+    </div>
+
+    <!-- Contracts Analyzed -->
+    <div class="contracts-section">
+        <h2>Contracts Analyzed</h2>
+        <table class="contracts-table">
+            <thead>
+                <tr>
+                    <th style="width: 10%;">#</th>
+                    <th style="width: 45%;">Contract Title</th>
+                    <th style="width: 45%;">Filename</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for contract in contracts_analyzed %}
+                <tr>
+                    <td>{{ loop.index }}</td>
+                    <td>{{ contract.title }}</td>
+                    <td class="code">{{ contract.filename }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <p class="muted"><strong>Total:</strong> {{ contracts_analyzed|length }} contract(s) analyzed</p>
+    </div>
+
+    <!-- Summary Section -->
+    {% if answer_summary %}
+    <div class="summary-section">
+        <h3 class="summary-label">Summary</h3>
+        <p class="summary-text">{{ answer_summary }}</p>
+    </div>
+    {% endif %}
+
+    <!-- Ranked Results -->
+    <div class="results-section">
+        <h2>Detailed Results</h2>
+
+        {% for result in ranked_results %}
+        <div class="result-card rank-{{ result.rank if result.rank <= 3 else 'other' }}">
+            <div class="result-header">
+                <div>
+                    <span class="result-rank">Rank #{{ result.rank }}</span>
+                </div>
+                <div>
+                    <span class="result-score">Score: {{ "%.2f"|format(result.score) }}</span>
+                </div>
+            </div>
+
+            <h3 class="result-contract">{{ result.filename.replace('processed_', '').replace('.json', '') if result.filename else result.contract_id }}</h3>
+            <p class="result-filename">{{ result.filename }}</p>
+
+            {% if result.reasoning %}
+            <div class="result-reasoning">
+                <div class="reasoning-label">Analysis</div>
+                <div class="reasoning-text">{{ result.reasoning }}</div>
+            </div>
+            {% endif %}
+
+            {% if result.relevant_clauses and result.relevant_clauses|length > 0 %}
+            <div class="clauses-section">
+                <h4>Relevant Clauses ({{ result.relevant_clauses|length }})</h4>
+                {% for clause in result.relevant_clauses %}
+                <div class="clause-item">
+                    <div class="clause-type">{{ clause.clause_type }}</div>
+                    <div class="clause-text">"{{ clause.clause_text[:500] }}{% if clause.clause_text|length > 500 %}...{% endif %}"</div>
+                    {% if clause.analysis %}
+                    <div class="clause-analysis">{{ clause.analysis }}</div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+
+        {% if ranked_results|length == 0 %}
+        <p class="muted text-center mt-4">No ranked results available.</p>
+        {% endif %}
+    </div>
+
+    <!-- Execution Metadata -->
+    {% if execution_metadata %}
+    <div class="execution-metadata">
+        <h3 class="mb-2">Execution Details</h3>
+        <div class="metadata-grid">
+            {% if execution_metadata.contracts_analyzed %}
+            <div class="metadata-item">
+                <div class="meta-label">Contracts Analyzed</div>
+                <div class="meta-value">{{ execution_metadata.contracts_analyzed }}</div>
+            </div>
+            {% endif %}
+            {% if execution_metadata.query_time_seconds %}
+            <div class="metadata-item">
+                <div class="meta-label">Query Time</div>
+                <div class="meta-value">{{ "%.2f"|format(execution_metadata.query_time_seconds) }}s</div>
+            </div>
+            {% endif %}
+            {% if execution_metadata.llm_model %}
+            <div class="metadata-item">
+                <div class="meta-label">LLM Model</div>
+                <div class="meta-value">{{ execution_metadata.llm_model }}</div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Footer -->
+    {% if include_metadata %}
+    <div class="report-footer">
+        <p>This report was automatically generated by the Contract Analysis System.</p>
+        <p>Generated at {{ generated_at.strftime('%Y-%m-%d %H:%M:%S UTC') }} | Report ID: {{ result_id }}</p>
+    </div>
+    {% endif %}
+</body>
+</html>

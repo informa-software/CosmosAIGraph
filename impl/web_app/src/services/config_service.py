@@ -349,6 +349,23 @@ class ConfigService:
     def azure_openai_embeddings_deployment(cls) -> str:
         return cls.envvar("CAIG_AZURE_OPENAI_EMBEDDINGS_DEP", "embeddings")
 
+    # Secondary model configuration (for side-by-side comparison)
+    @classmethod
+    def azure_openai_url_secondary(cls) -> str:
+        return cls.envvar("CAIG_AZURE_OPENAI_URL_SECONDARY", None)
+
+    @classmethod
+    def azure_openai_key_secondary(cls) -> str:
+        return cls.envvar("CAIG_AZURE_OPENAI_KEY_SECONDARY", None)
+
+    @classmethod
+    def azure_openai_version_secondary(cls) -> str:
+        return cls.envvar("CAIG_AZURE_OPENAI_VERSION_SECONDARY", "2023-12-01-preview")
+
+    @classmethod
+    def azure_openai_completions_deployment_secondary(cls) -> str:
+        return cls.envvar("CAIG_AZURE_OPENAI_COMPLETIONS_DEP_SECONDARY", None)
+
     @classmethod
     def optimize_context_and_history_max_tokens(cls) -> int:
         return cls.int_envvar("CAIG_OPTIMIZE_CONTEXT_AND_HISTORY_MAX_TOKENS", 10000)
@@ -435,3 +452,55 @@ class ConfigService:
     @classmethod
     def get_strategy_bypass(cls) -> str:
         return cls.envvar("CAIG_STRATEGY_BYPASS", "false")
+    # Azure Blob Storage Configuration
+    @classmethod
+    def azure_storage_connection_string(cls) -> str:
+        """Azure Storage connection string for blob storage"""
+        return cls.envvar("CAIG_AZURE_STORAGE_CONNECTION_STRING", None)
+
+    @classmethod
+    def azure_storage_container(cls) -> str:
+        """Azure Storage container name for contract PDFs"""
+        return cls.envvar("CAIG_AZURE_STORAGE_CONTAINER", "tenant1-dev20")
+
+    @classmethod
+    def azure_storage_folder_prefix(cls) -> str:
+        """Azure Storage folder prefix for contract PDFs"""
+        return cls.envvar("CAIG_AZURE_STORAGE_FOLDER_PREFIX", "system/contract-intelligence")
+
+    @classmethod
+    def blob_sas_expiry_hours(cls) -> int:
+        """Hours until blob SAS URLs expire (default: 1 hour)"""
+        return cls.int_envvar("CAIG_BLOB_SAS_EXPIRY_HOURS", 1)
+
+    # Azure Content Understanding Configuration
+    @classmethod
+    def content_understanding_endpoint(cls) -> str:
+        """Azure Content Understanding endpoint URL"""
+        return cls.envvar("CAIG_CONTENT_UNDERSTANDING_ENDPOINT", "https://aif-inf-sl-dev-westus-001.services.ai.azure.com/")
+
+    @classmethod
+    def content_understanding_key(cls) -> str:
+        """Azure Content Understanding subscription key"""
+        return cls.envvar("CAIG_CONTENT_UNDERSTANDING_KEY", None)
+
+    @classmethod
+    def content_understanding_analyzer_id(cls) -> str:
+        """Azure Content Understanding analyzer ID for contracts"""
+        return cls.envvar("CAIG_CONTENT_UNDERSTANDING_ANALYZER_ID", "contract_extraction")
+
+    @classmethod
+    def content_understanding_api_version(cls) -> str:
+        """Azure Content Understanding API version"""
+        return cls.envvar("CAIG_CONTENT_UNDERSTANDING_API_VERSION", "2025-05-01-preview")
+
+    # Contract Upload Configuration
+    @classmethod
+    def contract_upload_max_size_mb(cls) -> int:
+        """Maximum contract upload size in MB"""
+        return cls.int_envvar("CAIG_CONTRACT_UPLOAD_MAX_SIZE_MB", 2)
+
+    @classmethod
+    def contract_upload_default_user(cls) -> str:
+        """Default user for contract uploads"""
+        return cls.envvar("CAIG_CONTRACT_UPLOAD_DEFAULT_USER", "system")

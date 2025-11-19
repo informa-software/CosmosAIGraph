@@ -3,18 +3,24 @@
   <header class="workbench-header">
     <div class="header-content">
       <div class="title-section">
-        <h1>✨ Contract Intelligence Workbench</h1>
+        <h1>{{ pageIcon }} {{ pageTitle }}</h1>
       </div>
       <div class="search-section">
         <div class="search-input-group">
           <span class="search-icon">🔍</span>
-          <input 
-            type="text" 
+          <input
+            type="text"
             [(ngModel)]="searchText"
             placeholder="Search text inside clauses..."
             class="search-input">
           <button (click)="copyResults()" class="btn btn-secondary">
             📋 Copy
+          </button>
+          <!-- Job Monitor Badge Button -->
+          <button (click)="toggleJobMonitor()" class="btn btn-job-monitor" [class.has-active-jobs]="activeJobCount > 0">
+            <span class="job-icon">⚙️</span>
+            <span class="job-label">Jobs</span>
+            <span class="job-badge" *ngIf="activeJobCount > 0">{{ activeJobCount }}</span>
           </button>
         </div>
       </div>
@@ -24,29 +30,6 @@
   <div class="workbench-container">
     <!-- Left Sidebar -->
     <aside class="sidebar left-sidebar">
-      <!-- Mode Selector Card -->
-      <div class="card">
-        <div class="card-header">
-          <h3>📋 Select Function</h3>
-        </div>
-        <div class="card-body">
-          <div class="btn-group full-width" style="margin-bottom: 1rem;">
-            <button 
-              [class.active]="workbenchMode === 'comparison'"
-              (click)="setWorkbenchMode('comparison')"
-              class="btn btn-toggle">
-              📊 Compare Contracts
-            </button>
-            <button 
-              [class.active]="workbenchMode === 'question'"
-              (click)="setWorkbenchMode('question')"
-              class="btn btn-toggle">
-              ✨ Ask a Question
-            </button>
-          </div>
-        </div>
-      </div>
-
       <!-- Generate Comparison Controls -->
       <div class="card" *ngIf="workbenchMode === 'comparison'">
         <div class="card-header">
@@ -329,27 +312,86 @@
         </div>
       </div>
 
-      <!-- Ask a Question Controls -->
+      <!-- Query Contracts Controls -->
       <div class="card" *ngIf="workbenchMode === 'question'">
         <div class="card-header">
-          <h3>✨ Question Settings</h3>
+          <h3>✨ Select Contracts</h3>
         </div>
         <div class="card-body">
+          <!-- Context Contracts Selection -->
           <div class="form-group">
-            <label>Question Type</label>
-            <select class="form-control">
-              <option>General Contract Query</option>
-              <option>Clause Analysis</option>
-              <option>Risk Assessment</option>
-              <option>Compliance Check</option>
-            </select>
+            <label>Context Contracts</label>
+            <button
+              (click)="openQuestionContractSelector()"
+              class="btn btn-block btn-outline">
+              📄 Select Contracts ({{ selectedContractsForQuestion.length }})
+            </button>
+
+            <!-- Token Usage Meter -->
+            <div class="token-meter" *ngIf="selectedContractsForQuestion.length > 0">
+              <div class="token-meter-label">
+                <span>Token Usage</span>
+                <span class="badge" [ngClass]="getTokenBadgeClass()">
+                  {{ formatTokens(usedTokens) }} / {{ formatTokens(availableTokenBudget) }}
+                </span>
+              </div>
+              <div class="token-meter-bar">
+                <div
+                  class="token-meter-fill"
+                  [ngClass]="getTokenBadgeClass()"
+                  [style.width.%]="tokenUsagePercentage">
+                </div>
+              </div>
+              <small class="help-text">
+                {{ formatTokens(remainingTokens) }} tokens remaining
+              </small>
+            </div>
+
+            <!-- Selected Contracts List (compact) -->
+            <div class="selected-contracts-compact"
+                 *ngIf="selectedContractsForQuestion.length > 0">
+              <div *ngFor="let contract of selectedContractsForQuestionDetails"
+                   class="selected-contract-chip">
+                <span class="contract-name">
+                  {{ contract.title }}
+                </span>
+                <span class="contract-tokens">
+                  {{ formatTokens(contract.text_tokens || 0) }}
+                </span>
+                <button
+                  (click)="toggleContractForQuestion(contract.id)"
+                  class="btn-remove">×</button>
+              </div>
+            </div>
           </div>
-          
+
+          <hr>
+
+          <!-- Processing Mode Selection for Queries -->
           <div class="form-group">
-            <label>Search Scope</label>
+            <label>
+              Processing Mode
+              <span class="info-icon-container">
+                <span class="info-icon">ℹ️</span>
+                <span class="info-tooltip" style="white-space: normal; width: 250px;">
+                  Real Time: Application waits while results are processed (streaming response).<br><br>
+                  Batch: Process executes in background and notifies when complete.
+                </span>
+              </span>
+            </label>
             <div class="btn-group full-width">
-              <button class="btn btn-toggle active">All Contracts</button>
-              <button class="btn btn-toggle">Selected Only</button>
+              <button
+                [class.active]="filters.mode === 'realtime'"
+                (click)="onModeChange('realtime')"
+                class="btn btn-toggle">
+                Real time
+              </button>
+              <button
+                [class.active]="filters.mode === 'batch'"
+                (click)="onModeChange('batch')"
+                class="btn btn-toggle">
+                Batch
+              </button>
             </div>
           </div>
 
@@ -383,17 +425,17 @@
           <!-- Chat History -->
           <div class="chat-history">
             <div *ngIf="chatHistory.length === 0" class="chat-empty-state">
-              <p>Ask questions about your contracts using natural language.</p>
+              <p>Ask questions about the selected contracts using natural language.</p>
               <p class="muted">Click an example to try:</p>
               <ul>
-                <li (click)="askExampleQuestion('Which contracts have non-standard indemnification clauses?')">
-                  Which contracts have non-standard indemnification clauses?
+                <li (click)="askExampleQuestion('Which of these contracts have the broadest indemnification for the contracting party?')">
+                  Which of these contracts have the broadest indemnification for the contracting party?
                 </li>
-                <li (click)="askExampleQuestion('What are the payment terms variations across MSAs?')">
-                  What are the payment terms variations across MSAs?
+                <li (click)="askExampleQuestion('What are the payment terms variations across these contracts?')">
+                  What are the payment terms variations across these contracts?
                 </li>
-                <li (click)="askExampleQuestion('Show me all contracts governed by New York law')">
-                  Show me all contracts governed by New York law
+                <li (click)="askExampleQuestion('Compare the financial risks to the contracting entity and rank them highest to lowest')">
+                  Compare the financial risks to the contracting entity and rank them highest to lowest
                 </li>
               </ul>
             </div>
@@ -409,113 +451,96 @@
             </div>
           </div>
           
+          <!-- Token Limit Warning -->
+          <div *ngIf="isTokenLimitExceeded && selectedContractsForQuestion.length > 0" class="alert alert-warning" style="margin: 1rem 0;">
+            <strong>⚠️ Token Limit Exceeded</strong>
+            <p style="margin: 0.5rem 0 0 0; font-size: 0.9rem;">
+              Your query will be processed in the background. You will be notified once the query has completed.
+            </p>
+          </div>
+
           <!-- Chat Input -->
           <div class="chat-input-container">
-            <input 
+            <input
               type="text"
               [(ngModel)]="currentChatInput"
               (keypress)="onChatKeyPress($event)"
               placeholder="Type your question and press Enter..."
               class="chat-input"
               [disabled]="isLoadingAnswer">
-            <button 
-              (click)="sendChatMessage()" 
+            <button
+              (click)="sendChatMessage()"
               class="btn btn-primary send-button"
               [disabled]="isLoadingAnswer || !currentChatInput.trim()">
-              <span *ngIf="!isLoadingAnswer">Send</span>
+              <span *ngIf="!isLoadingAnswer && !isTokenLimitExceeded">Send</span>
+              <span *ngIf="!isLoadingAnswer && isTokenLimitExceeded">Submit Query</span>
               <span *ngIf="isLoadingAnswer">...</span>
             </button>
           </div>
         </div>
       </div>
 
-      <!-- Tabs -->
+      <!-- Main Content Card -->
       <div class="card">
-        <div class="card-header tabs" *ngIf="workbenchMode === 'question'">
-          <button 
-            [class.active]="activeTab === 'answers'"
-            (click)="activeTab = 'answers'"
-            class="tab">
-            Answers
-          </button>
-          <button 
-            [class.active]="activeTab === 'contracts'"
-            (click)="activeTab = 'contracts'"
-            class="tab">
-            Contracts
-          </button>
-        </div>
-        <div class="card-header tabs" *ngIf="workbenchMode === 'comparison'">
-          <button 
-            [class.active]="activeTab === 'comparison'"
-            (click)="activeTab = 'comparison'"
-            class="tab">
-            Comparison Results
-            <span *ngIf="comparisonResults" class="badge badge-primary">✓</span>
-          </button>
-          <button 
-            [class.active]="activeTab === 'contracts'"
-            (click)="activeTab = 'contracts'"
-            class="tab">
-            Selected Contracts
-          </button>
-        </div>
         <div class="card-body">
-          <!-- Answers Tab -->
-          <div *ngIf="activeTab === 'answers'" class="tab-content">
+          <!-- Answers Content (Question Mode - No Tabs) -->
+          <div *ngIf="workbenchMode === 'question'">
             <div class="answer-box">
               <h4>Answer</h4>
-              <p *ngIf="answer" [innerHTML]="answer"></p>
-              <p *ngIf="!answer" class="muted">
-                Click "Get Answer" to query the contract intelligence system.
+
+              <!-- Streaming Indicator -->
+              <div *ngIf="isStreaming" class="streaming-indicator">
+                <div class="spinner-container">
+                  <div class="spinner"></div>
+                  <span class="streaming-text">Generating response...</span>
+                </div>
+              </div>
+
+              <!-- Progressive Content Display -->
+              <div *ngIf="safeAnswer" [innerHTML]="safeAnswer" class="streaming-content"></div>
+
+              <!-- Empty State -->
+              <p *ngIf="!safeAnswer && !isStreaming" class="muted">
+                Ask a question using the chat interface to analyze your selected contracts.
               </p>
-              <small class="help-text">(Generated using AI and graph analysis)</small>
+
+              <!-- Timing Info (shown when complete) -->
+              <div *ngIf="streamingElapsed > 0 && !isStreaming" class="timing-info">
+                <small class="help-text">Response generated in {{ streamingElapsed.toFixed(1) }}s</small>
+              </div>
+
+              <!-- Action Buttons (shown when answer is available) -->
+              <div *ngIf="safeAnswer && !isStreaming" class="answer-actions" style="margin-top: 1rem;">
+                <div class="export-dropdown" [class.show]="showQueryExportMenu">
+                  <button class="btn btn-sm btn-primary dropdown-toggle"
+                          type="button"
+                          (click)="showQueryExportMenu = !showQueryExportMenu"
+                          [disabled]="isSavingResult || isGeneratingPDF">
+                    <span *ngIf="!isSavingResult && !isGeneratingPDF">📤 Export</span>
+                    <span *ngIf="isSavingResult">💾 Saving...</span>
+                    <span *ngIf="isGeneratingPDF">📄 Generating PDF...</span>
+                  </button>
+                  <div class="dropdown-menu dropdown-menu-right" [class.show]="showQueryExportMenu">
+                    <button class="dropdown-item"
+                            (click)="saveAndGenerateQueryPDF(); showQueryExportMenu = false"
+                            [disabled]="isSavingResult || isGeneratingPDF">
+                      📄 Save & Generate PDF
+                    </button>
+                    <div class="dropdown-divider"></div>
+                    <button class="dropdown-item"
+                            disabled
+                            title="Email functionality coming soon">
+                      ✉️ Email PDF <small class="text-muted">(Coming Soon)</small>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <small class="help-text">(Generated using AI analysis of contract text)</small>
             </div>
           </div>
 
-          <!-- Contracts Tab -->
-          <div *ngIf="activeTab === 'contracts'" class="tab-content">
-            <div class="table-container">
-              <table class="contracts-table">
-                <thead>
-                  <tr>
-                    <th>Contract</th>
-                    <th>Counterparty</th>
-                    <th>Effective</th>
-                    <th>Law</th>
-                    <th>Type</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr *ngFor="let contract of filteredContracts">
-                    <td>📄 {{ contract.title }}</td>
-                    <td>{{ contract.contractorParty }}</td>
-                    <td>{{ contract.effective_date }}</td>
-                    <td>
-                      <span class="badge" [class.badge-primary]="contract.governing_law_state === 'Delaware'">
-                        {{ contract.governing_law_state }}
-                      </span>
-                    </td>
-                    <td><span class="badge badge-info">{{ contract.contract_type }}</span></td>
-                    <td>
-                      <button 
-                        (click)="toggleContractSelection(contract.id)"
-                        class="btn btn-sm"
-                        [class.btn-primary]="isContractSelected(contract.id)">
-                        {{ isContractSelected(contract.id) ? 'Selected' : 'Select' }}
-                      </button>
-                      <button (click)="showContractDetails(contract)" class="btn btn-sm btn-icon">
-                        ℹ️
-                      </button>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <!-- Clauses Tab -->
+          <!-- Clauses Tab (for other modes if needed) -->
           <div *ngIf="activeTab === 'clauses'" class="tab-content">
             <div *ngIf="pickedContracts.length < 2" class="alert alert-info">
               Select 2+ contracts to compare clauses.
@@ -538,8 +563,8 @@
             </button>
           </div>
 
-          <!-- Comparison Results Tab -->
-          <div *ngIf="activeTab === 'comparison'" class="tab-content">
+          <!-- Comparison Results -->
+          <div *ngIf="workbenchMode === 'comparison'" class="tab-content">
             <div *ngIf="!comparisonResults && workbenchMode === 'comparison'" class="alert alert-info">
               <h4>📊 Contract Comparison</h4>
               <p>To generate a comparison:</p>
@@ -558,20 +583,51 @@
             <div *ngIf="comparisonResults && comparisonResults.success">
               <!-- Comparison Header -->
               <div class="comparison-header">
-                <h4>📊 Contract Comparison Results</h4>
-                <div class="comparison-info">
-                  <span class="badge badge-primary">Standard: {{ getContractTitle(comparisonResults.standardContractId) }}</span>
-                  <span class="badge badge-secondary">Mode: {{ comparisonResults.comparisonMode }}</span>
-                  <span class="badge badge-info">Compared: {{ comparisonResults.compareContractIds.length }} contracts</span>
+                <div class="comparison-title-row">
+                  <h4>📊 Contract Comparison Results</h4>
+                  <div class="export-dropdown" [class.show]="showComparisonExportMenu">
+                    <button class="btn btn-sm btn-primary dropdown-toggle"
+                            type="button"
+                            (click)="showComparisonExportMenu = !showComparisonExportMenu"
+                            [disabled]="isSavingResult || isGeneratingPDF">
+                      <span *ngIf="!isSavingResult && !isGeneratingPDF">📤 Export</span>
+                      <span *ngIf="isSavingResult">💾 Saving...</span>
+                      <span *ngIf="isGeneratingPDF">📄 Generating PDF...</span>
+                    </button>
+                    <div class="dropdown-menu dropdown-menu-right" [class.show]="showComparisonExportMenu">
+                      <button class="dropdown-item" (click)="exportComparisonResults(); showComparisonExportMenu = false">
+                        📥 Export JSON
+                      </button>
+                      <button class="dropdown-item"
+                              (click)="saveAndGenerateComparisonPDF(); showComparisonExportMenu = false"
+                              [disabled]="isSavingResult || isGeneratingPDF">
+                        📄 Save & Generate PDF
+                      </button>
+                      <div class="dropdown-divider"></div>
+                      <button class="dropdown-item"
+                              disabled
+                              title="Email functionality coming soon">
+                        ✉️ Email PDF <small class="text-muted">(Coming Soon)</small>
+                      </button>
+                    </div>
+                  </div>
                 </div>
-                <button (click)="exportComparisonResults()" class="btn btn-sm btn-secondary">
-                  📥 Export Results
-                </button>
+                <div class="comparison-info">
+                  <span class="badge badge-primary" [title]="'Standard: ' + getContractTitle(comparisonResults.standardContractId!)">
+                    Standard: {{ getContractTitle(comparisonResults.standardContractId!) }}
+                  </span>
+                  <span class="badge badge-secondary" [title]="'Mode: ' + comparisonResults.comparisonMode">
+                    Mode: {{ comparisonResults.comparisonMode }}
+                  </span>
+                  <span class="badge badge-info" [title]="'Compared: ' + (comparisonResults.compareContractIds?.length || 0) + ' contracts'">
+                    Compared: {{ comparisonResults.compareContractIds?.length || 0 }} contracts
+                  </span>
+                </div>
               </div>
 
               <!-- Comparison Results Grid -->
               <div class="comparison-results-grid">
-                <div *ngFor="let comparison of comparisonResults.results.comparisons" class="comparison-card">
+                <div *ngFor="let comparison of comparisonResults.results?.comparisons" class="comparison-card">
                   <div class="comparison-card-header">
                     <h5>{{ getContractTitle(comparison.contract_id) }}</h5>
                     <div class="comparison-metrics">
@@ -690,12 +746,11 @@
           </div>
           <div class="insights-section">
             <h4>Entity Relationship Sketch</h4>
-            <div class="relationship-grid">
-              <div class="relationship-box">Vendor ↔ Customer</div>
-              <div class="relationship-box">Contract → Clause</div>
-              <div class="relationship-box">Clause → Obligation</div>
+            <div class="under-construction-placeholder">
+              <div class="construction-icon">🚧</div>
+              <div class="construction-text">Under Construction</div>
+              <small class="help-text">Graph visualizations coming soon</small>
             </div>
-            <small class="help-text">(Placeholder) Visuals populate from graph database.</small>
           </div>
           <small class="tip">
             Tip: Run a graph pattern to instantly answer complex queries.
@@ -709,46 +764,239 @@
           <h3>ℹ️ What this UI supports</h3>
         </div>
         <div class="card-body">
-          <ul class="feature-list">
-            <li>🧭 Jurisdiction answered via NLQ, not filter</li>
-            <li>🧩 Clause clustering + inline highlights</li>
-            <li>🆚 Side-by-side wording contrast & raw diff</li>
-            <li>📊 Provisions vs gold standard with Δ highlights</li>
-            <li>🕸️ Graph-backed insights & saved queries</li>
-            <li>📤 Copy/export stubs for downstream review</li>
+          <!-- Comparison Mode Features -->
+          <ul class="feature-list" *ngIf="workbenchMode === 'comparison'">
+            <li>📋 Select standard contract for comparison baseline</li>
+            <li>🔍 Filter contracts by type, party, date, and jurisdiction</li>
+            <li>⚖️ Compare at clause level or full contract level</li>
+            <li>🎯 AI-powered analysis with similarity scores & risk levels</li>
+            <li>⚠️ Identify missing and additional provisions</li>
+            <li>📊 Clause-by-clause analysis with key differences</li>
+            <li>📤 Export comparison results for review</li>
+            <li>🔎 Side-by-side clause text comparison</li>
+          </ul>
+          <!-- Question Mode Features -->
+          <ul class="feature-list" *ngIf="workbenchMode === 'question'">
+            <li>💬 Ask questions about contracts in natural language</li>
+            <li>📄 Select specific contracts as context for queries</li>
+            <li>📊 Smart token budget tracking and management</li>
+            <li>🤖 AI-powered answers based on contract content</li>
+            <li>💾 Use saved queries for common analysis tasks</li>
+            <li>🔄 Conversational chat interface with history</li>
+            <li>⚡ Real-time or batch processing options</li>
+            <li>🎯 Context-aware responses from selected contracts</li>
           </ul>
         </div>
       </div>
     </aside>
   </div>
 
+  <!-- Job Monitor Sidebar -->
+  <div class="job-monitor-sidebar" [class.show]="showJobMonitor">
+    <!-- Sidebar Header -->
+    <div class="job-monitor-header">
+      <h3>⚙️ Background Jobs</h3>
+      <button (click)="toggleJobMonitor()" class="close-btn">✕</button>
+    </div>
+
+    <!-- Sidebar Content -->
+    <div class="job-monitor-content">
+      <!-- Empty State -->
+      <div *ngIf="activeJobs.length === 0" class="job-monitor-empty">
+        <div class="empty-icon">📭</div>
+        <p>No active jobs</p>
+        <small class="help-text">Background jobs will appear here when processing</small>
+      </div>
+
+      <!-- Job List -->
+      <div *ngIf="activeJobs.length > 0" class="job-list">
+        <div *ngFor="let job of activeJobs" class="job-card">
+          <!-- Job Header -->
+          <div class="job-card-header">
+            <div class="job-info">
+              <span class="job-type-icon">{{ getJobTypeIcon(job.job_type) }}</span>
+              <span class="job-type-label">{{ getJobTypeLabel(job.job_type) }}</span>
+            </div>
+            <div class="job-header-actions">
+              <span class="badge" [ngClass]="getJobStatusBadgeClass(job.status)">
+                {{ job.status }}
+              </span>
+              <!-- Delete button for finished jobs -->
+              <button
+                *ngIf="job.status === 'completed' || job.status === 'failed' || job.status === 'cancelled'"
+                (click)="deleteJob(job.job_id)"
+                class="btn-delete-job"
+                title="Delete this job">
+                🗑️
+              </button>
+            </div>
+          </div>
+
+          <!-- Job Progress (only show for active jobs) -->
+          <div class="job-progress-section" *ngIf="job.status === 'queued' || job.status === 'processing'">
+            <div class="progress-info">
+              <span class="progress-step">{{ job.progress.current_step }}</span>
+              <span class="progress-percentage">{{ job.progress.percentage.toFixed(0) }}%</span>
+            </div>
+            <div class="progress-bar-container">
+              <div
+                class="progress-bar-fill"
+                [ngClass]="getJobStatusBadgeClass(job.status)"
+                [style.width.%]="job.progress.percentage">
+              </div>
+            </div>
+            <small class="progress-message" *ngIf="job.progress.message">
+              {{ job.progress.message }}
+            </small>
+          </div>
+
+          <!-- Job Actions -->
+          <div class="job-actions">
+            <!-- Cancel Button -->
+            <button
+              *ngIf="canCancelJob(job.status)"
+              (click)="cancelJob(job.job_id)"
+              class="btn btn-sm btn-warning"
+              title="Cancel this job">
+              🚫 Cancel
+            </button>
+
+            <!-- Retry Button -->
+            <button
+              *ngIf="job.status === 'failed'"
+              (click)="retryJob(job.job_id)"
+              class="btn btn-sm btn-primary"
+              title="Retry this job">
+              🔄 Retry
+            </button>
+
+            <!-- View Results Button -->
+            <button
+              *ngIf="job.status === 'completed' && job.result_id"
+              (click)="viewJobResult(job.result_id, job.job_type)"
+              class="btn btn-sm btn-success"
+              title="View results">
+              👁️ View
+            </button>
+
+            <!-- Error Details Button -->
+            <button
+              *ngIf="job.status === 'failed' && job.progress.error"
+              (click)="showJobError(job)"
+              class="btn btn-sm btn-danger"
+              title="View error details">
+              ⚠️ Details
+            </button>
+          </div>
+
+          <!-- Job Metadata -->
+          <div class="job-metadata">
+            <!-- Show creation date for all jobs -->
+            <small class="help-text">
+              <strong>Created:</strong> {{ formatJobTimestamp(job.created_date) }}
+            </small>
+
+            <!-- Show completion date for completed/failed/cancelled jobs -->
+            <small class="help-text" *ngIf="job.completed_date && (job.status === 'completed' || job.status === 'failed' || job.status === 'cancelled')">
+              <strong>Finished:</strong> {{ formatJobTimestamp(job.completed_date) }}
+            </small>
+
+            <!-- Show elapsed time for completed jobs -->
+            <small class="help-text" *ngIf="job.elapsed_time && (job.status === 'completed' || job.status === 'failed' || job.status === 'cancelled')">
+              <strong>Duration:</strong> {{ formatElapsedTime(job.elapsed_time) }}
+            </small>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Job Monitor Backdrop -->
+  <div
+    *ngIf="showJobMonitor"
+    class="job-monitor-backdrop"
+    (click)="toggleJobMonitor()">
+  </div>
+
   <!-- Contract Selection Modal -->
   <div *ngIf="showContractSelectionModal" class="modal" (click)="closeContractSelectionModal()">
     <div class="modal-content modal-large" (click)="$event.stopPropagation()">
       <div class="modal-header">
-        <h3>Contract Selection</h3>
+        <h3>{{ workbenchMode === 'question' ? 'Select Contracts for Query' : 'Contract Selection' }}</h3>
         <button (click)="closeContractSelectionModal()" class="close-btn">✕</button>
       </div>
+
+      <!-- Token Budget Subheader (Question Mode Only) -->
+      <div *ngIf="workbenchMode === 'question'" class="modal-subheader">
+        <div class="token-budget-display">
+          <div class="budget-info">
+            <span class="budget-label">Token Budget:</span>
+            <span class="budget-values">
+              <span class="used-tokens" [ngClass]="getTokenBadgeClass()">
+                {{ formatTokens(usedTokens) }}
+              </span>
+              <span class="separator">/</span>
+              <span class="total-tokens">{{ formatTokens(availableTokenBudget) }}</span>
+            </span>
+          </div>
+          <div class="token-budget-bar">
+            <div
+              class="token-budget-fill"
+              [ngClass]="getTokenBadgeClass()"
+              [style.width.%]="tokenUsagePercentage">
+            </div>
+          </div>
+          <div class="budget-details">
+            <span class="remaining">{{ formatTokens(remainingTokens) }} remaining</span>
+            <span class="percentage">{{ tokenUsagePercentage.toFixed(1) }}% used</span>
+          </div>
+        </div>
+      </div>
+
       <div class="modal-body">
         <div *ngIf="isLoadingContracts" class="loading-container">
           <div class="spinner"></div>
           <p>Loading contracts...</p>
         </div>
         <div *ngIf="!isLoadingContracts">
+          <!-- Token Limit Warning -->
+          <div *ngIf="workbenchMode === 'question' && isTokenLimitExceeded && selectedContractsForQuestion.length > 0"
+               class="alert alert-warning" style="margin-bottom: 1rem;">
+            <strong>⚠️ Token Limit Exceeded</strong>
+            <p style="margin: 0.5rem 0 0 0; font-size: 0.9rem;">
+              Your query will be processed in the background. You will be notified once the query has completed.
+            </p>
+          </div>
           <div class="modal-controls">
-            <button (click)="selectAllContracts()" class="btn btn-sm">Select All</button>
-            <button (click)="deselectAllContracts()" class="btn btn-sm">Deselect All</button>
-            <span class="badge badge-secondary">{{ selectedContracts.length }} selected</span>
+            <div class="search-input-wrapper">
+              <input
+                type="text"
+                [(ngModel)]="modalSearchText"
+                (input)="updateFilteredContracts()"
+                placeholder="Search contracts..."
+                class="form-control modal-search">
+              <button
+                *ngIf="modalSearchText"
+                (click)="clearModalSearch()"
+                class="search-clear-btn"
+                title="Clear search">✕</button>
+            </div>
+            <button *ngIf="workbenchMode === 'comparison'" (click)="selectAllContracts()" class="btn btn-sm">Select All</button>
+            <button (click)="workbenchMode === 'question' ? clearQuestionContracts() : deselectAllContracts()" class="btn btn-sm">
+              {{ workbenchMode === 'question' ? 'Clear Selection' : 'Deselect All' }}
+            </button>
+            <div class="flex-spacer"></div>
+            <span class="badge badge-secondary">
+              {{ workbenchMode === 'question' ? selectedContractsForQuestion.length : selectedContracts.length }} selected
+            </span>
           </div>
           <div class="contract-list">
-            <div *ngIf="filteredContracts.length === 0" class="no-results">
-              No contracts found matching your filter criteria.
-            </div>
-            <div *ngFor="let contract of getFilteredContractsForSelection()" class="contract-item">
-              <input 
+            <div *ngFor="let contract of getFilteredContractsForSelection()"
+                 class="contract-item">
+              <input
                 type="checkbox"
-                [checked]="isContractSelected(contract.id)"
-                (change)="toggleContractSelection(contract.id)"
+                [checked]="workbenchMode === 'question' ? isContractSelectedForQuestion(contract.id) : isContractSelected(contract.id)"
+                (change)="workbenchMode === 'question' ? toggleContractForQuestion(contract.id) : toggleContractSelection(contract.id)"
                 [id]="'contract-check-' + contract.id">
               <label [for]="'contract-check-' + contract.id">
                 <strong>{{ contract.title }}</strong>
@@ -757,15 +1005,31 @@
                     <span class="badge badge-secondary">{{ contract.contract_type }}</span>
                     <span class="badge badge-info">{{ contract.governing_law_state }}</span>
                     <span class="badge badge-primary">{{ contract.effective_date }}</span>
+                    <span *ngIf="workbenchMode === 'question' && contract.text_tokens"
+                          class="badge token-badge"
+                          [ngClass]="getContractTokenBadgeClass(contract.text_tokens)">
+                      📊 {{ formatTokens(contract.text_tokens) }}
+                    </span>
                   </span>
                 </div>
+                <button class="pdf-icon-btn" (click)="viewContractPdf(contract.id); $event.stopPropagation()" title="View PDF">
+                  📄
+                </button>
               </label>
             </div>
           </div>
         </div>
       </div>
       <div class="modal-footer">
-        <button (click)="closeContractSelectionModal()" class="btn btn-secondary">Close</button>
+        <button *ngIf="workbenchMode === 'question'"
+                (click)="closeContractSelectionModal()"
+                class="btn btn-primary"
+                [disabled]="selectedContractsForQuestion.length === 0">
+          Use {{ selectedContractsForQuestion.length }} Contract{{ selectedContractsForQuestion.length !== 1 ? 's' : '' }}
+        </button>
+        <button (click)="closeContractSelectionModal()" class="btn btn-secondary">
+          {{ workbenchMode === 'question' ? 'Cancel' : 'Close' }}
+        </button>
       </div>
     </div>
   </div>
@@ -775,7 +1039,15 @@
     <div class="modal-content modal-large">
       <div class="modal-header">
         <h3>{{ selectedContractForDetails.title }}</h3>
-        <button (click)="showContractDetailsModal = false" class="close-btn">✕</button>
+        <div class="modal-header-actions">
+          <button (click)="evaluateContract(selectedContractForDetails.id)" class="btn btn-primary" title="Evaluate this contract for compliance">
+            🔍 Evaluate Compliance
+          </button>
+          <button (click)="viewContractPdf(selectedContractForDetails.id)" class="btn btn-primary" title="Open PDF in new tab">
+            📄 View PDF
+          </button>
+          <button (click)="showContractDetailsModal = false" class="close-btn">✕</button>
+        </div>
       </div>
       <div class="modal-body">
         <div class="clause-details-grid">
@@ -841,21 +1113,26 @@
       </div>
       <div class="modal-body">
         <div class="clause-comparison-container">
-          <div class="comparison-metrics">
-            <span class="badge" [ngClass]="getSimilarityBadgeClass(selectedClauseForReview.similarity_score * 100)">
-              {{ (selectedClauseForReview.similarity_score * 100).toFixed(0) }}% Match
-            </span>
-            <span *ngIf="selectedClauseForReview.risks && selectedClauseForReview.risks.length > 0" 
-                  class="badge badge-danger">
-              {{ selectedClauseForReview.risks.length }} Risk{{ selectedClauseForReview.risks.length > 1 ? 's' : '' }}
-            </span>
+          <!-- Fixed Header Section -->
+          <div class="clause-modal-fixed-header">
+            <div class="comparison-metrics">
+              <span class="badge" [ngClass]="getSimilarityBadgeClass(selectedClauseForReview.similarity_score * 100)">
+                {{ (selectedClauseForReview.similarity_score * 100).toFixed(0) }}% Match
+              </span>
+              <span *ngIf="selectedClauseForReview.risks && selectedClauseForReview.risks.length > 0"
+                    class="badge badge-danger">
+                {{ selectedClauseForReview.risks.length }} Risk{{ selectedClauseForReview.risks.length > 1 ? 's' : '' }}
+              </span>
+            </div>
+
+            <div *ngIf="selectedClauseForReview.summary" class="clause-summary-modal">
+              <strong>Summary:</strong>
+              <p>{{ selectedClauseForReview.summary }}</p>
+            </div>
           </div>
 
-          <div *ngIf="selectedClauseForReview.summary" class="clause-summary-modal">
-            <strong>Summary:</strong>
-            <p>{{ selectedClauseForReview.summary }}</p>
-          </div>
-
+          <!-- Scrollable Content Section -->
+          <div class="clause-modal-scrollable-content">
           <div class="clause-text-side-by-side">
             <div class="clause-text-column">
               <h4>Standard Contract</h4>
@@ -889,13 +1166,15 @@
             </ul>
           </div>
 
-          <div *ngIf="selectedClauseForReview.risks && selectedClauseForReview.risks.length > 0" 
+          <div *ngIf="selectedClauseForReview.risks && selectedClauseForReview.risks.length > 0"
                class="risks-section">
             <h4>Identified Risks</h4>
             <ul>
               <li *ngFor="let risk of selectedClauseForReview.risks" class="risk-item">{{ risk }}</li>
             </ul>
           </div>
+          </div>
+          <!-- End Scrollable Content Section -->
         </div>
       </div>
       <div class="modal-footer">

@@ -12,6 +12,17 @@ Write-Host 'activating the venv ...'
 .\venv\Scripts\Activate.ps1
 
 Write-Host '.env file contents ...'
-Get-Content .env 
+Get-Content .env
 
-hypercorn web_app:app --bind 127.0.0.1:8000 --workers 1 
+# Check if SSL certificates exist
+$certPath = "..\query-builder\localhost.crt"
+$keyPath = "..\query-builder\localhost.key"
+
+if ((Test-Path $certPath) -and (Test-Path $keyPath)) {
+    Write-Host 'Starting web app with HTTPS...'
+    hypercorn web_app:app --bind 127.0.0.1:8000 --workers 1 --certfile $certPath --keyfile $keyPath
+} else {
+    Write-Host 'SSL certificates not found. Starting with HTTP...'
+    Write-Host 'Warning: Office Add-in requires HTTPS. Please run setup-https-cert.ps1'
+    hypercorn web_app:app --bind 127.0.0.1:8000 --workers 1
+} 

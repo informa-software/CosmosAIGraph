@@ -236,7 +236,13 @@ class CosmosNoSQLService:
             
             logging.info(f"Contract ID query returned {len(docs)} documents")
             return docs
-        
+
+        # Skip metadata keys that are not actual entity types
+        metadata_keys = ['fuzzy_matches', 'match_details', 'debug_all_scores']
+        if entity_type in metadata_keys:
+            logging.debug(f"Skipping metadata key: {entity_type}")
+            return []
+
         # Map entity types to document fields
         field_map = {
             'contractor_parties': 'contractor_party',
@@ -244,7 +250,7 @@ class CosmosNoSQLService:
             'governing_laws': 'governing_law',
             'contract_types': 'contract_type'
         }
-        
+
         field = field_map.get(entity_type)
         if not field:
             logging.error(f"Unknown entity type: {entity_type}")
@@ -504,37 +510,80 @@ class CosmosNoSQLService:
         # Combine tokens into a single string separated by commas
         search_expr = ','.join(f'"{token}"' for token in tokens)
 
+        # Determine the text field based on current container
+        text_field_map = {
+            "contracts": "contract_text",
+            "contract_chunks": "text",
+            "contract_clauses": "text"
+        }
+        text_field = text_field_map.get(self._cname, "contract_text")  # Default to contract_text
+        logging.info(f"RRF search on container '{self._cname}' using text field '{text_field}'")
+
         docs = list()
         try:
             # Build the RRF query using FullTextScore and VectorDistance; use proper RANK(...) syntax
-            # Search will be against the text_chunk property instead of the default description property
+            # Include VectorDistance as similarity_score for filtering/debugging
             sql = f"""
-            SELECT TOP {limit} *
+            SELECT TOP {limit} c, VectorDistance(c.{embedding_attr}, {str(embedding_value)}) AS similarity_score
             FROM c
             ORDER BY RANK(RRF(
-                FullTextScore(c.chunk_text, {search_expr}), 
+                FullTextScore(c.{text_field}, {search_expr}),
                 VectorDistance(c.{embedding_attr}, {str(embedding_value)})
             ))
             """
 
             items_paged = self._ctrproxy.query_items(query=sql, parameters=[])
             async for item in items_paged:
-                cdf = CosmosDocFilter(item)
-                docs.append(cdf.filter_out_embedding(embedding_attr))
+                # When using "SELECT c, VectorDistance(...) AS similarity_score",
+                # the document is nested under "c" key and similarity_score is at root level
+                if "c" in item:
+                    # Extract the actual document from the "c" wrapper
+                    doc_data = item["c"]
+                    similarity_score = item.get("similarity_score")
+                else:
+                    # Fallback: item is the document itself
+                    doc_data = item
+                    similarity_score = item.get("similarity_score")
+
+                cdf = CosmosDocFilter(doc_data)
+                doc = cdf.filter_out_embedding(embedding_attr)
+
+                # Add similarity_score to the document
+                if similarity_score is not None:
+                    doc['similarity_score'] = similarity_score
+
+                docs.append(doc)
 
         except Exception as e:
             logging.error(f"RRF search with FullTextScore failed: {e}")
             # Fall back to vector search only
             try:
                 sql = f"""
-                SELECT TOP {limit} *
+                SELECT TOP {limit} c, VectorDistance(c.{embedding_attr}, {str(embedding_value)}) AS similarity_score
                 FROM c
                 ORDER BY VectorDistance(c.{embedding_attr}, {str(embedding_value)})
                 """
                 items_paged = self._ctrproxy.query_items(query=sql, parameters=[])
                 async for item in items_paged:
-                    cdf = CosmosDocFilter(item)
-                    docs.append(cdf.filter_out_embedding(embedding_attr))
+                    # When using "SELECT c, VectorDistance(...) AS similarity_score",
+                    # the document is nested under "c" key and similarity_score is at root level
+                    if "c" in item:
+                        # Extract the actual document from the "c" wrapper
+                        doc_data = item["c"]
+                        similarity_score = item.get("similarity_score")
+                    else:
+                        # Fallback: item is the document itself
+                        doc_data = item
+                        similarity_score = item.get("similarity_score")
+
+                    cdf = CosmosDocFilter(doc_data)
+                    doc = cdf.filter_out_embedding(embedding_attr)
+
+                    # Add similarity_score to the document
+                    if similarity_score is not None:
+                        doc['similarity_score'] = similarity_score
+
+                    docs.append(doc)
             except Exception as e2:
                 logging.error(f"Fallback vector search in RRF also failed: {e2}")
 
@@ -779,24 +828,27 @@ class CosmosNoSQLService:
             logging.error(f"Error getting aggregates from {collection}: {str(e)}")
             return {"value": 0, "type": aggregate_type, "error": str(e)}
     
-    async def query_contracts_with_filter(self, filter_dict: Dict, max_count: int = 100) -> List[Dict]:
+    async def query_contracts_with_filter(self, filter_dict: Dict, max_count: int = 100, offset: int = 0, return_total_count: bool = False) -> tuple[List[Dict], int] | List[Dict]:
         """
         Query contracts with multiple filter criteria.
-        
+
         Args:
             filter_dict: Dictionary of field:value pairs to filter on
             max_count: Maximum number of contracts to return
-        
+            offset: Number of documents to skip (for pagination)
+            return_total_count: If True, returns tuple of (docs, total_count). If False, returns just docs.
+
         Returns:
-            List of contract documents matching all filters
+            If return_total_count=True: Tuple of (list of contract documents, total count)
+            If return_total_count=False: List of contract documents matching all filters
         """
         try:
             # Save current container
             curr_container = self._cname
-            
+
             # Switch to contracts container
             self.set_container("contracts")
-            
+
             # Build WHERE clause from filters
             where_clauses = []
             for field, value in filter_dict.items():
@@ -804,12 +856,38 @@ class CosmosNoSQLService:
                 if isinstance(value, dict) and "$ne" in value:
                     negated_value = value["$ne"]
                     where_clauses.append(f"c.{field} != '{negated_value}'")
+                elif isinstance(value, list):
+                    # Handle array filters with IN operator
+                    if len(value) == 0:
+                        # Empty array - no filter
+                        continue
+                    elif len(value) == 1:
+                        # Single value - use equality
+                        where_clauses.append(f"c.{field} = '{value[0]}'")
+                    else:
+                        # Multiple values - use IN operator
+                        quoted_values = [f"'{v}'" for v in value]
+                        in_clause = ", ".join(quoted_values)
+                        where_clauses.append(f"c.{field} IN ({in_clause})")
                 else:
-                    # Regular equality filter
+                    # Regular equality filter (single string value)
                     where_clauses.append(f"c.{field} = '{value}'")
 
             where_clause = " AND ".join(where_clauses) if where_clauses else "1=1"
-            sql = f"SELECT TOP {max_count} * FROM c WHERE {where_clause}"
+
+            # Get total count if requested
+            total_count = 0
+            if return_total_count:
+                count_sql = f"SELECT VALUE COUNT(1) FROM c WHERE {where_clause}"
+                logging.info(f"Executing count query: {count_sql}")
+                count_items = self._ctrproxy.query_items(query=count_sql, parameters=[])
+                async for count in count_items:
+                    total_count = count
+                    break
+                logging.info(f"Total matching contracts: {total_count}")
+
+            # Build main query with OFFSET
+            sql = f"SELECT * FROM c WHERE {where_clause} OFFSET {offset} LIMIT {max_count}"
 
             logging.info(f"Executing SQL query: {sql}")
 
@@ -823,8 +901,15 @@ class CosmosNoSQLService:
             self.set_container(curr_container)
 
             logging.info(f"Filter query returned {len(docs)} contracts")
-            return docs
-            
+
+            if return_total_count:
+                return docs, total_count
+            else:
+                return docs
+
         except Exception as e:
             logging.error(f"Error in filtered contract query: {str(e)}")
-            return []
+            if return_total_count:
+                return [], 0
+            else:
+                return []

@@ -1,0 +1,39 @@
+{
+  "indexingMode": "consistent",
+  "automatic": true,
+  "includedPaths": [
+    {
+      "path": "/*"
+    }
+  ],
+  "excludedPaths": [
+    {
+      "path": "/document_text/?"
+    },
+    {
+      "path": "/_etag/?"
+    }
+  ],
+  "compositeIndexes": [
+    [
+      {
+        "path": "/evaluation_metadata/evaluated_date",
+        "order": "descending"
+      },
+      {
+        "path": "/document_metadata/user_email",
+        "order": "ascending"
+      }
+    ],
+    [
+      {
+        "path": "/summary/pass_rate",
+        "order": "ascending"
+      },
+      {
+        "path": "/evaluation_metadata/evaluated_date",
+        "order": "descending"
+      }
+    ]
+  ]
+}

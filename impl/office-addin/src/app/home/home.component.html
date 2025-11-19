@@ -1,0 +1,49 @@
+<div class="home-container">
+  <div class="header">
+    <h1>Contract Intelligence Workbench</h1>
+    <p class="subtitle">Office Add-in</p>
+  </div>
+
+  <div class="content">
+    <div *ngIf="officeInfo.isOfficeContext" class="office-info">
+      <h2>Office Context Detected</h2>
+      <dl>
+        <dt>Application:</dt>
+        <dd>{{ officeInfo.host }}</dd>
+
+        <dt>Platform:</dt>
+        <dd>{{ officeInfo.platform }}</dd>
+
+        <dt>Version:</dt>
+        <dd>{{ officeInfo.version }}</dd>
+      </dl>
+
+      <div class="info-box">
+        <p><strong>Note:</strong> This add-in will automatically route to the appropriate interface based on the Office application.</p>
+      </div>
+    </div>
+
+    <div *ngIf="!officeInfo.isOfficeContext" class="no-office-info">
+      <h2>Not in Office Context</h2>
+      <p>This application is designed to run as an Office Add-in within Word, Excel, PowerPoint, or other Office applications.</p>
+
+      <div class="info-box warning">
+        <p><strong>For Developers:</strong> To test this add-in:</p>
+        <ol>
+          <li>Ensure Office.js is loaded (check browser console)</li>
+          <li>Sideload the manifest.xml in your Office application</li>
+          <li>Open the add-in from the ribbon or task pane</li>
+        </ol>
+      </div>
+    </div>
+
+    <div class="supported-apps">
+      <h3>Supported Office Applications</h3>
+      <ul>
+        <li><strong>Word:</strong> Contract compliance analysis</li>
+        <li><strong>Excel:</strong> Coming soon</li>
+        <li><strong>PowerPoint:</strong> Coming soon</li>
+      </ul>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,109 @@
+================================================================================
+SECONDARY MODEL ANALYSIS: gpt-4.1-mini
+================================================================================
+
+Test Case: Simplified version with key elements but missing some protections
+Expected Similarity: high
+Processing Time: 22.418s
+Tokens Used: 1403
+
+--------------------------------------------------------------------------------
+CONTRACT TEXT ANALYZED
+--------------------------------------------------------------------------------
+Each party shall indemnify and defend the other party from any claims arising from
+        its breach of this agreement or negligent acts. Notice must be provided promptly.
+
+--------------------------------------------------------------------------------
+SIMILARITY ANALYSIS
+--------------------------------------------------------------------------------
+Score: 0.550
+
+--------------------------------------------------------------------------------
+DIFFERENCES IDENTIFIED
+--------------------------------------------------------------------------------
+
+1. MISSING - medium
+   Location: indemnification scope
+   Library: its affiliates, and their respective officers, directors, employees, and agents
+
+2. MISSING - high
+   Location: indemnification scope
+   Library: claims, demands, losses, liabilities, damages, costs, and expenses (including reasonable attorneys' fees and court costs)
+   Contract: claims
+
+3. MISSING - medium
+   Location: indemnification triggers
+   Library: Any negligent acts or omissions or willful misconduct by the Indemnifying Party
+   Contract: negligent acts
+
+4. MISSING - high
+   Location: indemnification triggers
+   Library: Any infringement or alleged infringement of any intellectual property rights by the Indemnifying Party
+
+5. MISSING - high
+   Location: indemnification triggers
+   Library: Any violation of applicable laws or regulations by the Indemnifying Party
+
+6. DIFFERENT - medium
+   Location: notice requirement
+   Library: The Indemnified Party shall provide the Indemnifying Party with prompt written notice of any claim and shall cooperate with the Indemnifying Party in the defense of such claim.
+   Contract: Notice must be provided promptly.
+
+7. MISSING - medium
+   Location: cooperation obligation
+   Library: shall cooperate with the Indemnifying Party in the defense of such claim
+
+--------------------------------------------------------------------------------
+RISK ANALYSIS
+--------------------------------------------------------------------------------
+Overall Risk: high
+Risk Score: 0.80
+
+Identified Risks:
+
+1. SCOPE LIMITATION - high
+   Description: Contract clause limits indemnification to 'claims' only, omitting broader protections such as demands, losses, liabilities, damages, costs, and expenses including attorneys' fees.
+   Impact: Potential under-protection of the indemnified party leading to uncovered costs and liabilities.
+   Location: indemnification scope
+
+2. LIMITED INDEMNIFICATION TRIGGERS - high
+   Description: Contract excludes indemnification for willful misconduct, intellectual property infringement, and violation of laws, which are included in the standard clause.
+   Impact: Exposes indemnified party to risks from serious breaches or legal violations without indemnity protection.
+   Location: indemnification triggers
+
+3. MISSING COOPERATION OBLIGATION - medium
+   Description: Contract does not require the indemnified party to cooperate in defense, potentially impairing defense effectiveness.
+   Impact: May hinder the indemnifying party's ability to properly defend claims, increasing costs or liabilities.
+   Location: cooperation obligation
+
+4. NOTICE REQUIREMENT VAGUENESS - medium
+   Description: Contract's notice requirement is less detailed and does not specify written notice or timing beyond 'promptly'.
+   Impact: Could lead to disputes over timeliness or adequacy of notice, affecting indemnification rights.
+   Location: notice requirement
+
+5. LIMITED INDEMNIFIED PARTIES - medium
+   Description: Contract does not explicitly include affiliates, officers, directors, employees, and agents as indemnified parties.
+   Impact: Potentially excludes important related parties from indemnity protection.
+   Location: indemnified parties
+
+--------------------------------------------------------------------------------
+RECOMMENDATIONS
+--------------------------------------------------------------------------------
+
+1. MODIFICATION - Priority: high
+   Expand indemnification scope to include all claims, demands, losses, liabilities, damages, costs, and expenses including reasonable attorneys' fees and court costs.
+   Suggested Text:
+   Each party (the "Indemnifying Party") shall indemnify, defend, and hold harmless the other party (the "Indemnified Party"), its affiliates, and their respective officers, directors, employees, and agents from and against any and all claims, demands, losses, liabilities, damages, costs, and expenses (including reasonable attorneys' fees and court costs) arising out of or relating to: Any breach of this Agreement by the Indemnifying Party; Any negligent acts or omissions or willful misconduct by the Indemnifying Party; Any infringement or alleged infringement of any intellectual property rights by the Indemnifying Party; Any violation of applicable laws or regulations by the Indemnifying Party.
+   Rationale: To ensure comprehensive protection consistent with standard mutual indemnification provisions and reduce exposure to uncovered liabilities.
+
+2. ADDITION - Priority: medium
+   Add explicit cooperation obligation for the indemnified party to assist in defense of claims.
+   Suggested Text:
+   The Indemnified Party shall provide the Indemnifying Party with prompt written notice of any claim and shall cooperate with the Indemnifying Party in the defense of such claim.
+   Rationale: To facilitate effective defense and reduce risk of increased costs or liabilities due to lack of cooperation.
+
+3. MODIFICATION - Priority: medium
+   Clarify notice requirement to specify 'prompt written notice' rather than just 'notice must be provided promptly'.
+   Suggested Text:
+   The Indemnified Party shall provide the Indemnifying Party with prompt written notice of any claim.
+   Rationale: To reduce ambiguity and potential disputes regarding the timing and form of notice.

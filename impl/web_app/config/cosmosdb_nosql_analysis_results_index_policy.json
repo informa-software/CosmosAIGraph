@@ -1,0 +1,60 @@
+{
+  "indexingMode": "consistent",
+  "automatic": true,
+  "includedPaths": [
+    {
+      "path": "/*"
+    }
+  ],
+  "excludedPaths": [
+    {
+      "path": "/comparison_data/results/*"
+    },
+    {
+      "path": "/query_data/results/*"
+    },
+    {
+      "path": "/_etag/?"
+    }
+  ],
+  "compositeIndexes": [
+    [
+      {
+        "path": "/user_id",
+        "order": "ascending"
+      },
+      {
+        "path": "/created_at",
+        "order": "descending"
+      }
+    ],
+    [
+      {
+        "path": "/user_id",
+        "order": "ascending"
+      },
+      {
+        "path": "/result_type",
+        "order": "ascending"
+      },
+      {
+        "path": "/created_at",
+        "order": "descending"
+      }
+    ],
+    [
+      {
+        "path": "/user_id",
+        "order": "ascending"
+      },
+      {
+        "path": "/status",
+        "order": "ascending"
+      },
+      {
+        "path": "/created_at",
+        "order": "descending"
+      }
+    ]
+  ]
+}

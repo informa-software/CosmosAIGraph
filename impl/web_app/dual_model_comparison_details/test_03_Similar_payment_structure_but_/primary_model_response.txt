@@ -1,0 +1,63 @@
+================================================================================
+PRIMARY MODEL ANALYSIS: gpt-4.1
+================================================================================
+
+Test Case: Similar payment structure but different terms
+Expected Similarity: high
+Processing Time: 12.036s
+Tokens Used: 874
+
+--------------------------------------------------------------------------------
+CONTRACT TEXT ANALYZED
+--------------------------------------------------------------------------------
+Client will pay Contractor within 45 days of invoice. Late payments incur 2% monthly interest.
+
+--------------------------------------------------------------------------------
+SIMILARITY ANALYSIS
+--------------------------------------------------------------------------------
+Score: 0.050
+
+--------------------------------------------------------------------------------
+DIFFERENCES IDENTIFIED
+--------------------------------------------------------------------------------
+
+1. MISSING - high
+   Location: entire clause
+   Library: Each party (the "Indemnifying Party") shall indemnify, defend, and hold harmless the other party (the "Indemnified Party"), its affiliates, and their respective officers, directors, employees, and agents from and against any and all claims, demands, losses, liabilities, damages, costs, and expenses (including reasonable attorneys' fees and court costs) arising out of or relating to: Any breach of this Agreement by the Indemnifying Party; Any negligent acts or omissions or willful misconduct by the Indemnifying Party; Any infringement or alleged infringement of any intellectual property rights by the Indemnifying Party; Any violation of applicable laws or regulations by the Indemnifying Party. The Indemnified Party shall provide the Indemnifying Party with prompt written notice of any claim and shall cooperate with the Indemnifying Party in the defense of such claim.
+
+2. EXTRA - low
+   Location: entire clause
+   Contract: Client will pay Contractor within 45 days of invoice. Late payments incur 2% monthly interest.
+
+--------------------------------------------------------------------------------
+RISK ANALYSIS
+--------------------------------------------------------------------------------
+Overall Risk: high
+Risk Score: 0.90
+
+Identified Risks:
+
+1. LIABILITY - high
+   Description: Absence of indemnification provisions exposes both parties to unmitigated liability for third-party claims, breaches, negligence, IP infringement, and legal violations.
+   Impact: If a party is sued by a third party or suffers losses due to the other party's actions, there is no contractual obligation for the other party to defend, indemnify, or hold harmless, increasing financial and legal exposure.
+   Location: entire clause missing
+
+2. COMPLIANCE - medium
+   Description: No protection against violations of law or regulations by the other party.
+   Impact: Potential regulatory penalties or damages may not be recoverable from the responsible party.
+   Location: entire clause missing
+
+3. INTELLECTUAL PROPERTY - high
+   Description: No indemnification for IP infringement.
+   Impact: If Contractor or Client infringes third-party IP, the other party may be liable without recourse.
+   Location: entire clause missing
+
+--------------------------------------------------------------------------------
+RECOMMENDATIONS
+--------------------------------------------------------------------------------
+
+1. ADDITION - Priority: high
+   Add a mutual indemnification clause to the contract to protect both parties from third-party claims, breaches, negligence, IP infringement, and legal violations.
+   Suggested Text:
+   Each party (the "Indemnifying Party") shall indemnify, defend, and hold harmless the other party (the "Indemnified Party"), its affiliates, and their respective officers, directors, employees, and agents from and against any and all claims, demands, losses, liabilities, damages, costs, and expenses (including reasonable attorneys' fees and court costs) arising out of or relating to: Any breach of this Agreement by the Indemnifying Party; Any negligent acts or omissions or willful misconduct by the Indemnifying Party; Any infringement or alleged infringement of any intellectual property rights by the Indemnifying Party; Any violation of applicable laws or regulations by the Indemnifying Party. The Indemnified Party shall provide the Indemnifying Party with prompt written notice of any claim and shall cooperate with the Indemnifying Party in the defense of such claim.
+   Rationale: Without indemnification, both parties are exposed to significant legal and financial risks. Adding this clause aligns with industry standards and provides essential protections.

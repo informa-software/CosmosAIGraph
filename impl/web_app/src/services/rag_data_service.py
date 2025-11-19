@@ -28,10 +28,11 @@ from src.util.fs import FS
 
 class RAGDataService:
 
-    def __init__(self, ai_svc: AiService, nosql_svc: CosmosNoSQLService):
+    def __init__(self, ai_svc: AiService, nosql_svc: CosmosNoSQLService, ontology_svc=None):
         try:
             self.ai_svc = ai_svc
             self.nosql_svc = nosql_svc
+            self.ontology_svc = ontology_svc
 
             # web service authentication with shared secrets
             websvc_auth_header = ConfigService.websvc_auth_header()
@@ -118,7 +119,15 @@ class RAGDataService:
             llm_execution_mode = ConfigService.envvar("CAIG_LLM_EXECUTION_MODE", "comparison_only").lower()
 
             should_use_llm = False
-            if llm_plan and llm_execution_mode == "execution":
+
+            # PRIORITY 1: Use LLM when strategy was overridden due to mismatch
+            if (strategy_obj.get("algorithm") == "llm_override" and
+                llm_plan and llm_plan.get("validation_status") == "valid"):
+                should_use_llm = True
+                logging.info("Using LLM execution due to strategy mismatch override")
+
+            # PRIORITY 2: Check execution mode settings
+            elif llm_plan and llm_execution_mode == "execution":
                 # Always use LLM in execution mode (if valid)
                 should_use_llm = (llm_plan.get("validation_status") == "valid" and
                                  llm_plan.get("confidence", 0.0) >= 0.5)
@@ -295,28 +304,95 @@ class RAGDataService:
     async def get_vector_rag_data(
         self, user_text, rdr: RAGDataResult = None, max_doc_count=10
     ) -> None:
+        from src.services.query_execution_tracker import ExecutionStatus
+        tracker = rdr.get_execution_tracker() if rdr else None
+        step = None
+
         try:
             logging.warning(
                 "RagDataService#get_vector_rag_data, user_text: {}".format(user_text)
             )
+
+            # Determine if this is a fallback
+            is_fallback = tracker and tracker.fallback_count > 0 if tracker else False
+
+            # Track vector search step
+            if tracker:
+                step = tracker.start_step(
+                    "Vector Search (RRF)",
+                    "VECTOR_SEARCH",
+                    ConfigService.graph_vector_container(),
+                    is_fallback=is_fallback
+                )
+
+            # Generate embedding
             create_embedding_response = self.ai_svc.generate_embeddings(user_text)
             embedding = create_embedding_response.data[0].embedding
+
+            # Set database and container
             self.nosql_svc.set_db(ConfigService.graph_source_db())
             #Use the new GRAPH_VECTOR_CONTAINER for Contract related Vector Searches
             # To Do - When doing Clause Searches, we should use the CLAUSE Vector Container
             self.nosql_svc.set_container(ConfigService.graph_vector_container())
+
+            # Perform vector search
             vs_result = await self.nosql_svc.vector_search(
                 embedding_value=embedding, search_text=user_text, search_method="rrf", embedding_attr="embedding", limit=max_doc_count
             )
+
+            # Get RU cost from last operation
+            ru_cost = self.nosql_svc.last_request_charge()
+
+            # Deduplicate by filename, keeping document with highest similarity (lowest VectorDistance)
+            # VectorDistance returns lower values for more similar documents
+            filename_map = {}
             for vs_doc in vs_result:
                 doc_copy = dict(vs_doc)  # shallow copy
                 doc_copy.pop("embedding", None)
-                rdr.add_doc(doc_copy)
+
+                # Keep similarity_score if present (don't pop it)
+                filename = doc_copy.get('filename', doc_copy.get('id'))
+                similarity = doc_copy.get('similarity_score', float('inf'))
+
+                # Keep document with lowest VectorDistance (highest similarity)
+                if filename not in filename_map or similarity < filename_map[filename].get('similarity_score', float('inf')):
+                    filename_map[filename] = doc_copy
+
+            # Add deduplicated documents to result
+            for doc in filename_map.values():
+                rdr.add_doc(doc)
+
+            # Complete tracking step
+            if tracker and step:
+                tracker.complete_step(
+                    step,
+                    ExecutionStatus.SUCCESS,
+                    ru_cost=ru_cost,
+                    docs_found=len(filename_map),
+                    metadata={
+                        'method': 'RRF (Reciprocal Rank Fusion)',
+                        'search_text': user_text[:100],
+                        'embedding_dims': len(embedding),
+                        'is_fallback': is_fallback,
+                        'original_results': len(vs_result),
+                        'deduplicated_results': len(filename_map)
+                    }
+                )
+
+            logging.info(f"Vector search completed: {len(vs_result)} documents → {len(filename_map)} after deduplication, {ru_cost:.1f} RUs")
+
         except Exception as e:
             logging.critical(
                 "Exception in RagDataService#get_vector_rag_data: {}".format(str(e))
             )
             logging.exception(e, stack_info=True, exc_info=True)
+
+            if tracker and step:
+                tracker.complete_step(
+                    step,
+                    ExecutionStatus.FAILED,
+                    error=str(e)
+                )
 
     async def get_graph_rag_data(
         self, user_text, strategy_obj: dict, rdr: RAGDataResult, max_doc_count=10
@@ -341,6 +417,24 @@ class RAGDataService:
             info["natural_language"] = user_text
             info["owl"] = OntologyService().get_owl_content()
 
+            # Extract and include normalized entities for accurate SPARQL generation
+            entities = strategy_obj.get("entities", {})
+            if entities:
+                entity_hints = []
+                for entity_type, entity_list in entities.items():
+                    if entity_type in ["contractor_parties", "contracting_parties", "governing_law_states", "contract_types"]:
+                        for entity in entity_list:
+                            normalized_name = entity.get("normalized_name", "")
+                            display_name = entity.get("display_name", "")
+                            confidence = entity.get("confidence", 0.0)
+                            if normalized_name and confidence >= 0.85:
+                                # Use normalized name for database accuracy
+                                entity_hints.append(f"{entity_type}: '{normalized_name}' (original: '{display_name}')")
+
+                if entity_hints:
+                    info["normalized_entities"] = " | ".join(entity_hints)
+                    logging.info(f"Adding normalized entities to SPARQL generation: {info['normalized_entities']}")
+
             # Include negation information if available to help SPARQL generation
             negations = strategy_obj.get("negations", {})
             if any(negations.values()):
@@ -350,6 +444,8 @@ class RAGDataService:
                         negation_hints.append(f"EXCLUDE {entity_type}: {entity.get('display_name')}")
                 info["negations"] = " | ".join(negation_hints)
                 logging.info(f"Adding negation hints to SPARQL generation: {info['negations']}")
+
+            # Note: negations are now appended to user_prompt in ai_service.py for better context
 
             sparql = self.ai_svc.generate_sparql_from_user_prompt(info)["sparql"]
             rdr.set_sparql(sparql)
@@ -446,13 +542,14 @@ class RAGDataService:
                 confidence=llm_plan.get("confidence", 0.0),
                 reasoning=llm_plan.get("reasoning", ""),
                 result_format=llm_plan.get("result_format", "list_summary"),
+                entities=llm_plan.get("entities", {}),
                 raw_response={}
             )
 
             # Create executor with services
             executor = LLMQueryExecutor(
                 cosmos_service=self.nosql_svc,
-                ontology_service=self.ontology_svc if hasattr(self, 'ontology_svc') else None
+                ontology_service=self.ontology_svc
             )
 
             # Track LLM execution step
@@ -479,7 +576,7 @@ class RAGDataService:
                             'query_type': plan_obj.query_type,
                             'query': result.executed_query,
                             'confidence': plan_obj.confidence,
-                            'reasoning': plan_obj.reasoning[:100] if plan_obj.reasoning else ""
+                            'reasoning': plan_obj.reasoning if plan_obj.reasoning else ""
                         }
                     )
                 else:
@@ -507,6 +604,68 @@ class RAGDataService:
             if result.success:
                 logging.info(f"LLM execution succeeded: {len(result.documents)} docs, "
                            f"{result.ru_cost:.1f} RUs")
+
+                # CRITICAL: Handle ENTITY_FIRST strategy - need to extract contract IDs and batch retrieve
+                if plan_obj.strategy == "ENTITY_FIRST" and len(result.documents) > 0:
+                    logging.info("LLM used ENTITY_FIRST strategy - performing Step 2: batch contract retrieval")
+
+                    # Update Step 1 metadata to show entity document was retrieved
+                    if tracker and step:
+                        tracker.update_step_metadata(
+                            step,
+                            {
+                                'query_type': plan_obj.query_type,
+                                'query': result.executed_query,
+                                'confidence': plan_obj.confidence,
+                                'reasoning': plan_obj.reasoning if plan_obj.reasoning else "",
+                                'entity_retrieved': True,
+                                'entity_id': result.documents[0].get('id')
+                            }
+                        )
+
+                    # The result contains entity document(s) with "contracts" array
+                    entity_doc = result.documents[0]  # Should be single entity document
+                    contract_ids = entity_doc.get("contracts", [])
+
+                    if not contract_ids:
+                        logging.warning(f"Entity document has no contracts: {entity_doc.get('id')}")
+                        return []
+
+                    # Track Step 2: Batch Contract Retrieval
+                    step2 = None
+                    if tracker:
+                        # Generate the batch read SQL for display
+                        id_list = ', '.join([f"'{cid}'" for cid in contract_ids[:5]])
+                        ellipsis = '...' if len(contract_ids) > 5 else ''
+                        batch_sql = f"SELECT * FROM c WHERE c.id IN ({id_list}{ellipsis})"
+                        step2 = tracker.start_step(
+                            "Batch Contract Retrieval",
+                            "ENTITY_FIRST",
+                            "contracts"
+                        )
+
+                    # Batch retrieve actual contracts (use max_count parameter, not max_doc_count)
+                    contracts = await self.nosql_svc.batch_get_contracts(contract_ids, max_count)
+
+                    if tracker and step2:
+                        tracker.complete_step(
+                            step2, ExecutionStatus.SUCCESS,
+                            ru_cost=len(contracts) * 1.0,
+                            docs_found=len(contracts),
+                            metadata={
+                                'method': 'Batch Point Read',
+                                'entity': entity_doc.get('normalized_name'),
+                                'total_ids': len(contract_ids),
+                                'retrieved': len(contracts),
+                                'queries_executed': len(contracts),  # One point read per contract
+                                'query_pattern': f"Point read by ID (executed {len(contracts)} times)"
+                            }
+                        )
+
+                    logging.info(f"ENTITY_FIRST Step 2 complete: retrieved {len(contracts)} contracts from {len(contract_ids)} IDs")
+                    return contracts
+
+                # For other strategies, return documents as-is
                 return result.documents
             else:
                 logging.warning(f"LLM execution failed: {result.error_message}")

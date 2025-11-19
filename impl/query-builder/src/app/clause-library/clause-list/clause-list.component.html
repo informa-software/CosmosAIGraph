@@ -1,0 +1,258 @@
+<div class="clause-list-container">
+  <!-- Header -->
+  <header class="clause-list-header">
+    <div class="header-content">
+      <h1>📚 Clause Library</h1>
+      <p class="subtitle">Manage and organize your standard contract clauses</p>
+    </div>
+    <div class="header-actions">
+      <button class="btn btn-primary" (click)="createNewClause()">
+        ➕ New Clause
+      </button>
+    </div>
+  </header>
+
+  <!-- Search and Filters -->
+  <div class="search-filter-section">
+    <!-- Search Bar -->
+    <div class="search-bar">
+      <input
+        type="text"
+        [(ngModel)]="searchQuery"
+        (ngModelChange)="onSearch()"
+        placeholder="Search clauses by name, description, or content..."
+        class="search-input"
+      />
+      <span class="search-icon">🔍</span>
+    </div>
+
+    <!-- Filter Toggle and View Toggle -->
+    <div class="toolbar">
+      <button class="btn btn-secondary" (click)="toggleFilters()">
+        🔽 {{ showFilters ? 'Hide' : 'Show' }} Filters
+      </button>
+      <button class="btn btn-secondary" (click)="toggleViewMode()">
+        {{ viewMode === 'list' ? '⊞' : '☰' }} {{ viewMode === 'list' ? 'Grid' : 'List' }}
+      </button>
+      <div class="results-count">
+        {{ totalClauses }} clause{{ totalClauses !== 1 ? 's' : '' }} found
+      </div>
+    </div>
+
+    <!-- Filters Panel -->
+    <div class="filters-panel" *ngIf="showFilters">
+      <div class="filter-row">
+        <div class="filter-group">
+          <label>Category</label>
+          <select [(ngModel)]="selectedCategory" (ngModelChange)="onFilterChange()">
+            <option value="">All Categories</option>
+            <option *ngFor="let category of categories" [value]="category.id">
+              {{ category.display_path }}
+            </option>
+          </select>
+        </div>
+
+        <div class="filter-group">
+          <label>Status</label>
+          <select [(ngModel)]="selectedStatus" (ngModelChange)="onFilterChange()">
+            <option *ngFor="let option of statusOptions" [value]="option.value">
+              {{ option.label }}
+            </option>
+          </select>
+        </div>
+
+        <div class="filter-group">
+          <label>Risk Level</label>
+          <select [(ngModel)]="selectedRiskLevel" (ngModelChange)="onFilterChange()">
+            <option *ngFor="let option of riskLevelOptions" [value]="option.value">
+              {{ option.label }}
+            </option>
+          </select>
+        </div>
+
+        <div class="filter-group">
+          <label>Complexity</label>
+          <select [(ngModel)]="selectedComplexity" (ngModelChange)="onFilterChange()">
+            <option *ngFor="let option of complexityOptions" [value]="option.value">
+              {{ option.label }}
+            </option>
+          </select>
+        </div>
+
+        <div class="filter-group">
+          <label>Contract Type</label>
+          <select [(ngModel)]="selectedContractType" (ngModelChange)="onFilterChange()">
+            <option *ngFor="let option of contractTypeOptions" [value]="option.value">
+              {{ option.label }}
+            </option>
+          </select>
+        </div>
+      </div>
+
+      <div class="filter-actions">
+        <button class="btn btn-link" (click)="clearFilters()">Clear All Filters</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Content Area with Sidebar -->
+  <div class="main-content-wrapper">
+    <!-- Category Tree Sidebar -->
+    <aside class="category-sidebar">
+      <app-category-tree (categorySelected)="onCategorySelected($event)"></app-category-tree>
+    </aside>
+
+    <!-- Main Content -->
+    <div class="main-content">
+      <!-- Bulk Actions -->
+      <div class="bulk-actions" *ngIf="selectedClauses.size > 0">
+        <span class="selection-count">{{ selectedClauses.size }} selected</span>
+        <button class="btn btn-sm btn-secondary" (click)="deselectAll()">Deselect All</button>
+        <button class="btn btn-sm btn-danger" (click)="bulkDelete()">🗑️ Delete Selected</button>
+      </div>
+
+      <!-- Loading State -->
+      <div *ngIf="isLoading" class="loading-container">
+        <div class="spinner"></div>
+        <p>Loading clauses...</p>
+      </div>
+
+      <!-- Clause List/Grid -->
+      <div *ngIf="!isLoading" class="clause-content">
+    <!-- No Results -->
+    <div *ngIf="clauses.length === 0" class="empty-state">
+      <div class="empty-icon">📭</div>
+      <h2>No Clauses Found</h2>
+      <p>No clauses match your current filters.</p>
+      <button class="btn btn-primary" (click)="clearFilters()">Clear Filters</button>
+    </div>
+
+    <!-- List View -->
+    <div *ngIf="clauses.length > 0 && viewMode === 'list'" class="clause-list-view">
+      <!-- Sort Header -->
+      <div class="list-header">
+        <div class="header-checkbox">
+          <input type="checkbox" (change)="selectedClauses.size === clauses.length ? deselectAll() : selectAll()" [checked]="selectedClauses.size === clauses.length && clauses.length > 0" />
+        </div>
+        <div class="header-name" (click)="onSort('name')">
+          Name {{ sortField === 'name' ? (sortDirection === 'asc' ? '↑' : '↓') : '' }}
+        </div>
+        <div class="header-category">Category</div>
+        <div class="header-risk">Risk</div>
+        <div class="header-usage" (click)="onSort('usage')">
+          Usage {{ sortField === 'usage' ? (sortDirection === 'asc' ? '↑' : '↓') : '' }}
+        </div>
+        <div class="header-modified" (click)="onSort('modified_date')">
+          Modified {{ sortField === 'modified_date' ? (sortDirection === 'asc' ? '↑' : '↓') : '' }}
+        </div>
+        <div class="header-actions">Actions</div>
+      </div>
+
+      <!-- Clause Rows -->
+      <div class="clause-row" *ngFor="let clause of clauses">
+        <div class="row-checkbox">
+          <input type="checkbox" [checked]="selectedClauses.has(clause.id)" (change)="toggleSelection(clause.id)" />
+        </div>
+        <div class="row-name" (click)="viewClause(clause.id)">
+          <strong>{{ clause.name }}</strong>
+          <span class="version-label">v{{ clause.version.version_number }}</span>
+          <p class="description">{{ clause.description }}</p>
+        </div>
+        <div class="row-category">
+          <span class="category-badge">{{ clause.category_path_display }}</span>
+        </div>
+        <div class="row-risk">
+          <span class="badge" [ngClass]="getRiskBadgeClass(clause.metadata.risk_level)">
+            {{ clause.metadata.risk_level }}
+          </span>
+        </div>
+        <div class="row-usage">
+          {{ clause.usage_stats.times_used }} times
+        </div>
+        <div class="row-modified">
+          {{ formatDate(clause.audit.modified_date) }}
+        </div>
+        <div class="row-actions">
+          <button class="btn-icon" (click)="viewClause(clause.id)" title="View">👁️</button>
+          <button class="btn-icon" (click)="editClause(clause.id)" title="Edit">✏️</button>
+          <button class="btn-icon" (click)="deleteClause(clause.id, clause.name)" title="Delete">🗑️</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Grid View -->
+    <div *ngIf="clauses.length > 0 && viewMode === 'grid'" class="clause-grid-view">
+      <div class="clause-card" *ngFor="let clause of clauses">
+        <div class="card-header">
+          <input type="checkbox" class="card-checkbox" [checked]="selectedClauses.has(clause.id)" (change)="toggleSelection(clause.id)" />
+          <span class="badge" [ngClass]="getStatusBadgeClass(clause.status)">{{ clause.status }}</span>
+        </div>
+
+        <div class="card-body" (click)="viewClause(clause.id)">
+          <h3 class="card-title">{{ clause.name }}</h3>
+          <p class="card-description">{{ clause.description }}</p>
+
+          <div class="card-meta">
+            <div class="meta-row">
+              <span class="meta-label">Category:</span>
+              <span class="meta-value">{{ clause.category_path_display }}</span>
+            </div>
+            <div class="meta-row">
+              <span class="meta-label">Risk:</span>
+              <span class="badge" [ngClass]="getRiskBadgeClass(clause.metadata.risk_level)">
+                {{ clause.metadata.risk_level }}
+              </span>
+            </div>
+            <div class="meta-row">
+              <span class="meta-label">Complexity:</span>
+              <span class="badge" [ngClass]="getComplexityBadgeClass(clause.metadata.complexity)">
+                {{ clause.metadata.complexity }}
+              </span>
+            </div>
+            <div class="meta-row">
+              <span class="meta-label">Usage:</span>
+              <span class="meta-value">{{ clause.usage_stats.times_used }} times</span>
+            </div>
+          </div>
+
+          <div class="card-tags">
+            <span class="tag" *ngFor="let tag of clause.metadata.tags.slice(0, 3)">{{ tag }}</span>
+            <span class="tag-more" *ngIf="clause.metadata.tags.length > 3">+{{ clause.metadata.tags.length - 3 }}</span>
+          </div>
+        </div>
+
+        <div class="card-footer">
+          <span class="footer-date">Modified: {{ formatDate(clause.audit.modified_date) }}</span>
+          <div class="footer-actions">
+            <button class="btn-icon" (click)="editClause(clause.id)" title="Edit">✏️</button>
+            <button class="btn-icon" (click)="deleteClause(clause.id, clause.name)" title="Delete">🗑️</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pagination -->
+    <div class="pagination" *ngIf="totalPages > 1">
+      <button class="btn-page" (click)="previousPage()" [disabled]="currentPage === 1">
+        ← Previous
+      </button>
+
+      <div class="page-numbers">
+        <button
+          *ngFor="let page of getPageNumbers()"
+          class="btn-page-num"
+          [class.active]="page === currentPage"
+          [disabled]="page === -1"
+          (click)="goToPage(page)">
+          {{ page === -1 ? '...' : page }}
+        </button>
+      </div>
+
+      <button class="btn-page" (click)="nextPage()" [disabled]="currentPage === totalPages">
+        Next →
+      </button>
+    </div>
+      </div>
+    </div>
+  </div>
+</div>

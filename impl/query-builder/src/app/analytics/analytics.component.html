@@ -1,0 +1,312 @@
+<div class="analytics-container">
+  <!-- Header -->
+  <header class="analytics-header">
+    <div class="header-content">
+      <button class="back-button" (click)="goBack()" title="Back to Workbench">
+        ← Back
+      </button>
+      <h1>📊 Usage Analytics</h1>
+      <div class="header-actions">
+        <select [(ngModel)]="selectedPeriod" (ngModelChange)="onPeriodChange()" class="period-selector">
+          <option *ngFor="let period of periodOptions" [value]="period.value">
+            {{ period.label }}
+          </option>
+        </select>
+      </div>
+    </div>
+  </header>
+
+  <!-- Loading State -->
+  <div *ngIf="isLoading" class="loading-container">
+    <div class="spinner"></div>
+    <p>Loading analytics...</p>
+  </div>
+
+  <!-- Main Content -->
+  <div *ngIf="!isLoading && usageSummary" class="analytics-content">
+    <!-- Summary Cards -->
+    <div class="summary-cards">
+      <div class="summary-card card-primary">
+        <div class="card-icon">🔢</div>
+        <div class="card-content">
+          <h3>Total Operations</h3>
+          <p class="card-value">{{ formatNumber(usageSummary.totals.total_operations) }}</p>
+          <p class="card-label">Contract comparisons</p>
+        </div>
+      </div>
+
+      <div class="summary-card card-secondary">
+        <div class="card-icon">🎯</div>
+        <div class="card-content">
+          <h3>Total Tokens</h3>
+          <p class="card-value">{{ formatNumber(usageSummary.totals.total_tokens) }}</p>
+          <p class="card-label">Tokens processed</p>
+        </div>
+      </div>
+
+      <div class="summary-card card-accent">
+        <div class="card-icon">💰</div>
+        <div class="card-content">
+          <h3>Total Cost</h3>
+          <p class="card-value">{{ formatCurrency(usageSummary.totals.total_cost) }}</p>
+          <p class="card-label">Estimated spend</p>
+        </div>
+      </div>
+
+      <div class="summary-card card-success" *ngIf="costSavings">
+        <div class="card-icon">💵</div>
+        <div class="card-content">
+          <h3>Potential Savings</h3>
+          <p class="card-value" [class]="getSavingsColorClass(costSavings.if_using_secondary.savings_percentage)">
+            {{ formatCurrency(costSavings.if_using_secondary.savings) }}
+          </p>
+          <p class="card-label">{{ costSavings.if_using_secondary.savings_percentage.toFixed(1) }}% if using GPT-4.1-mini</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Model Breakdown -->
+    <div class="section-card">
+      <div class="section-header">
+        <h2>🤖 Model Usage Breakdown</h2>
+        <p class="section-subtitle">Comparison of model usage and performance</p>
+      </div>
+
+      <div *ngIf="usageSummary.models.length === 0" class="empty-state">
+        <p>📭 No usage data available for the selected period.</p>
+        <p class="help-text">Start using contract comparisons to see analytics here.</p>
+      </div>
+
+      <div *ngIf="usageSummary.models.length > 0" class="model-breakdown">
+        <div *ngFor="let model of usageSummary.models" class="model-card">
+          <div class="model-header">
+            <div class="model-name-section">
+              <span class="model-badge" [ngClass]="getModelBadgeClass(model.model)">
+                {{ getModelDisplayName(model.model) }}
+              </span>
+            </div>
+            <div class="model-operations">
+              {{ formatNumber(model.total_operations) }} operations
+            </div>
+          </div>
+
+          <div class="model-stats">
+            <div class="stat-item">
+              <div class="stat-label">Tokens</div>
+              <div class="stat-value">{{ formatNumber(model.total_tokens) }}</div>
+              <div class="stat-bar">
+                <div class="stat-bar-fill"
+                     [style.width.%]="getOperationsPercentage(model.total_operations)"></div>
+              </div>
+            </div>
+
+            <div class="stat-item">
+              <div class="stat-label">Cost</div>
+              <div class="stat-value">{{ formatCurrency(model.total_cost) }}</div>
+              <div class="stat-bar">
+                <div class="stat-bar-fill stat-bar-cost"
+                     [style.width.%]="getCostPercentage(model.total_cost)"></div>
+              </div>
+            </div>
+
+            <div class="stat-item">
+              <div class="stat-label">Avg Time</div>
+              <div class="stat-value">{{ formatTime(model.avg_time) }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Operation Type Breakdown -->
+    <div class="section-card" *ngIf="operationBreakdown && operationBreakdown.length > 0">
+      <div class="section-header">
+        <h2>📋 Operation Type Breakdown</h2>
+        <p class="section-subtitle">Usage by operation type across all models</p>
+      </div>
+
+      <div class="operation-grid">
+        <div *ngFor="let op of operationBreakdown" class="operation-card">
+          <div class="operation-header">
+            <span class="operation-icon">{{ getOperationIcon(op.operation) }}</span>
+            <h3>{{ getOperationDisplayName(op.operation) }}</h3>
+            <span class="info-icon" [title]="getOperationDescription(op.operation)">ⓘ</span>
+          </div>
+
+          <div class="operation-stats">
+            <div class="stat-row">
+              <span class="stat-label">Operations:</span>
+              <span class="stat-value">{{ formatNumber(op.total_operations) }}</span>
+            </div>
+            <div class="stat-row">
+              <span class="stat-label">Success Rate:</span>
+              <span class="stat-value" [ngClass]="getSuccessRateClass(op.success_rate)">
+                {{ op.success_rate.toFixed(1) }}%
+              </span>
+            </div>
+            <div class="stat-row">
+              <span class="stat-label">Total Tokens:</span>
+              <span class="stat-value">{{ formatNumber(op.total_tokens) }}</span>
+            </div>
+            <div class="stat-row">
+              <span class="stat-label">Prompt/Completion:</span>
+              <span class="stat-value">
+                {{ formatNumber(op.total_prompt_tokens) }} / {{ formatNumber(op.total_completion_tokens) }}
+              </span>
+            </div>
+            <div class="stat-row">
+              <span class="stat-label">Cost:</span>
+              <span class="stat-value">{{ formatCurrency(op.total_cost) }}</span>
+            </div>
+            <div class="stat-row">
+              <span class="stat-label">Avg Time:</span>
+              <span class="stat-value">{{ formatTime(op.avg_time) }}</span>
+            </div>
+          </div>
+
+          <div class="operation-models">
+            <span class="model-chip" *ngFor="let model of op.models_used" [ngClass]="getModelBadgeClass(model)">
+              {{ getModelDisplayName(model) }}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Cost Savings Analysis -->
+    <div class="section-card" *ngIf="costSavings">
+      <div class="section-header">
+        <h2>💡 Cost Savings Analysis</h2>
+        <p class="section-subtitle">Potential savings if secondary model was used</p>
+      </div>
+
+      <div class="savings-grid">
+        <div class="savings-column">
+          <h3>Current Usage (Primary Model)</h3>
+          <div class="savings-detail">
+            <span class="detail-label">Operations:</span>
+            <span class="detail-value">{{ formatNumber(costSavings.primary_model_usage.operations) }}</span>
+          </div>
+          <div class="savings-detail">
+            <span class="detail-label">Tokens:</span>
+            <span class="detail-value">{{ formatNumber(costSavings.primary_model_usage.tokens) }}</span>
+          </div>
+          <div class="savings-detail highlight">
+            <span class="detail-label">Actual Cost:</span>
+            <span class="detail-value">{{ formatCurrency(costSavings.primary_model_usage.actual_cost) }}</span>
+          </div>
+        </div>
+
+        <div class="savings-column savings-column-highlight">
+          <h3>If Using Secondary Model</h3>
+          <div class="savings-detail">
+            <span class="detail-label">Potential Cost:</span>
+            <span class="detail-value">{{ formatCurrency(costSavings.if_using_secondary.potential_cost) }}</span>
+          </div>
+          <div class="savings-detail">
+            <span class="detail-label">Savings:</span>
+            <span class="detail-value savings-amount">
+              {{ formatCurrency(costSavings.if_using_secondary.savings) }}
+            </span>
+          </div>
+          <div class="savings-detail highlight">
+            <span class="detail-label">Savings %:</span>
+            <span class="detail-value savings-percentage"
+                  [class]="getSavingsColorClass(costSavings.if_using_secondary.savings_percentage)">
+              {{ costSavings.if_using_secondary.savings_percentage.toFixed(1) }}%
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div class="recommendation-box">
+        <div class="recommendation-icon">
+          {{ getRecommendationIcon(costSavings.recommendation) }}
+        </div>
+        <div class="recommendation-content">
+          <h4>Recommendation</h4>
+          <p>{{ costSavings.recommendation }}</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Daily Timeline (Simple version) -->
+    <div class="section-card" *ngIf="usageTimeline && usageTimeline.timeline.length > 0">
+      <div class="section-header">
+        <h2>📈 Daily Usage Timeline</h2>
+        <p class="section-subtitle">Operations over time (last {{ usageTimeline.timeline.length }} days with activity)</p>
+      </div>
+
+      <div class="timeline-list">
+        <div *ngFor="let day of usageTimeline.timeline" class="timeline-item">
+          <div class="timeline-date">{{ day.date }}</div>
+          <div class="timeline-model">
+            <span class="model-badge" [ngClass]="getModelBadgeClass(day.model)">
+              {{ getModelDisplayName(day.model) }}
+            </span>
+          </div>
+          <div class="timeline-operations">{{ formatNumber(day.operations) }} ops</div>
+          <div class="timeline-tokens">{{ formatNumber(day.tokens) }} tokens</div>
+          <div class="timeline-cost">{{ formatCurrency(day.cost) }}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Error Analysis -->
+    <div class="section-card" *ngIf="errorAnalysis && errorAnalysis.total_errors > 0">
+      <div class="section-header">
+        <h2>⚠️ Error Analysis</h2>
+        <p class="section-subtitle">Failed operations and reliability metrics</p>
+      </div>
+
+      <div class="error-summary">
+        <div class="error-stat-card">
+          <div class="error-stat-value">{{ formatNumber(errorAnalysis.total_errors) }}</div>
+          <div class="error-stat-label">Total Errors</div>
+        </div>
+        <div class="error-stat-card">
+          <div class="error-stat-value">{{ errorAnalysis.error_rate.toFixed(1) }}%</div>
+          <div class="error-stat-label">Error Rate</div>
+        </div>
+        <div class="error-stat-card">
+          <div class="error-stat-value success-excellent">{{ errorAnalysis.most_reliable_operation }}</div>
+          <div class="error-stat-label">Most Reliable Operation</div>
+        </div>
+      </div>
+
+      <div class="error-list">
+        <div *ngFor="let pattern of errorAnalysis.error_patterns" class="error-item">
+          <div class="error-header">
+            <span class="operation-icon">{{ getOperationIcon(pattern.operation) }}</span>
+            <span class="error-operation">{{ getOperationDisplayName(pattern.operation) }}</span>
+            <span class="error-count">{{ pattern.count }} errors</span>
+          </div>
+          <div class="error-details">
+            <span class="error-rate-badge">{{ pattern.error_rate.toFixed(1) }}% failure rate</span>
+            <span class="error-message">{{ pattern.common_error }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="quick-actions">
+      <button class="btn btn-secondary" (click)="goToPreferences()">
+        ⚙️ Model Preferences
+      </button>
+      <button class="btn btn-primary" (click)="loadAnalytics()">
+        🔄 Refresh Data
+      </button>
+    </div>
+  </div>
+
+  <!-- Empty State (No Data) -->
+  <div *ngIf="!isLoading && usageSummary && usageSummary.totals.total_operations === 0" class="empty-state-full">
+    <div class="empty-icon">📊</div>
+    <h2>No Usage Data Yet</h2>
+    <p>You haven't performed any contract comparisons in the selected time period.</p>
+    <button class="btn btn-primary" (click)="goBack()">
+      Start Comparing Contracts
+    </button>
+  </div>
+</div>

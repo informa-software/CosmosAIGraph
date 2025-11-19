@@ -1,0 +1,32 @@
+{
+  "indexingMode": "consistent",
+  "automatic": true,
+  "includedPaths": [
+    {
+      "path": "/*"
+    }
+  ],
+  "excludedPaths": [
+    {
+      "path": "/result_ids/*"
+    },
+    {
+      "path": "/error_message/?"
+    },
+    {
+      "path": "/\"_etag\"/?"
+    }
+  ],
+  "compositeIndexes": [
+    [
+      {
+        "path": "/status",
+        "order": "ascending"
+      },
+      {
+        "path": "/started_date",
+        "order": "descending"
+      }
+    ]
+  ]
+}

@@ -1,0 +1,171 @@
+<div class="variable-manager-container">
+  <!-- Header -->
+  <header class="manager-header">
+    <div class="header-content">
+      <h1>🔤 Variable Manager</h1>
+      <p class="subtitle">Manage system and custom variables for clause templates</p>
+    </div>
+    <div class="header-actions">
+      <button class="btn btn-primary" (click)="openCreateForm()">
+        ➕ New Custom Variable
+      </button>
+    </div>
+  </header>
+
+  <!-- Search Bar -->
+  <div class="search-section">
+    <div class="search-bar">
+      <input
+        type="text"
+        [(ngModel)]="searchQuery"
+        (ngModelChange)="onSearch()"
+        placeholder="Search variables by name, description, or default value..."
+        class="search-input"
+      />
+      <span class="search-icon">🔍</span>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs-container">
+    <div class="tabs">
+      <button
+        class="tab"
+        [class.active]="activeTab === 'all'"
+        (click)="setActiveTab('all')">
+        All Variables ({{ getTabCount('all') }})
+      </button>
+      <button
+        class="tab"
+        [class.active]="activeTab === 'system'"
+        (click)="setActiveTab('system')">
+        System ({{ getTabCount('system') }})
+      </button>
+      <button
+        class="tab"
+        [class.active]="activeTab === 'custom'"
+        (click)="setActiveTab('custom')">
+        Custom ({{ getTabCount('custom') }})
+      </button>
+    </div>
+  </div>
+
+  <!-- Loading State -->
+  <div *ngIf="isLoading" class="loading-container">
+    <div class="spinner"></div>
+    <p>Loading variables...</p>
+  </div>
+
+  <!-- Variables List -->
+  <div *ngIf="!isLoading" class="variables-content">
+    <!-- Empty State -->
+    <div *ngIf="filteredVariables.length === 0" class="empty-state">
+      <div class="empty-icon">📭</div>
+      <h2>No Variables Found</h2>
+      <p *ngIf="searchQuery">No variables match your search criteria.</p>
+      <p *ngIf="!searchQuery && activeTab === 'custom'">No custom variables created yet.</p>
+      <p *ngIf="!searchQuery && activeTab === 'system'">No system variables available.</p>
+      <button *ngIf="activeTab === 'custom'" class="btn btn-primary" (click)="openCreateForm()">
+        Create Custom Variable
+      </button>
+    </div>
+
+    <!-- Variables Grid -->
+    <div *ngIf="filteredVariables.length > 0" class="variables-grid">
+      <div *ngFor="let variable of filteredVariables" class="variable-card">
+        <!-- Card Header -->
+        <div class="card-header">
+          <div class="variable-name-section">
+            <h3 class="variable-name">{{'{{'}}{{ variable.name }}{{'}}'}}</h3>
+            <span class="badge" [ngClass]="getTypeBadgeClass(variable.type)">
+              {{ variable.type }}
+            </span>
+          </div>
+          <div class="card-actions" *ngIf="variable.type === 'custom'">
+            <button class="btn-icon" (click)="editVariable(variable)" title="Edit">
+              ✏️
+            </button>
+            <button class="btn-icon" (click)="deleteVariable(variable)" title="Delete">
+              🗑️
+            </button>
+          </div>
+        </div>
+
+        <!-- Card Body -->
+        <div class="card-body">
+          <div class="variable-detail">
+            <label>Description:</label>
+            <p>{{ variable.description }}</p>
+          </div>
+
+          <div class="variable-detail">
+            <label>Default Value:</label>
+            <p class="default-value">{{ variable.default_value || '(none)' }}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Variable Form Modal -->
+  <div *ngIf="showVariableForm" class="modal-overlay" (click)="closeVariableForm()">
+    <div class="modal-content" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>{{ editingVariable ? 'Edit Custom Variable' : 'Create Custom Variable' }}</h2>
+        <button class="btn-close" (click)="closeVariableForm()">×</button>
+      </div>
+
+      <div class="modal-body">
+        <div class="form-group">
+          <label for="var-name">Variable Name <span class="required">*</span></label>
+          <input
+            type="text"
+            id="var-name"
+            [(ngModel)]="variableForm.name"
+            placeholder="VARIABLE_NAME (uppercase with underscores)"
+            class="form-control"
+            [readonly]="!!editingVariable">
+          <div class="help-text">
+            Use uppercase letters, numbers, and underscores only. Must start with a letter.
+            Example: CONTRACT_DATE, PARTY_NAME, EFFECTIVE_DATE
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="var-default">Default Value</label>
+          <input
+            type="text"
+            id="var-default"
+            [(ngModel)]="variableForm.default_value"
+            placeholder="Enter default value (optional)"
+            class="form-control">
+          <div class="help-text">
+            Optional default value to use when the variable is not provided.
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="var-description">Description <span class="required">*</span></label>
+          <textarea
+            id="var-description"
+            [(ngModel)]="variableForm.description"
+            placeholder="Describe what this variable represents and how it should be used"
+            rows="4"
+            class="form-control"></textarea>
+          <div class="help-text">
+            Provide a clear description to help users understand when and how to use this variable.
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-secondary" (click)="closeVariableForm()">
+          Cancel
+        </button>
+        <button class="btn btn-primary" (click)="saveVariable()">
+          {{ editingVariable ? 'Update Variable' : 'Create Variable' }}
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

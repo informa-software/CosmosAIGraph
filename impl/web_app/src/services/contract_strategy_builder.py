@@ -89,35 +89,49 @@ class ContractStrategyBuilder:
             try:
                 llm_plan = self.llm_planner.plan_query(natural_language, timeout=10.0)
 
-                # Validate generated query
-                is_valid_query, validation_msg = self._validate_llm_query(llm_plan)
+                # Check if plan indicates an error (JSON parsing failed, etc.)
+                if "error_response" in llm_plan.execution_plan:
+                    strategy["llm_plan"] = {
+                        "validation_status": "error",
+                        "error": llm_plan.reasoning,
+                        "raw_response": llm_plan.execution_plan.get("error_response", "")
+                    }
+                    logging.error(f"LLM returned error plan: {llm_plan.reasoning}")
 
-                if is_valid_query:
-                    strategy["llm_plan"] = {
-                        "strategy": llm_plan.strategy,
-                        "fallback_strategy": llm_plan.fallback_strategy,
-                        "query_type": llm_plan.query_type,
-                        "query_text": llm_plan.query_text,
-                        "execution_plan": llm_plan.execution_plan,
-                        "confidence": llm_plan.confidence,
-                        "reasoning": llm_plan.reasoning,
-                        "validation_status": "valid"
-                    }
-                    logging.info(f"LLM Plan: strategy={llm_plan.strategy}, "
-                               f"query_type={llm_plan.query_type}, "
-                               f"confidence={llm_plan.confidence:.2f}")
                 else:
-                    strategy["llm_plan"] = {
-                        "validation_status": "invalid",
-                        "validation_error": validation_msg
-                    }
-                    logging.warning(f"LLM query validation failed: {validation_msg}")
+                    # Validate generated query
+                    is_valid_query, validation_msg = self._validate_llm_query(llm_plan)
+
+                    if is_valid_query:
+                        strategy["llm_plan"] = {
+                            "strategy": llm_plan.strategy,
+                            "fallback_strategy": llm_plan.fallback_strategy,
+                            "query_type": llm_plan.query_type,
+                            "query_text": llm_plan.query_text,
+                            "execution_plan": llm_plan.execution_plan,
+                            "confidence": llm_plan.confidence,
+                            "reasoning": llm_plan.reasoning,
+                            "entities": llm_plan.entities,
+                            "validation_status": "valid"
+                        }
+                        logging.info(f"LLM Plan: strategy={llm_plan.strategy}, "
+                                   f"query_type={llm_plan.query_type}, "
+                                   f"confidence={llm_plan.confidence:.2f}")
+                    else:
+                        strategy["llm_plan"] = {
+                            "validation_status": "invalid",
+                            "validation_error": validation_msg
+                        }
+                        logging.warning(f"LLM query validation failed: {validation_msg}")
 
             except Exception as e:
                 logging.error(f"LLM query planning failed: {e}")
+                # Note: llm_planner now returns error plan instead of raising
+                # This should not happen anymore, but keep for safety
                 strategy["llm_plan"] = {
                     "validation_status": "error",
-                    "error": str(e)
+                    "error": str(e),
+                    "error_details": str(e)
                 }
 
         # FIRST: Detect negation patterns before entity extraction
@@ -158,7 +172,38 @@ class ContractStrategyBuilder:
         # FOURTH: If no clear strategy yet, use AI to classify
         if not strategy.get("strategy"):
             self.use_ai_classification(strategy)
-        
+
+        # FIFTH: Check for LLM strategy override (if there's a mismatch, LLM wins)
+        if self.use_llm_strategy and strategy.get("llm_plan"):
+            llm_plan = strategy["llm_plan"]
+            if llm_plan.get("validation_status") == "valid":
+                # Map LLM strategy to rule-based strategy
+                llm_strategy = llm_plan.get("strategy", "")
+                llm_to_rule_mapping = {
+                    "CONTRACT_DIRECT": "db",
+                    "ENTITY_FIRST": "db",
+                    "ENTITY_AGGREGATION": "db",
+                    "CLAUSE_DIRECT": "db",
+                    "GRAPH_TRAVERSAL": "graph",
+                    "VECTOR_SEARCH": "vector"
+                }
+
+                llm_mapped_strategy = llm_to_rule_mapping.get(llm_strategy)
+                rule_based_strategy = strategy.get("strategy")
+
+                # Check for mismatch
+                if llm_mapped_strategy and llm_mapped_strategy != rule_based_strategy:
+                    logging.warning(f"Strategy MISMATCH detected:")
+                    logging.warning(f"  Rule-based: {rule_based_strategy}")
+                    logging.warning(f"  LLM:        {llm_strategy} (maps to '{llm_mapped_strategy}')")
+                    logging.warning(f"  OVERRIDING with LLM strategy: {llm_mapped_strategy}")
+
+                    # Override rule-based strategy with LLM decision
+                    strategy["strategy"] = llm_mapped_strategy
+                    strategy["algorithm"] = "llm_override"
+                    strategy["confidence"] = llm_plan.get("confidence", 0.9)
+                    strategy["original_rule_strategy"] = rule_based_strategy
+
         # FINALLY: Add strategy-specific configuration
         self.add_strategy_configuration(strategy)
 

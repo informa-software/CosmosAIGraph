@@ -1,0 +1,843 @@
+/* PDF Report Styles - xhtml2pdf Compatible */
+
+/* Page Setup */
+@page {
+    size: letter;
+    margin: 0.75in;
+}
+
+/* Typography */
+body {
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 11pt;
+    line-height: 1.6;
+    color: #333;
+    margin: 0;
+    padding: 20px;
+}
+
+h1 {
+    font-size: 24pt;
+    font-weight: 600;
+    color: #1a1a1a;
+    margin: 0 0 12pt 0;
+    padding: 0 0 8pt 0;
+    border-bottom: 2pt solid #2563eb;
+}
+
+h2 {
+    font-size: 16pt;
+    font-weight: 600;
+    color: #1f2937;
+    margin: 16pt 0 8pt 0;
+    padding: 0;
+}
+
+h3 {
+    font-size: 13pt;
+    font-weight: 600;
+    color: #374151;
+    margin: 12pt 0 6pt 0;
+    padding: 0;
+}
+
+h4 {
+    font-size: 11pt;
+    font-weight: 600;
+    color: #4b5563;
+    margin: 8pt 0 4pt 0;
+    padding: 0;
+}
+
+p {
+    margin: 0 0 8pt 0;
+}
+
+/* Header Section */
+.report-header {
+    margin-bottom: 24pt;
+}
+
+.report-title {
+    font-size: 28pt;
+    font-weight: 700;
+    color: #1a1a1a;
+    margin: 0 0 8pt 0;
+}
+
+.report-subtitle {
+    font-size: 12pt;
+    color: #6b7280;
+    margin: 0 0 16pt 0;
+}
+
+.report-meta {
+    padding: 12pt;
+    background-color: #f9fafb;
+    border-left: 3pt solid #2563eb;
+    margin-bottom: 16pt;
+}
+
+.meta-item {
+    margin: 4pt 0;
+    display: block;
+}
+
+.meta-label {
+    font-weight: 600;
+    color: #4b5563;
+}
+
+.meta-value {
+    color: #1f2937;
+}
+
+/* Query Section */
+.query-section {
+    margin-bottom: 24pt;
+    padding: 16pt;
+    background-color: #f0f9ff;
+    border-left: 4pt solid #0284c7;
+}
+
+.query-text {
+    font-size: 13pt;
+    font-weight: 500;
+    color: #0c4a6e;
+    margin: 0;
+    font-style: italic;
+}
+
+/* Tables */
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12pt 0;
+    font-size: 10pt;
+}
+
+thead {
+    background-color: #f3f4f6;
+}
+
+th {
+    text-align: left;
+    padding: 8pt;
+    font-weight: 600;
+    color: #1f2937;
+    border-bottom: 2pt solid #d1d5db;
+}
+
+td {
+    padding: 8pt;
+    border-bottom: 1pt solid #e5e7eb;
+    vertical-align: top;
+}
+
+tbody tr:last-child td {
+    border-bottom: none;
+}
+
+tbody tr:hover {
+    background-color: #fafafa;
+}
+
+/* Contracts Table */
+.contracts-table {
+    margin: 16pt 0;
+}
+
+.contracts-table th {
+    background-color: #eff6ff;
+}
+
+/* Results Section */
+.results-section {
+    margin: 24pt 0;
+}
+
+.result-card {
+    margin: 16pt 0;
+    padding: 16pt;
+    border: 1pt solid #e5e7eb;
+    page-break-inside: avoid;
+}
+
+.result-card.rank-1 {
+    background-color: #fefce8;
+    border-left: 4pt solid #facc15;
+}
+
+.result-card.rank-2 {
+    background-color: #fef3c7;
+    border-left: 4pt solid #f59e0b;
+}
+
+.result-card.rank-3 {
+    background-color: #fee2e2;
+    border-left: 4pt solid #ef4444;
+}
+
+.result-header {
+    margin-bottom: 12pt;
+    overflow: auto;
+}
+
+.result-rank {
+    font-size: 18pt;
+    font-weight: 700;
+    color: #1f2937;
+}
+
+.result-score {
+    font-size: 14pt;
+    font-weight: 600;
+    color: #2563eb;
+}
+
+.result-contract {
+    font-size: 12pt;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 8pt;
+}
+
+.result-filename {
+    font-size: 9pt;
+    color: #6b7280;
+    font-family: "Courier New", monospace;
+    margin-bottom: 12pt;
+}
+
+.result-reasoning {
+    margin: 12pt 0;
+    padding: 12pt;
+    background-color: #f9fafb;
+    border-left: 3pt solid #9ca3af;
+}
+
+.reasoning-label {
+    font-weight: 600;
+    color: #4b5563;
+    margin-bottom: 6pt;
+}
+
+.reasoning-text {
+    color: #1f2937;
+    line-height: 1.5;
+}
+
+/* Clauses Section */
+.clauses-section {
+    margin: 12pt 0;
+}
+
+.clause-item {
+    margin: 8pt 0;
+    padding: 12pt;
+    background-color: #fffbeb;
+    border-left: 3pt solid #f59e0b;
+}
+
+.clause-type {
+    font-weight: 600;
+    color: #92400e;
+    margin-bottom: 6pt;
+}
+
+.clause-text {
+    font-size: 10pt;
+    color: #451a03;
+    font-style: italic;
+    margin-bottom: 6pt;
+    line-height: 1.4;
+}
+
+.clause-analysis {
+    font-size: 10pt;
+    color: #78350f;
+}
+
+/* Summary Section */
+.summary-section {
+    margin: 24pt 0;
+    padding: 16pt;
+    background-color: #ecfdf5;
+    border-left: 4pt solid #10b981;
+}
+
+.summary-label {
+    font-weight: 600;
+    color: #065f46;
+    margin-bottom: 8pt;
+}
+
+.summary-text {
+    color: #064e3b;
+    line-height: 1.6;
+}
+
+/* Comparison Results */
+.comparison-item {
+    margin: 16pt 0;
+    padding: 16pt;
+    border: 1pt solid #e5e7eb;
+    page-break-inside: avoid;
+}
+
+.risk-level {
+    display: inline-block;
+    padding: 4pt 12pt;
+    font-size: 9pt;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.risk-low {
+    background-color: #d1fae5;
+    color: #065f46;
+}
+
+.risk-medium {
+    background-color: #fef3c7;
+    color: #92400e;
+}
+
+.risk-high {
+    background-color: #fee2e2;
+    color: #991b1b;
+}
+
+.risk-critical {
+    background-color: #fecaca;
+    color: #7f1d1d;
+}
+
+.similarity-score {
+    font-size: 18pt;
+    font-weight: 700;
+    color: #2563eb;
+    margin: 8pt 0;
+}
+
+/* Lists */
+ul {
+    margin: 8pt 0;
+    padding-left: 20pt;
+}
+
+li {
+    margin: 4pt 0;
+}
+
+.findings-list {
+    list-style-type: disc;
+}
+
+.findings-list li {
+    margin: 6pt 0;
+    color: #1f2937;
+}
+
+/* Footer */
+.report-footer {
+    margin-top: 24pt;
+    padding-top: 12pt;
+    border-top: 1pt solid #d1d5db;
+    font-size: 9pt;
+    color: #6b7280;
+    text-align: center;
+}
+
+/* Execution Metadata */
+.execution-metadata {
+    margin: 16pt 0;
+    padding: 12pt;
+    background-color: #f9fafb;
+    border: 1pt solid #e5e7eb;
+    font-size: 9pt;
+}
+
+.metadata-grid {
+    margin: 8pt 0;
+}
+
+.metadata-item {
+    padding: 8pt;
+    margin: 4pt 0;
+    background-color: white;
+    border-left: 2pt solid #9ca3af;
+    display: block;
+}
+
+/* Code/Technical Text */
+code, .code {
+    font-family: Courier, monospace;
+    font-size: 9pt;
+    background-color: #f3f4f6;
+    padding: 2pt 6pt;
+}
+
+/* Utility Classes */
+.text-center {
+    text-align: center;
+}
+
+.text-right {
+    text-align: right;
+}
+
+.bold {
+    font-weight: 600;
+}
+
+.italic {
+    font-style: italic;
+}
+
+.muted {
+    color: #6b7280;
+}
+
+.mb-0 { margin-bottom: 0; }
+.mb-1 { margin-bottom: 4pt; }
+.mb-2 { margin-bottom: 8pt; }
+.mb-3 { margin-bottom: 12pt; }
+.mb-4 { margin-bottom: 16pt; }
+
+.mt-0 { margin-top: 0; }
+.mt-1 { margin-top: 4pt; }
+.mt-2 { margin-top: 8pt; }
+.mt-3 { margin-top: 12pt; }
+.mt-4 { margin-top: 16pt; }
+
+/* ========================================================================
+   EXPANDED TEMPLATE STYLES (Option 1: PDF-Specific Templates)
+   ======================================================================== */
+
+/* Page Breaks */
+.page-break {
+    page-break-before: always;
+}
+
+/* Section Containers */
+.section-container {
+    margin: 20pt 0;
+    page-break-inside: avoid;
+}
+
+.section-title {
+    font-size: 16pt;
+    font-weight: 600;
+    color: #1f2937;
+    margin: 16pt 0 12pt 0;
+    padding-bottom: 6pt;
+    border-bottom: 2pt solid #e5e7eb;
+}
+
+.section-subtitle {
+    font-size: 13pt;
+    font-weight: 600;
+    color: #4b5563;
+    margin: 12pt 0 8pt 0;
+}
+
+.subsection-title {
+    font-size: 11pt;
+    font-weight: 600;
+    color: #6b7280;
+    margin: 8pt 0 6pt 0;
+}
+
+.report-description {
+    font-size: 11pt;
+    color: #4b5563;
+    margin: 8pt 0;
+    line-height: 1.5;
+}
+
+.info-box {
+    padding: 12pt;
+    background-color: #f9fafb;
+    border: 1pt solid #e5e7eb;
+    margin: 8pt 0;
+}
+
+/* Comparison Containers */
+.comparison-container {
+    margin: 20pt 0;
+    padding: 16pt;
+    border: 1pt solid #d1d5db;
+    background-color: #fafafa;
+    page-break-inside: avoid;
+}
+
+.comparison-header {
+    margin-bottom: 16pt;
+    padding-bottom: 12pt;
+    border-bottom: 2pt solid #e5e7eb;
+}
+
+.comparison-contract-title {
+    font-size: 14pt;
+    font-weight: 600;
+    color: #1f2937;
+    margin: 0 0 8pt 0;
+}
+
+.comparison-metrics {
+    margin-top: 8pt;
+}
+
+.metric-badge {
+    display: inline-block;
+    padding: 4pt 10pt;
+    margin-right: 8pt;
+    font-size: 9pt;
+    font-weight: 600;
+    background-color: #e5e7eb;
+    color: #374151;
+}
+
+.metric-badge.similarity {
+    background-color: #dbeafe;
+    color: #1e40af;
+}
+
+/* Findings Containers */
+.findings-container {
+    margin: 12pt 0;
+    padding: 12pt;
+    border-left: 4pt solid #d1d5db;
+    page-break-inside: avoid;
+}
+
+.findings-container.critical {
+    background-color: #fef2f2;
+    border-left-color: #dc2626;
+}
+
+.findings-container.missing {
+    background-color: #fef2f2;
+    border-left-color: #991b1b;
+}
+
+.findings-container.additional {
+    background-color: #ecfdf5;
+    border-left-color: #059669;
+}
+
+.findings-title {
+    font-size: 11pt;
+    font-weight: 600;
+    margin: 0 0 8pt 0;
+}
+
+/* Clause Analysis Section */
+.clause-analyses-section {
+    margin: 16pt 0;
+}
+
+.clause-analysis-item {
+    margin: 16pt 0;
+    padding: 12pt;
+    background-color: white;
+    border: 1pt solid #e5e7eb;
+    page-break-inside: avoid;
+}
+
+.clause-header {
+    margin-bottom: 12pt;
+    padding-bottom: 8pt;
+    border-bottom: 1pt solid #e5e7eb;
+}
+
+.clause-title {
+    font-size: 12pt;
+    font-weight: 600;
+    color: #1f2937;
+    margin: 0 0 6pt 0;
+}
+
+.clause-metrics {
+    margin-top: 4pt;
+}
+
+.clause-metric {
+    display: inline-block;
+    padding: 3pt 8pt;
+    margin-right: 6pt;
+    font-size: 8pt;
+    font-weight: 600;
+    background-color: #f3f4f6;
+    color: #4b5563;
+}
+
+.clause-metric.similarity-high {
+    background-color: #d1fae5;
+    color: #065f46;
+}
+
+.clause-metric.similarity-medium {
+    background-color: #fef3c7;
+    color: #92400e;
+}
+
+.clause-metric.similarity-low {
+    background-color: #fee2e2;
+    color: #991b1b;
+}
+
+.clause-metric.status-present {
+    background-color: #d1fae5;
+    color: #065f46;
+}
+
+.clause-metric.status-missing {
+    background-color: #fee2e2;
+    color: #991b1b;
+}
+
+.clause-summary {
+    margin: 8pt 0;
+    padding: 8pt;
+    background-color: #f9fafb;
+    font-size: 10pt;
+    line-height: 1.4;
+}
+
+/* Side-by-Side Clause Comparison */
+.side-by-side-container {
+    margin: 12pt 0;
+    padding: 0;
+    border: 1pt solid #d1d5db;
+    overflow: auto;
+}
+
+.clause-column {
+    width: 48%;
+    float: left;
+    padding: 12pt;
+    background-color: white;
+}
+
+.clause-column.standard-column {
+    border-right: 2pt solid #d1d5db;
+}
+
+.clause-column.compared-column {
+    float: right;
+}
+
+.column-header {
+    font-size: 10pt;
+    font-weight: 600;
+    color: #4b5563;
+    margin-bottom: 8pt;
+    padding-bottom: 6pt;
+    border-bottom: 1pt solid #e5e7eb;
+}
+
+.clause-text-content {
+    font-size: 9pt;
+    color: #1f2937;
+    line-height: 1.5;
+}
+
+.text-muted {
+    color: #9ca3af;
+    font-style: italic;
+}
+
+/* Clause Details */
+.clause-details-section {
+    margin: 10pt 0;
+    padding: 10pt;
+    background-color: #fafafa;
+}
+
+.clause-details-section.risks {
+    background-color: #fef2f2;
+    border-left: 3pt solid #dc2626;
+}
+
+.details-list {
+    margin: 6pt 0;
+    padding-left: 16pt;
+    list-style-type: square;
+}
+
+.details-list li {
+    margin: 4pt 0;
+    font-size: 10pt;
+    line-height: 1.4;
+}
+
+/* Error Messages */
+.error-message {
+    padding: 12pt;
+    background-color: #fee2e2;
+    border-left: 4pt solid #dc2626;
+    color: #991b1b;
+    margin: 12pt 0;
+}
+
+/* Query-Specific Styles */
+.query-box {
+    padding: 16pt;
+    background-color: #f0f9ff;
+    border-left: 4pt solid #0284c7;
+    margin: 12pt 0;
+}
+
+.answer-summary-section {
+    page-break-inside: avoid;
+}
+
+.answer-box {
+    padding: 16pt;
+    background-color: #ecfdf5;
+    border-left: 4pt solid #10b981;
+    margin: 12pt 0;
+    line-height: 1.6;
+}
+
+.result-container {
+    margin: 16pt 0;
+    padding: 0;
+    border: 1pt solid #e5e7eb;
+    page-break-inside: avoid;
+}
+
+.result-header-bar {
+    padding: 12pt;
+    background-color: #f3f4f6;
+    border-bottom: 1pt solid #d1d5db;
+    overflow: auto;
+}
+
+.result-header-bar.rank-1 {
+    background-color: #fef9c3;
+    border-left: 4pt solid #ca8a04;
+}
+
+.result-header-bar.rank-2 {
+    background-color: #fed7aa;
+    border-left: 4pt solid #ea580c;
+}
+
+.result-header-bar.rank-3 {
+    background-color: #fecaca;
+    border-left: 4pt solid #dc2626;
+}
+
+.result-rank-badge {
+    display: inline-block;
+    padding: 4pt 10pt;
+    font-size: 10pt;
+    font-weight: 700;
+    background-color: #1f2937;
+    color: white;
+}
+
+.result-contract-name {
+    font-size: 12pt;
+    font-weight: 600;
+    color: #1f2937;
+    margin-left: 10pt;
+}
+
+.result-score-badge {
+    float: right;
+    padding: 4pt 10pt;
+    font-size: 10pt;
+    font-weight: 600;
+    background-color: #dbeafe;
+    color: #1e40af;
+}
+
+.result-analysis {
+    padding: 16pt;
+    background-color: white;
+}
+
+.clauses-section-expanded {
+    padding: 16pt;
+    background-color: #fafafa;
+}
+
+.clause-card {
+    margin: 12pt 0;
+    padding: 12pt;
+    background-color: white;
+    border: 1pt solid #e5e7eb;
+    page-break-inside: avoid;
+}
+
+.clause-card-header {
+    margin-bottom: 8pt;
+    padding-bottom: 6pt;
+    border-bottom: 1pt solid #e5e7eb;
+}
+
+.clause-type-badge {
+    display: inline-block;
+    padding: 4pt 10pt;
+    font-size: 9pt;
+    font-weight: 600;
+    background-color: #fef3c7;
+    color: #92400e;
+}
+
+.clause-similarity {
+    float: right;
+    font-size: 9pt;
+    font-weight: 600;
+    color: #059669;
+}
+
+.clause-text-box {
+    margin: 8pt 0;
+    padding: 10pt;
+    background-color: #fffbeb;
+    border-left: 3pt solid #f59e0b;
+}
+
+.clause-analysis-box {
+    margin: 8pt 0;
+    padding: 10pt;
+    background-color: #f0f9ff;
+    border-left: 3pt solid #0ea5e9;
+}
+
+.contract-metadata {
+    padding: 16pt;
+    background-color: #f9fafb;
+}
+
+/* Summary Grid */
+.summary-grid {
+    margin: 12pt 0;
+}
+
+.summary-item {
+    padding: 10pt;
+    margin: 6pt 0;
+    background-color: white;
+    border-left: 3pt solid #10b981;
+    display: block;
+}
+
+.summary-label {
+    font-size: 9pt;
+    font-weight: 600;
+    color: #6b7280;
+    text-transform: uppercase;
+}
+
+.summary-value {
+    font-size: 16pt;
+    font-weight: 700;
+    color: #1f2937;
+    margin-top: 4pt;
+}

@@ -1,0 +1,26 @@
+{
+  "indexingMode": "consistent",
+  "automatic": true,
+  "includedPaths": [
+    {
+      "path": "/*"
+    }
+  ],
+  "excludedPaths": [
+    {
+      "path": "/\"_etag\"/?"
+    }
+  ],
+  "compositeIndexes": [
+    [
+      {
+        "path": "/user_email",
+        "order": "ascending"
+      },
+      {
+        "path": "/type",
+        "order": "ascending"
+      }
+    ]
+  ]
+}

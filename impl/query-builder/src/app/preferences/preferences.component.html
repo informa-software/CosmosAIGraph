@@ -1,0 +1,137 @@
+<div class="preferences-container">
+  <!-- Header -->
+  <header class="preferences-header">
+    <div class="header-content">
+      <button class="back-button" (click)="goBack()" title="Back to Workbench">
+        ← Back
+      </button>
+      <h1>⚙️ User Preferences</h1>
+      <div class="spacer"></div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <div class="preferences-content">
+    <div class="preferences-card">
+      <!-- Loading State -->
+      <div *ngIf="isLoading" class="loading-container">
+        <div class="spinner"></div>
+        <p>Loading preferences...</p>
+      </div>
+
+      <!-- Loaded State -->
+      <div *ngIf="!isLoading">
+        <!-- User Info Section -->
+        <div class="section">
+          <h2>👤 User Information</h2>
+          <div class="info-row">
+            <label>Email:</label>
+            <span class="info-value">{{ userEmail }}</span>
+          </div>
+        </div>
+
+        <div class="section-divider"></div>
+
+        <!-- Model Selection Section -->
+        <div class="section">
+          <h2>🤖 Default AI Model</h2>
+          <p class="section-description">
+            Choose your preferred AI model for contract analysis. You can always override this selection in the Contract Workbench.
+          </p>
+
+          <app-model-selector
+            [selectedModel]="selectedModel"
+            [showDescription]="true"
+            (modelChange)="onModelChange($event)">
+          </app-model-selector>
+        </div>
+
+        <div class="section-divider"></div>
+
+        <!-- Advanced Settings Section -->
+        <div class="section">
+          <h2>🔧 Advanced Settings</h2>
+          <p class="section-description">
+            Configure advanced model selection behavior. (Coming soon)
+          </p>
+
+          <div class="checkbox-group">
+            <label class="checkbox-label disabled">
+              <input
+                type="checkbox"
+                [(ngModel)]="autoSelect"
+                disabled>
+              <span class="checkbox-text">
+                <strong>Auto-select model based on contract complexity</strong>
+                <br>
+                <small>Automatically choose the best model based on contract size and complexity</small>
+              </span>
+            </label>
+
+            <label class="checkbox-label disabled">
+              <input
+                type="checkbox"
+                [(ngModel)]="costOptimization"
+                disabled>
+              <span class="checkbox-text">
+                <strong>Enable cost optimization</strong>
+                <br>
+                <small>Prefer secondary model when quality difference is minimal</small>
+              </span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="action-buttons">
+          <button
+            class="btn btn-secondary"
+            (click)="resetToDefaults()"
+            [disabled]="isSaving">
+            Reset to Defaults
+          </button>
+          <button
+            class="btn btn-primary"
+            (click)="savePreferences()"
+            [disabled]="isSaving">
+            <span *ngIf="!isSaving">💾 Save Preferences</span>
+            <span *ngIf="isSaving">
+              <span class="spinner-small"></span> Saving...
+            </span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Info Card -->
+    <div class="info-card">
+      <h3>ℹ️ About Model Selection</h3>
+      <div class="info-content">
+        <div class="info-item">
+          <h4>GPT-4.1 (Primary)</h4>
+          <ul>
+            <li>Best quality and most comprehensive analysis</li>
+            <li>Recommended for critical contracts</li>
+            <li>Higher cost: $30 per 1M tokens</li>
+          </ul>
+        </div>
+
+        <div class="info-item">
+          <h4>GPT-4.1-mini (Secondary)</h4>
+          <ul>
+            <li>Good quality with faster response times</li>
+            <li>Great for routine comparisons</li>
+            <li>Cost-effective: $10 per 1M tokens (67% savings)</li>
+          </ul>
+        </div>
+
+        <div class="info-item">
+          <h4>💡 Tip</h4>
+          <p>
+            Start with GPT-4.1-mini for most comparisons. Use GPT-4.1 for complex contracts or when maximum accuracy is required.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

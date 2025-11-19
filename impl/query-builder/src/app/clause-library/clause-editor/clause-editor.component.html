@@ -1,0 +1,412 @@
+<div class="clause-editor-container">
+  <!-- Loading State -->
+  <div *ngIf="isLoading" class="loading-container">
+    <div class="spinner"></div>
+    <p>Loading clause...</p>
+  </div>
+
+  <!-- Editor Content -->
+  <div *ngIf="!isLoading" class="clause-editor">
+    <!-- Header -->
+    <header class="editor-header">
+      <div class="header-content">
+        <div class="title-section">
+          <h1>{{ isEditMode ? 'Edit Clause' : 'Create New Clause' }}</h1>
+          <p class="subtitle">{{ isEditMode ? 'Update existing clause' : 'Add a new clause to the library' }}</p>
+        </div>
+
+        <div class="header-actions">
+          <button class="btn btn-secondary" (click)="cancel()" [disabled]="isSaving">
+            Cancel
+          </button>
+          <button class="btn btn-primary" (click)="saveClause()" [disabled]="isSaving">
+            <span *ngIf="!isSaving">{{ isEditMode ? 'Update Clause' : 'Create Clause' }}</span>
+            <span *ngIf="isSaving">Saving...</span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Tabs -->
+    <div class="tabs">
+      <button
+        class="tab"
+        [class.active]="activeTab === 'basic'"
+        (click)="setActiveTab('basic')">
+        📝 Basic Info
+      </button>
+      <button
+        class="tab"
+        [class.active]="activeTab === 'content'"
+        (click)="setActiveTab('content')">
+        📄 Content
+      </button>
+      <button
+        class="tab"
+        [class.active]="activeTab === 'metadata'"
+        (click)="setActiveTab('metadata')">
+        🏷️ Metadata
+      </button>
+      <button
+        class="tab"
+        [class.active]="activeTab === 'variables'"
+        (click)="setActiveTab('variables')">
+        🔤 Variables ({{ clauseForm.variables.length }})
+      </button>
+    </div>
+
+    <!-- Tab Content -->
+    <div class="tab-content">
+      <!-- Basic Info Tab -->
+      <div *ngIf="activeTab === 'basic'" class="basic-info-section">
+        <div class="section-card">
+          <h2>Basic Information</h2>
+
+          <div class="form-group">
+            <label for="name">Clause Name <span class="required">*</span></label>
+            <input
+              type="text"
+              id="name"
+              [(ngModel)]="clauseForm.name"
+              placeholder="Enter clause name"
+              class="form-control">
+          </div>
+
+          <div class="form-group">
+            <label for="description">Description</label>
+            <textarea
+              id="description"
+              [(ngModel)]="clauseForm.description"
+              placeholder="Describe the purpose and usage of this clause"
+              rows="4"
+              class="form-control"></textarea>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="category">Category <span class="required">*</span></label>
+              <select
+                id="category"
+                [(ngModel)]="clauseForm.category_id"
+                class="form-control">
+                <option value="">Select a category</option>
+                <option *ngFor="let category of categories" [value]="category.id">
+                  {{ category.display_path }}
+                </option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="status">Status</label>
+              <select
+                id="status"
+                [(ngModel)]="clauseForm.status"
+                class="form-control">
+                <option *ngFor="let option of statusOptions" [value]="option.value">
+                  {{ option.label }}
+                </option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Content Tab -->
+      <div *ngIf="activeTab === 'content'" class="content-section">
+        <div class="section-card">
+          <h2>Clause Content</h2>
+          <p class="section-description">Enter the clause text in HTML or plain text format.</p>
+
+          <div class="form-group">
+            <label for="content-html">Clause Content <span class="required">*</span></label>
+            <quill-editor
+              #quillEditor
+              [(ngModel)]="clauseForm.content_html"
+              [modules]="quillModules"
+              placeholder="Enter clause content here... Use the toolbar for formatting."
+              class="clause-editor">
+            </quill-editor>
+            <div class="help-text">
+              Use the toolbar to format text. Variables can be inserted using {{'{{'}}VARIABLE_NAME{{'}}'}} syntax.
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="content-plain">Plain Text Content</label>
+            <textarea
+              id="content-plain"
+              [(ngModel)]="clauseForm.content_plain_text"
+              placeholder="Enter plain text content here..."
+              rows="10"
+              class="form-control code-editor"></textarea>
+            <div class="help-text">
+              Plain text version will be auto-generated from HTML if left empty.
+            </div>
+          </div>
+
+          <div class="variable-insert-section" *ngIf="clauseForm.variables.length > 0">
+            <h3>Insert Variable</h3>
+            <p>Click a variable to insert it at the cursor position:</p>
+            <div class="variable-chips">
+              <button
+                *ngFor="let variable of clauseForm.variables"
+                class="variable-chip"
+                (click)="insertVariable(variable.name)"
+                type="button">
+                {{'{{'}}{{ variable.name }}{{'}}'}}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Metadata Tab -->
+      <div *ngIf="activeTab === 'metadata'" class="metadata-section">
+        <div class="section-card">
+          <h2>Classification</h2>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="risk-level">Risk Level</label>
+              <select
+                id="risk-level"
+                [(ngModel)]="clauseForm.risk_level"
+                class="form-control">
+                <option *ngFor="let option of riskLevelOptions" [value]="option.value">
+                  {{ option.label }}
+                </option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="complexity">Complexity</label>
+              <select
+                id="complexity"
+                [(ngModel)]="clauseForm.complexity"
+                class="form-control">
+                <option *ngFor="let option of complexityOptions" [value]="option.value">
+                  {{ option.label }}
+                </option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="section-card">
+          <h2>Tags</h2>
+          <p class="section-description">Add tags to help categorize and find this clause.</p>
+
+          <div class="form-group">
+            <div class="input-with-button">
+              <input
+                type="text"
+                [(ngModel)]="newTag"
+                (keyup.enter)="addTag()"
+                placeholder="Enter tag and press Enter"
+                class="form-control">
+              <button class="btn btn-secondary" (click)="addTag()" type="button">
+                Add Tag
+              </button>
+            </div>
+          </div>
+
+          <div class="chips-container" *ngIf="clauseForm.tags.length > 0">
+            <div class="chip" *ngFor="let tag of clauseForm.tags">
+              {{ tag }}
+              <button class="chip-remove" (click)="removeTag(tag)" type="button">×</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="section-card">
+          <h2>Contract Types</h2>
+          <p class="section-description">Specify which contract types this clause applies to.</p>
+
+          <div class="form-group">
+            <div class="input-with-button">
+              <input
+                type="text"
+                [(ngModel)]="newContractType"
+                (keyup.enter)="addContractType()"
+                placeholder="Enter contract type (e.g., MSA, NDA)"
+                class="form-control">
+              <button class="btn btn-secondary" (click)="addContractType()" type="button">
+                Add Type
+              </button>
+            </div>
+          </div>
+
+          <div class="chips-container" *ngIf="clauseForm.contract_types.length > 0">
+            <div class="chip" *ngFor="let type of clauseForm.contract_types">
+              {{ type }}
+              <button class="chip-remove" (click)="removeContractType(type)" type="button">×</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="section-card">
+          <h2>Jurisdictions</h2>
+          <p class="section-description">Add jurisdictions where this clause is applicable.</p>
+
+          <div class="form-group">
+            <div class="input-with-button">
+              <input
+                type="text"
+                [(ngModel)]="newJurisdiction"
+                (keyup.enter)="addJurisdiction()"
+                placeholder="Enter jurisdiction (e.g., California, UK)"
+                class="form-control">
+              <button class="btn btn-secondary" (click)="addJurisdiction()" type="button">
+                Add Jurisdiction
+              </button>
+            </div>
+          </div>
+
+          <div class="chips-container" *ngIf="clauseForm.jurisdictions.length > 0">
+            <div class="chip" *ngFor="let jurisdiction of clauseForm.jurisdictions">
+              {{ jurisdiction }}
+              <button class="chip-remove" (click)="removeJurisdiction(jurisdiction)" type="button">×</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Variables Tab -->
+      <div *ngIf="activeTab === 'variables'" class="variables-section">
+        <div class="section-card">
+          <div class="section-header">
+            <div>
+              <h2>Clause Variables</h2>
+              <p class="section-description">Define variables that can be replaced with actual values when using this clause.</p>
+            </div>
+            <button class="btn btn-primary" (click)="openVariableForm()" type="button">
+              + Add Variable
+            </button>
+          </div>
+
+          <div *ngIf="clauseForm.variables.length === 0" class="empty-state">
+            <p>No variables defined yet.</p>
+            <p>Variables allow you to create reusable clauses with placeholders for dynamic content.</p>
+          </div>
+
+          <div *ngIf="clauseForm.variables.length > 0" class="variables-list">
+            <div class="variable-item" *ngFor="let variable of clauseForm.variables; let i = index">
+              <div class="variable-header">
+                <h3>{{ variable.name }}</h3>
+                <div class="variable-actions">
+                  <span class="badge" [class.badge-system]="variable.type === 'system'" [class.badge-custom]="variable.type === 'custom'">
+                    {{ variable.type }}
+                  </span>
+                  <button class="btn-icon" (click)="editVariable(i)" type="button" title="Edit">
+                    ✏️
+                  </button>
+                  <button class="btn-icon" (click)="deleteVariable(i)" type="button" title="Delete">
+                    🗑️
+                  </button>
+                </div>
+              </div>
+              <p class="variable-description">{{ variable.description }}</p>
+              <div class="variable-default">
+                <strong>Default Value:</strong> {{ variable.default_value }}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Variable Form Modal -->
+  <div *ngIf="showVariableForm" class="modal-overlay" (click)="closeVariableForm()">
+    <div class="modal-content" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>{{ editingVariableIndex !== null ? 'Edit Variable' : 'Add Variable' }}</h2>
+        <button class="btn-close" (click)="closeVariableForm()">×</button>
+      </div>
+
+      <div class="modal-body">
+        <!-- Variable Type (First Field) -->
+        <div class="form-group">
+          <label for="var-type">Type <span class="required">*</span></label>
+          <select
+            id="var-type"
+            [(ngModel)]="variableForm.type"
+            (ngModelChange)="onVariableTypeChange()"
+            class="form-control">
+            <option value="custom">Custom Variable</option>
+            <option value="system">System Variable</option>
+          </select>
+          <div class="help-text">
+            Choose "System" to select from predefined variables, or "Custom" to create your own.
+          </div>
+        </div>
+
+        <!-- System Variable Selection (Only shown for system type) -->
+        <div class="form-group" *ngIf="variableForm.type === 'system'">
+          <label for="var-system-select">Select System Variable <span class="required">*</span></label>
+          <select
+            id="var-system-select"
+            [ngModel]="variableForm.name"
+            (ngModelChange)="onSystemVariableSelected($event)"
+            class="form-control">
+            <option value="">-- Select a system variable --</option>
+            <option *ngFor="let sysVar of systemVariables" [value]="sysVar.name">
+              {{ sysVar.name }} - {{ sysVar.description }}
+            </option>
+          </select>
+        </div>
+
+        <!-- Variable Name -->
+        <div class="form-group">
+          <label for="var-name">Variable Name <span class="required">*</span></label>
+          <input
+            type="text"
+            id="var-name"
+            [(ngModel)]="variableForm.name"
+            [readonly]="variableForm.type === 'system'"
+            placeholder="VARIABLE_NAME (uppercase)"
+            class="form-control"
+            [class.readonly]="variableForm.type === 'system'">
+          <div class="help-text" *ngIf="variableForm.type === 'custom'">
+            Use uppercase with underscores, e.g., CONTRACT_DATE
+          </div>
+        </div>
+
+        <!-- Default Value -->
+        <div class="form-group">
+          <label for="var-default">Default Value</label>
+          <input
+            type="text"
+            id="var-default"
+            [(ngModel)]="variableForm.default_value"
+            [readonly]="variableForm.type === 'system'"
+            placeholder="Enter default value"
+            class="form-control"
+            [class.readonly]="variableForm.type === 'system'">
+        </div>
+
+        <!-- Description -->
+        <div class="form-group">
+          <label for="var-description">Description</label>
+          <textarea
+            id="var-description"
+            [(ngModel)]="variableForm.description"
+            [readonly]="variableForm.type === 'system'"
+            placeholder="Describe what this variable represents"
+            rows="3"
+            class="form-control"
+            [class.readonly]="variableForm.type === 'system'"></textarea>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-secondary" (click)="closeVariableForm()" type="button">
+          Cancel
+        </button>
+        <button class="btn btn-primary" (click)="saveVariable()" type="button">
+          {{ editingVariableIndex !== null ? 'Update Variable' : 'Add Variable' }}
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

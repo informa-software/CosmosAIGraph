@@ -1,0 +1,81 @@
+{
+  "indexingMode": "consistent",
+  "automatic": true,
+  "includedPaths": [
+    {
+      "path": "/*"
+    }
+  ],
+  "excludedPaths": [
+    {
+      "path": "/request/*"
+    },
+    {
+      "path": "/progress/*"
+    },
+    {
+      "path": "/error_details/*"
+    },
+    {
+      "path": "/_etag/?"
+    }
+  ],
+  "compositeIndexes": [
+    [
+      {
+        "path": "/user_id",
+        "order": "ascending"
+      },
+      {
+        "path": "/created_date",
+        "order": "descending"
+      }
+    ],
+    [
+      {
+        "path": "/user_id",
+        "order": "ascending"
+      },
+      {
+        "path": "/status",
+        "order": "ascending"
+      },
+      {
+        "path": "/created_date",
+        "order": "descending"
+      }
+    ],
+    [
+      {
+        "path": "/user_id",
+        "order": "ascending"
+      },
+      {
+        "path": "/job_type",
+        "order": "ascending"
+      },
+      {
+        "path": "/created_date",
+        "order": "descending"
+      }
+    ],
+    [
+      {
+        "path": "/user_id",
+        "order": "ascending"
+      },
+      {
+        "path": "/status",
+        "order": "ascending"
+      },
+      {
+        "path": "/priority",
+        "order": "descending"
+      },
+      {
+        "path": "/created_date",
+        "order": "ascending"
+      }
+    ]
+  ]
+}

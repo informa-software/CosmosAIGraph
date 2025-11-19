@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ title }}</title>
+    <style type="text/css">
+        {{ css_content|safe }}
+    </style>
+</head>
+<body>
+    <!-- Report Header -->
+    <div class="report-header">
+        <h1 class="report-title">Contract Comparison Report</h1>
+        <p class="report-subtitle">{{ title }}</p>
+
+        <div class="report-meta">
+            <div class="meta-item">
+                <span class="meta-label">Report ID:</span>
+                <span class="meta-value">{{ result_id }}</span>
+            </div>
+            <div class="meta-item">
+                <span class="meta-label">Generated:</span>
+                <span class="meta-value">{{ created_at.strftime('%B %d, %Y at %I:%M %p UTC') }}</span>
+            </div>
+            <div class="meta-item">
+                <span class="meta-label">Comparison Mode:</span>
+                <span class="meta-value">{{ comparison_mode|title }}</span>
+            </div>
+            {% if execution_time %}
+            <div class="meta-item">
+                <span class="meta-label">Execution Time:</span>
+                <span class="meta-value">{{ "%.2f"|format(execution_time) }} seconds</span>
+            </div>
+            {% endif %}
+        </div>
+
+        {% if description %}
+        <p class="report-subtitle">{{ description }}</p>
+        {% endif %}
+    </div>
+
+    <!-- Standard Contract -->
+    <div class="query-section">
+        <h3 class="mb-1">Standard Contract (Baseline)</h3>
+        <p class="query-text">{{ standard_contract_id }}</p>
+    </div>
+
+    <!-- Contracts Being Compared -->
+    <div class="contracts-section">
+        <h2>Contracts Compared Against Standard</h2>
+        <table class="contracts-table">
+            <thead>
+                <tr>
+                    <th style="width: 10%;">#</th>
+                    <th style="width: 90%;">Contract ID</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for contract_id in compare_contract_ids %}
+                <tr>
+                    <td>{{ loop.index }}</td>
+                    <td class="code">{{ contract_id }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <p class="muted"><strong>Total:</strong> {{ compare_contract_ids|length }} contract(s) compared</p>
+    </div>
+
+    <!-- Selected Clauses (if clause-based comparison) -->
+    {% if comparison_mode == 'clauses' and selected_clauses and selected_clauses|length > 0 %}
+    <div class="summary-section">
+        <h3 class="summary-label">Selected Clauses for Comparison</h3>
+        <ul class="findings-list">
+            {% for clause in selected_clauses %}
+            <li>{{ clause }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
+    <!-- Comparison Results -->
+    <div class="results-section">
+        <h2>Comparison Results</h2>
+
+        {% if results.comparisons %}
+            {% for comparison in results.comparisons %}
+            <div class="comparison-item">
+                <div class="result-header">
+                    <h3 class="result-contract mb-0">{{ comparison.contract_id }}</h3>
+                    <div>
+                        <span class="risk-level risk-{{ comparison.risk_level }}">
+                            {{ comparison.risk_level|upper }}
+                        </span>
+                    </div>
+                </div>
+
+                {% if comparison.overall_similarity_score is defined %}
+                <div class="similarity-score mt-2">
+                    Similarity: {{ (comparison.overall_similarity_score * 100)|int }}%
+                </div>
+                {% endif %}
+
+                {% if comparison.critical_findings and comparison.critical_findings|length > 0 %}
+                <div class="result-reasoning mt-3">
+                    <div class="reasoning-label">Critical Findings ({{ comparison.critical_findings|length }})</div>
+                    <ul class="findings-list">
+                        {% for finding in comparison.critical_findings %}
+                        <li>{{ finding }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+
+                <div class="mt-3">
+                    {% if comparison.missing_clauses and comparison.missing_clauses|length > 0 %}
+                    <div class="clauses-section mb-3">
+                        <h4 class="clause-type" style="color: #991b1b;">Missing Clauses ({{ comparison.missing_clauses|length }})</h4>
+                        <ul class="findings-list">
+                            {% for clause in comparison.missing_clauses %}
+                            <li>{{ clause }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    {% endif %}
+
+                    {% if comparison.additional_clauses and comparison.additional_clauses|length > 0 %}
+                    <div class="clauses-section mb-3">
+                        <h4 class="clause-type" style="color: #065f46;">Additional Clauses ({{ comparison.additional_clauses|length }})</h4>
+                        <ul class="findings-list">
+                            {% for clause in comparison.additional_clauses %}
+                            <li>{{ clause }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    {% endif %}
+
+                    {% if comparison.differences and comparison.differences|length > 0 %}
+                    <div class="clauses-section">
+                        <h4 class="clause-type" style="color: #92400e;">Clause Differences ({{ comparison.differences|length }})</h4>
+                        {% for diff in comparison.differences %}
+                        <div class="clause-item">
+                            <div class="clause-type">{{ diff.clause_type if diff.clause_type else 'Clause' }}</div>
+                            {% if diff.standard_text %}
+                            <div class="mb-2">
+                                <strong>Standard:</strong>
+                                <div class="clause-text">"{{ diff.standard_text[:300] }}{% if diff.standard_text|length > 300 %}...{% endif %}"</div>
+                            </div>
+                            {% endif %}
+                            {% if diff.compared_text %}
+                            <div class="mb-2">
+                                <strong>Compared:</strong>
+                                <div class="clause-text">"{{ diff.compared_text[:300] }}{% if diff.compared_text|length > 300 %}...{% endif %}"</div>
+                            </div>
+                            {% endif %}
+                            {% if diff.analysis %}
+                            <div class="clause-analysis">{{ diff.analysis }}</div>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <p class="muted text-center mt-4">No comparison results available.</p>
+        {% endif %}
+    </div>
+
+    <!-- Summary Statistics -->
+    {% if results.summary %}
+    <div class="execution-metadata">
+        <h3 class="mb-2">Summary Statistics</h3>
+        <div class="metadata-grid">
+            {% if results.summary.total_comparisons %}
+            <div class="metadata-item">
+                <div class="meta-label">Total Comparisons</div>
+                <div class="meta-value">{{ results.summary.total_comparisons }}</div>
+            </div>
+            {% endif %}
+            {% if results.summary.average_similarity %}
+            <div class="metadata-item">
+                <div class="meta-label">Average Similarity</div>
+                <div class="meta-value">{{ (results.summary.average_similarity * 100)|int }}%</div>
+            </div>
+            {% endif %}
+            {% if results.summary.high_risk_count is defined %}
+            <div class="metadata-item">
+                <div class="meta-label">High Risk Contracts</div>
+                <div class="meta-value">{{ results.summary.high_risk_count }}</div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Footer -->
+    {% if include_metadata %}
+    <div class="report-footer">
+        <p>This report was automatically generated by the Contract Analysis System.</p>
+        <p>Generated at {{ generated_at.strftime('%Y-%m-%d %H:%M:%S UTC') }} | Report ID: {{ result_id }}</p>
+    </div>
+    {% endif %}
+</body>
+</html>

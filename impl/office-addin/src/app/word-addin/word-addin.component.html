@@ -1,0 +1,872 @@
+<div class="word-addin-container">
+  <!-- Header -->
+  <div class="header">
+    <div class="header-content">
+      <div class="header-text">
+        <h1>Contract Intelligence Workbench</h1>
+        <p class="subtitle">Compliance analysis and contract comparison tools</p>
+      </div>
+      <button class="settings-icon-button" (click)="toggleSettings()" title="Settings">
+        ⚙️
+      </button>
+    </div>
+  </div>
+
+  <!-- Notification System -->
+  <div *ngIf="notification" class="notification" [class.success]="notification.type === 'success'"
+       [class.error]="notification.type === 'error'" [class.warning]="notification.type === 'warning'"
+       [class.info]="notification.type === 'info'">
+    <div class="notification-content">
+      <span class="notification-icon">
+        <span *ngIf="notification.type === 'success'">✓</span>
+        <span *ngIf="notification.type === 'error'">✕</span>
+        <span *ngIf="notification.type === 'warning'">⚠</span>
+        <span *ngIf="notification.type === 'info'">ℹ</span>
+      </span>
+      <span class="notification-message">{{ notification.message }}</span>
+      <button class="notification-close" (click)="dismissNotification()">✕</button>
+    </div>
+  </div>
+
+  <!-- Settings Panel -->
+  <div *ngIf="showSettingsPanel" class="settings-panel">
+    <div class="settings-header">
+      <h3>Settings</h3>
+      <button class="close-button" (click)="toggleSettings()">✕</button>
+    </div>
+    <div class="settings-content">
+      <div class="settings-section">
+        <h4>Diagnostics</h4>
+        <button class="btn btn-secondary" (click)="debugWordObject(); toggleSettings()">
+          🔍 Debug Word Object
+        </button>
+        <p class="settings-description">
+          View detailed information about the Word API and document properties in the browser console.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab Navigation -->
+  <div class="tab-navigation">
+    <button
+      class="tab-button"
+      [class.active]="activeTab === 'compliance'"
+      (click)="setActiveTab('compliance')">
+      ⚖️ Compliance
+    </button>
+    <button
+      class="tab-button"
+      [class.active]="activeTab === 'comparison'"
+      (click)="setActiveTab('comparison')">
+      🔍 Comparison
+    </button>
+  </div>
+
+  <!-- Tab Content -->
+  <div class="tab-content">
+
+    <!-- Compliance Tab -->
+    <div class="tab-panel" *ngIf="activeTab === 'compliance'">
+
+    <!-- Office Status Warning -->
+    <div class="alert alert-warning" *ngIf="!isOfficeInitialized">
+      <strong>⚠ Browser Mode</strong>
+      <p>This add-in requires Microsoft Word. Please sideload in Word to use.</p>
+    </div>
+
+    <!-- Rule Set Selection Section -->
+    <div class="section" *ngIf="!showResults">
+
+      <!-- Rule Set List View -->
+      <div *ngIf="currentView === 'rule-set-list'">
+        <h2>Select Rule Set</h2>
+
+        <!-- Loading State -->
+        <div *ngIf="loadingRuleSets" class="loading-indicator">
+          <div class="spinner"></div>
+          <span>Loading rule sets...</span>
+        </div>
+
+        <!-- Error State -->
+        <div *ngIf="ruleSetError" class="alert alert-error">
+          <strong>Error:</strong> {{ ruleSetError }}
+          <button class="btn-link" (click)="loadRuleSets()">Retry</button>
+        </div>
+
+        <!-- Rule Set Cards -->
+        <div *ngIf="!loadingRuleSets && !ruleSetError && ruleSets.length > 0" class="rule-set-cards">
+          <div
+            *ngFor="let ruleSet of ruleSets"
+            class="rule-set-card"
+            (click)="selectRuleSet(ruleSet)">
+            <div class="card-header">
+              <h3>{{ ruleSet.name }}</h3>
+              <span class="rule-count-badge">{{ ruleSet.rule_count }} rules</span>
+            </div>
+            <div class="card-body">
+              <p class="card-description">{{ ruleSet.description || 'No description provided' }}</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- No Rule Sets -->
+        <div *ngIf="!loadingRuleSets && !ruleSetError && ruleSets.length === 0" class="alert alert-info">
+          <strong>No rule sets available</strong>
+          <p>Please create a rule set in the web application first.</p>
+        </div>
+      </div>
+
+      <!-- Rule Set Detail View -->
+      <div *ngIf="currentView === 'rule-set-detail' && selectedRuleSet">
+        <!-- Detail Header with Clickable Back Arrow -->
+        <div class="detail-header" (click)="backToRuleSetList()">
+          <div class="header-title-row">
+            <span class="back-arrow">←</span>
+            <h2>{{ selectedRuleSet.name }}{{ showRuleResults ? ' - RESULTS' : '' }}</h2>
+          </div>
+          <p class="detail-description">{{ selectedRuleSet.description }}</p>
+        </div>
+
+        <!-- Loading Rules -->
+        <div *ngIf="loadingRules" class="loading-indicator">
+          <div class="spinner"></div>
+          <span>Loading rules...</span>
+        </div>
+
+        <!-- Rules Error -->
+        <div *ngIf="rulesError" class="alert alert-error">
+          <strong>Error:</strong> {{ rulesError }}
+          <button class="btn-link" (click)="loadRuleSetRules(selectedRuleSet.id)">Retry</button>
+        </div>
+
+        <!-- Evaluation Progress -->
+        <div *ngIf="isEvaluating" class="progress-section">
+          <h3>Analysis in Progress</h3>
+          <div class="progress-container">
+            <div class="progress-bar">
+              <div class="progress-fill" [style.width.%]="evaluationProgress"></div>
+            </div>
+            <p class="progress-text">{{ evaluationProgress }}%</p>
+          </div>
+          <div class="progress-steps">
+            <div class="step" [class.active]="evaluationProgress >= 20">
+              <span class="step-icon">{{ evaluationProgress >= 20 ? '✓' : '○' }}</span>
+              <span>Extract Text</span>
+            </div>
+            <div class="step" [class.active]="evaluationProgress >= 40">
+              <span class="step-icon">{{ evaluationProgress >= 40 ? '✓' : '○' }}</span>
+              <span>Submit</span>
+            </div>
+            <div class="step" [class.active]="evaluationProgress >= 80">
+              <span class="step-icon">{{ evaluationProgress >= 80 ? '✓' : '○' }}</span>
+              <span>Process</span>
+            </div>
+            <div class="step" [class.active]="evaluationProgress >= 100">
+              <span class="step-icon">{{ evaluationProgress >= 100 ? '✓' : '○' }}</span>
+              <span>Complete</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Evaluation Error -->
+        <div *ngIf="evaluationError" class="alert alert-error">
+          <strong>Analysis Failed</strong>
+          <p>{{ evaluationError }}</p>
+          <button class="btn btn-secondary" (click)="resetEvaluationError()">Try Again</button>
+        </div>
+
+        <!-- Rules List (shown before execution) -->
+        <div *ngIf="!loadingRules && !rulesError && !isEvaluating && !showRuleResults && ruleSetRules.length > 0">
+
+          <div class="rules-list">
+            <div *ngFor="let rule of ruleSetRules" class="rule-card">
+              <div class="rule-header">
+                <h4>{{ rule.name }}</h4>
+                <span class="severity-badge" [ngClass]="getSeverityClass(rule.severity)">
+                  {{ rule.severity }}
+                </span>
+              </div>
+              <div class="rule-body">
+                <p class="rule-description">{{ rule.description }}</p>
+                <div class="rule-meta">
+                  <span class="rule-category">📁 {{ rule.category }}</span>
+                  <span class="rule-status" [class.active]="rule.active" [class.inactive]="!rule.active">
+                    {{ rule.active ? '✓ Active' : '✗ Inactive' }}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Results Display (shown after execution) -->
+        <div *ngIf="!loadingRules && !isEvaluating && showRuleResults">
+
+          <!-- Current Document Results (always shown) -->
+          <div class="results-list">
+            <div *ngFor="let rule of ruleSetRules"
+                 class="result-card"
+                 [class.clickable]="(getRuleResult(rule.id)?.evaluation_result === 'fail' || getRuleResult(rule.id)?.evaluation_result === 'partial') && getRuleResult(rule.id)?.recommendation"
+                 [class.expanded]="isResultExpanded(rule.id)"
+                 (click)="onRuleResultClick(rule.id)">
+              <div class="result-header">
+                <h4>{{ rule.name }}</h4>
+                <div class="header-right">
+                  <!-- Show Applied badge if fix was applied, otherwise show evaluation result -->
+                  <span *ngIf="isRecommendationApplied(rule.id)" class="applied-badge status-badge">✓ Applied</span>
+                  <span *ngIf="!isRecommendationApplied(rule.id)" class="result-badge" [ngClass]="getResultClass(getRuleResult(rule.id)?.evaluation_result || 'not_applicable')">
+                    {{ getRuleResult(rule.id)?.evaluation_result || 'N/A' }}
+                  </span>
+                  <span *ngIf="(getRuleResult(rule.id)?.evaluation_result === 'fail' || getRuleResult(rule.id)?.evaluation_result === 'partial') && getRuleResult(rule.id)?.recommendation"
+                        class="expand-icon">
+                    {{ isResultExpanded(rule.id) ? '▼' : '▶' }}
+                  </span>
+                </div>
+              </div>
+              <div class="result-body">
+                <p class="rule-description">{{ rule.description }}</p>
+                <div class="rule-meta">
+                  <span class="rule-category">📁 {{ rule.category }}</span>
+                  <span class="severity-badge" [ngClass]="getSeverityClass(rule.severity)">
+                    {{ rule.severity }}
+                  </span>
+                </div>
+
+                <!-- Expanded Recommendation Section -->
+                <div *ngIf="isResultExpanded(rule.id) && getRuleResult(rule.id)?.recommendation" class="recommendation-section">
+                  <div class="recommendation-header">
+                    <h5>💡 Recommended Fix</h5>
+                  </div>
+                  <div class="recommendation-content">
+                    <div class="recommendation-item">
+                      <strong>Current Text:</strong>
+                      <div class="text-box original-text">{{ getRuleResult(rule.id)?.recommendation?.original_text }}</div>
+                    </div>
+                    <div class="recommendation-arrow">→</div>
+                    <div class="recommendation-item">
+                      <strong>Suggested Text:</strong>
+                      <div class="text-box proposed-text">{{ getRuleResult(rule.id)?.recommendation?.proposed_text }}</div>
+                    </div>
+                    <div class="recommendation-explanation">
+                      <strong>Why:</strong>
+                      <p>{{ getRuleResult(rule.id)?.recommendation?.explanation }}</p>
+                    </div>
+                    <div class="recommendation-actions">
+                      <div class="action-buttons">
+                        <button class="btn btn-small"
+                                [class.btn-primary]="!isRecommendationApplied(rule.id)"
+                                [class.btn-success]="isRecommendationApplied(rule.id)"
+                                [disabled]="isRecommendationApplied(rule.id)"
+                                (click)="applyRecommendation(rule.id, $event)">
+                          <span *ngIf="!isRecommendationApplied(rule.id)">✓ Apply Fix</span>
+                          <span *ngIf="isRecommendationApplied(rule.id)">✓ Applied</span>
+                        </button>
+                        <button class="btn btn-secondary btn-small" (click)="showEvidence(rule.id, $event)">
+                          📄 View Evidence
+                        </button>
+                      </div>
+                      <span class="confidence-badge">
+                        Confidence: {{ ((getRuleResult(rule.id)?.recommendation?.confidence ?? 0) * 100).toFixed(0) }}%
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Compliance Comparison Section (only shown when showComplianceChange was enabled) -->
+          <div *ngIf="hasDualResults()" class="section compliance-comparison">
+            <h2>📊 Compliance Change Analysis</h2>
+
+            <!-- Collapsible Summary Header -->
+            <div class="comparison-summary-header" (click)="toggleComparisonSection()">
+              <span class="expand-arrow">{{ comparisonSectionExpanded ? '▼' : '▶' }}</span>
+              <span class="summary-text">
+                <strong>{{ getChangedComplianceRuleCount() }}</strong> of <strong>{{ ruleSetRules.length }}</strong>
+                rule{{ ruleSetRules.length !== 1 ? 's' : '' }} changed compliance status between original and current document
+              </span>
+            </div>
+
+            <!-- Expanded Comparison Details -->
+            <div *ngIf="comparisonSectionExpanded" class="comparison-details">
+              <p class="comparison-intro">
+                Comparison of rule compliance between the original document and current document with track changes.
+              </p>
+
+              <div class="changed-rules">
+                <div *ngFor="let rule of ruleSetRules" class="delta-item">
+                  <div class="delta-rule" [class.changed]="hasComplianceChanged(rule.id)">
+                    <div class="delta-header">
+                      <strong>{{ rule.name }}</strong>
+                      <span *ngIf="hasComplianceChanged(rule.id)" class="change-indicator">⚠️ Changed</span>
+                      <span *ngIf="!hasComplianceChanged(rule.id)" class="no-change-indicator">✓ No Change</span>
+                    </div>
+                    <div class="delta-comparison">
+                      <div class="delta-badge original">
+                        <span class="delta-label">Original:</span>
+                        <span class="result-badge" [ngClass]="getResultClass(getOriginalRuleResult(rule.id)?.evaluation_result || 'not_applicable')">
+                          {{ getOriginalRuleResult(rule.id)?.evaluation_result || 'N/A' }}
+                        </span>
+                      </div>
+                      <span class="delta-arrow">→</span>
+                      <div class="delta-badge revised">
+                        <span class="delta-label">Current:</span>
+                        <span class="result-badge" [ngClass]="getResultClass(getRevisedRuleResult(rule.id)?.evaluation_result || 'not_applicable')">
+                          {{ getRevisedRuleResult(rule.id)?.evaluation_result || 'N/A' }}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- No Rules -->
+        <div *ngIf="!loadingRules && !rulesError && ruleSetRules.length === 0" class="alert alert-info">
+          <strong>No rules in this rule set</strong>
+          <p>Add rules to this rule set in the web application.</p>
+        </div>
+      </div>
+
+      <!-- Track Changes Section (Only visible when track changes enabled, not on rule set list, not evaluating, and not showing results) -->
+      <div class="track-changes-section" *ngIf="currentView !== 'rule-set-list' && !showRuleResults && !isEvaluating && trackChangesEnabled && ruleSets.length > 0">
+        <div class="alert alert-info track-changes-alert">
+          <strong>📝 Track Changes Detected</strong>
+          <p>This document has track changes enabled ({{ trackChangesSummary?.changeTrackingMode }}).</p>
+          <p class="small-text">You can analyze the legal and compliance impact of proposed changes before accepting them.</p>
+        </div>
+
+        <!-- Show Compliance Change Toggle -->
+        <div class="form-group">
+          <label class="toggle-label">
+            <input
+              type="checkbox"
+              [(ngModel)]="showComplianceChange"
+              [disabled]="isEvaluating"
+              class="toggle-checkbox">
+            <span class="toggle-text">Show Compliance Change</span>
+          </label>
+          <p class="form-text">Compare rule compliance between original document and current document with track changes.</p>
+        </div>
+      </div>
+
+      <!-- Execute Rules Button (Always visible when there are rules and not evaluating/showing results) -->
+      <div class="action-section" *ngIf="currentView !== 'rule-set-list' && !loadingRules && !rulesError && !isEvaluating && !showRuleResults && ruleSetRules.length > 0">
+        <button class="btn btn-primary btn-large" [disabled]="isEvaluating" (click)="executeRuleSetAnalysis()">
+          <span *ngIf="!isEvaluating">▶ Execute Rules</span>
+          <span *ngIf="isEvaluating">Analyzing...</span>
+        </button>
+      </div>
+
+    </div>
+
+    <!-- Evaluation Error -->
+    <div class="alert alert-error" *ngIf="evaluationError">
+      <strong>Evaluation Failed</strong>
+      <p>{{ evaluationError }}</p>
+      <button class="btn btn-secondary" (click)="resetEvaluation()">Try Again</button>
+    </div>
+
+    <!-- Results -->
+    <div class="section" *ngIf="showResults && evaluationResults">
+      <h2>Evaluation Results</h2>
+
+      <!-- Summary Statistics -->
+      <div class="results-summary">
+        <div class="summary-card pass">
+          <div class="summary-icon">✓</div>
+          <div class="summary-count">{{ getResultCount('pass') }}</div>
+          <div class="summary-label">Passed</div>
+        </div>
+        <div class="summary-card fail">
+          <div class="summary-icon">✗</div>
+          <div class="summary-count">{{ getResultCount('fail') }}</div>
+          <div class="summary-label">Failed</div>
+        </div>
+        <div class="summary-card partial">
+          <div class="summary-icon">⚠</div>
+          <div class="summary-count">{{ getResultCount('partial') }}</div>
+          <div class="summary-label">Partial</div>
+        </div>
+        <div class="summary-card na">
+          <div class="summary-icon">—</div>
+          <div class="summary-count">{{ getResultCount('not_applicable') }}</div>
+          <div class="summary-label">N/A</div>
+        </div>
+      </div>
+
+      <!-- Detailed Results -->
+      <div class="results-list">
+        <div *ngFor="let result of evaluationResults.results"
+             class="result-item"
+             [ngClass]="getResultClass(result.evaluation_result)">
+
+          <!-- Clickable Header -->
+          <div class="result-header"
+               (click)="toggleResult(result.id)"
+               [class.expanded]="isResultExpanded(result.id)">
+            <span class="result-icon">{{ getResultIcon(result.evaluation_result) }}</span>
+            <h3>{{ result.rule_name }}</h3>
+            <span class="result-badge">{{ result.evaluation_result }}</span>
+            <span class="expand-arrow">{{ isResultExpanded(result.id) ? '▼' : '▶' }}</span>
+          </div>
+
+          <!-- Collapsible Body -->
+          <div class="result-body"
+               *ngIf="isResultExpanded(result.id)">
+            <p class="result-description">{{ result.rule_description }}</p>
+            <p class="result-explanation"><strong>Explanation:</strong> {{ result.explanation }}</p>
+            <div class="result-confidence">
+              <span class="confidence-label">Confidence:</span>
+              <div class="confidence-bar">
+                <div class="confidence-fill" [style.width.%]="result.confidence * 100"></div>
+              </div>
+              <span class="confidence-value">{{ (result.confidence * 100).toFixed(0) }}%</span>
+            </div>
+            <div class="result-evidence" *ngIf="result.evidence && result.evidence.length > 0">
+              <strong>Evidence:</strong>
+              <ul>
+                <li *ngFor="let evidence of result.evidence"
+                    class="evidence-item"
+                    (click)="highlightEvidence(evidence)"
+                    title="Click to highlight in document">
+                  {{ evidence }}
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="action-section">
+        <button class="btn btn-secondary" (click)="clearHighlights()" *ngIf="isOfficeInitialized">
+          Clear Highlights
+        </button>
+        <button class="btn btn-secondary" (click)="resetEvaluation()">New Evaluation</button>
+      </div>
+    </div>
+
+    </div>
+    <!-- End Compliance Tab -->
+
+    <!-- Comparison Tab -->
+    <div class="tab-panel" *ngIf="activeTab === 'comparison'">
+
+      <!-- Office Status Warning -->
+      <div class="alert alert-warning" *ngIf="!isOfficeInitialized">
+        <strong>⚠ Browser Mode</strong>
+        <p>This add-in requires Microsoft Word. Please sideload in Word to use.</p>
+      </div>
+
+      <!-- Comparison Mode Selection -->
+      <div class="section" *ngIf="!showComparisonResults">
+        <h2>Compare Document</h2>
+
+        <!-- Comparison Mode Buttons -->
+        <div class="comparison-mode-buttons">
+          <button
+            class="btn btn-primary comparison-mode-btn"
+            [disabled]="!canCompareWithOriginal() || isComparing"
+            (click)="executeCompareWithOriginal()"
+            title="Compare original version (before changes) with revised version (after changes)">
+            📝 Compare with Original
+            <span class="mode-description">Track Changes Required</span>
+          </button>
+
+          <button
+            class="btn btn-primary comparison-mode-btn"
+            [disabled]="isComparing"
+            (click)="comparisonMode = 'full'; selectedStandardContractId = ''"
+            [class.active]="selectedStandardContractId === '' && !isComparing">
+            📄 Compare with Standard
+            <span class="mode-description">Select from Library</span>
+          </button>
+        </div>
+
+        <!-- Track Changes Info -->
+        <div class="alert alert-info" *ngIf="!trackChangesEnabled">
+          <strong>ℹ️ Compare with Original</strong>
+          <p>Enable Track Changes in Word to compare original and revised versions.</p>
+        </div>
+
+        <!-- Compare with Standard: Contract Selection -->
+        <div class="comparison-config" *ngIf="selectedStandardContractId === '' && !isComparing">
+          <h3>Select Standard Contract</h3>
+
+          <!-- Loading Contracts -->
+          <div *ngIf="loadingContracts" class="loading-indicator">
+            <div class="spinner"></div>
+            <span>Loading contracts...</span>
+          </div>
+
+          <!-- Contracts Error -->
+          <div *ngIf="contractsError" class="alert alert-error">
+            <strong>Error:</strong> {{ contractsError }}
+            <button class="btn-link" (click)="loadContracts()">Retry</button>
+          </div>
+
+          <!-- Contract Dropdown -->
+          <div *ngIf="!loadingContracts && !contractsError && contracts.length > 0" class="form-group">
+            <label for="standard-contract">Standard Contract:</label>
+            <select
+              id="standard-contract"
+              class="form-select"
+              [(ngModel)]="selectedStandardContractId"
+              (change)="onStandardContractSelected(selectedStandardContractId)">
+              <option value="">-- Select Contract --</option>
+              <option *ngFor="let contract of contracts" [value]="contract.id">
+                {{ contract.title }}
+              </option>
+            </select>
+          </div>
+
+          <!-- No Contracts -->
+          <div *ngIf="!loadingContracts && !contractsError && contracts.length === 0" class="alert alert-warning">
+            <strong>⚠️ No Contracts Available</strong>
+            <p>No standard contracts found in the library.</p>
+          </div>
+        </div>
+
+        <!-- Compare with Standard: Mode and Clause Selection -->
+        <div class="comparison-config" *ngIf="selectedStandardContractId && !isComparing">
+          <h3>Comparison Settings</h3>
+
+          <!-- Selected Contract Display -->
+          <div class="selected-contract-info">
+            <label>Standard Contract:</label>
+            <div class="contract-badge">
+              {{ selectedStandardContract?.title || selectedStandardContractId }}
+            </div>
+            <button class="btn-link" (click)="selectedStandardContractId = ''">Change</button>
+          </div>
+
+          <!-- Comparison Mode Selection -->
+          <div class="form-group">
+            <label>Comparison Mode:</label>
+            <div class="radio-group">
+              <label class="radio-label">
+                <input
+                  type="radio"
+                  name="comparisonMode"
+                  value="full"
+                  [(ngModel)]="comparisonMode"
+                  (change)="onComparisonModeChanged('full')">
+                <span>Entire Contract</span>
+              </label>
+              <label class="radio-label">
+                <input
+                  type="radio"
+                  name="comparisonMode"
+                  value="clauses"
+                  [(ngModel)]="comparisonMode"
+                  (change)="onComparisonModeChanged('clauses')">
+                <span>Clause-by-Clause</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Clause Selection (only for clause mode) -->
+          <div *ngIf="comparisonMode === 'clauses'" class="clause-selection">
+            <h4>Select Clauses to Compare</h4>
+
+            <!-- Loading Clauses -->
+            <div *ngIf="loadingClauses" class="loading-indicator">
+              <div class="spinner"></div>
+              <span>Loading clauses...</span>
+            </div>
+
+            <!-- Clauses Error -->
+            <div *ngIf="clausesError" class="alert alert-error">
+              <strong>Error:</strong> {{ clausesError }}
+            </div>
+
+            <!-- Clause List -->
+            <div *ngIf="!loadingClauses && !clausesError && availableClauses.length > 0">
+              <!-- Select All/None Buttons -->
+              <div class="clause-actions">
+                <button class="btn-link" (click)="selectAllClauses()">Select All</button>
+                <button class="btn-link" (click)="deselectAllClauses()">Clear All</button>
+              </div>
+
+              <!-- Clause Checkboxes -->
+              <div class="clause-list">
+                <label *ngFor="let clause of availableClauses" class="checkbox-label">
+                  <input
+                    type="checkbox"
+                    [checked]="isClauseSelected(clause.display_name)"
+                    (change)="toggleClauseSelection(clause.display_name)">
+                  <span>{{ clause.display_name || clause.type }}</span>
+                </label>
+              </div>
+
+              <!-- Selection Summary -->
+              <div class="clause-summary">
+                <span *ngIf="selectedClauses === 'all'">
+                  All {{ availableClauses.length }} clauses selected
+                </span>
+                <span *ngIf="selectedClauses !== 'all'">
+                  {{ selectedClauses.length }} of {{ availableClauses.length }} clauses selected
+                </span>
+              </div>
+            </div>
+
+            <!-- No Clauses -->
+            <div *ngIf="!loadingClauses && !clausesError && availableClauses.length === 0" class="alert alert-warning">
+              <strong>⚠️ No Clauses Available</strong>
+              <p>No clauses found in the selected contract. Using full contract comparison instead.</p>
+            </div>
+          </div>
+
+          <!-- Execute Comparison Button -->
+          <div class="action-buttons">
+            <button
+              class="btn btn-primary btn-large"
+              (click)="executeCompareWithStandard()"
+              [disabled]="isComparing || !selectedStandardContractId">
+              <span *ngIf="!isComparing">🔍 Compare Documents</span>
+              <span *ngIf="isComparing">Comparing...</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Comparison in Progress -->
+        <div *ngIf="isComparing" class="comparison-progress">
+          <h3>Comparing Documents...</h3>
+          <div class="progress-bar-container">
+            <div class="progress-bar" [style.width.%]="comparisonProgress"></div>
+          </div>
+          <p class="progress-text">{{ comparisonProgress }}% complete</p>
+        </div>
+
+        <!-- Comparison Error -->
+        <div *ngIf="comparisonError" class="alert alert-error">
+          <strong>Comparison Failed</strong>
+          <p>{{ comparisonError }}</p>
+          <button class="btn btn-secondary" (click)="clearComparisonResults()">Try Again</button>
+        </div>
+      </div>
+
+      <!-- Comparison Results Section -->
+      <div class="section" *ngIf="showComparisonResults && comparisonResults_v2">
+        <div class="results-header">
+          <h2>Comparison Results</h2>
+          <button class="btn btn-secondary" (click)="resetComparisonTab()">
+            ← New Comparison
+          </button>
+        </div>
+
+        <!-- Display each comparison result -->
+        <div *ngFor="let comparison of comparisonResults_v2.results.comparisons" class="comparison-result-card">
+
+          <!-- Overall Summary -->
+          <div class="result-summary">
+            <div class="summary-header">
+              <h3>Overall Assessment</h3>
+              <div class="summary-badges">
+                <div class="risk-badge" [class]="'risk-' + comparison.risk_level">
+                  {{ comparison.risk_level.toUpperCase() }} RISK
+                </div>
+                <div class="similarity-badge" [class]="getSimilarityClass(comparison.overall_similarity_score)">
+                  {{ (comparison.overall_similarity_score * 100).toFixed(0) }}% Similar
+                </div>
+              </div>
+            </div>
+
+            <!-- Summary Text -->
+            <p *ngIf="comparison.summary" class="summary-text">{{ comparison.summary }}</p>
+
+            <!-- Critical Findings -->
+            <div *ngIf="comparison.critical_findings && comparison.critical_findings.length > 0" class="critical-findings">
+              <h4>⚠️ Critical Findings</h4>
+              <ul>
+                <li *ngFor="let finding of comparison.critical_findings">{{ finding }}</li>
+              </ul>
+            </div>
+          </div>
+
+          <!-- Missing Clauses -->
+          <div *ngIf="comparison.missing_clauses && comparison.missing_clauses.length > 0" class="missing-clauses-section">
+            <h4>📋 Missing Clauses</h4>
+            <p class="section-description">The following clauses are present in the standard but missing in your document:</p>
+            <div class="missing-clause-list">
+              <div *ngFor="let clauseType of comparison.missing_clauses" class="missing-clause-item">
+                <div class="clause-info">
+                  <span class="clause-type">{{ clauseType }}</span>
+                  <span class="clause-status">Not Found</span>
+                </div>
+                <button class="btn btn-sm btn-outline" (click)="insertClauseFromLibrary(clauseType)" title="Coming Soon: Insert from Clause Library">
+                  ➕ Insert Clause
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Additional Clauses -->
+          <div *ngIf="comparison.additional_clauses && comparison.additional_clauses.length > 0" class="additional-clauses-section">
+            <h4>📄 Additional Clauses</h4>
+            <p class="section-description">The following clauses are in your document but not in the standard:</p>
+            <ul>
+              <li *ngFor="let clauseType of comparison.additional_clauses">{{ clauseType }}</li>
+            </ul>
+          </div>
+
+          <!-- Clause-by-Clause Analysis -->
+          <div *ngIf="comparison.clause_analyses && comparison.clause_analyses.length > 0" class="clause-analysis-section">
+            <h4>🔍 Clause-by-Clause Analysis</h4>
+
+            <div *ngFor="let clause of comparison.clause_analyses" class="clause-analysis-item">
+              <!-- Clause Header -->
+              <div class="clause-header" (click)="toggleClauseAnalysis(clause.clause_type)">
+                <div class="clause-title">
+                  <span class="clause-name">{{ clause.clause_type }}</span>
+                  <div class="clause-badges">
+                    <span *ngIf="clause.exists_in_standard && clause.exists_in_compared"
+                          class="status-badge status-found">Found</span>
+                    <span *ngIf="!clause.exists_in_compared"
+                          class="status-badge status-missing">Missing</span>
+                    <span *ngIf="clause.risk_level"
+                          class="risk-badge-small"
+                          [class]="'risk-' + clause.risk_level">
+                      {{ clause.risk_level }}
+                    </span>
+                    <span class="similarity-badge-small"
+                          [class]="getSimilarityClass(clause.similarity_score)">
+                      {{ (clause.similarity_score * 100).toFixed(0) }}%
+                    </span>
+                  </div>
+                </div>
+                <span class="expand-icon">{{ isClauseAnalysisExpanded(clause.clause_type) ? '▼' : '▶' }}</span>
+              </div>
+
+              <!-- Clause Details (Expandable) -->
+              <div *ngIf="isClauseAnalysisExpanded(clause.clause_type)" class="clause-details">
+
+                <!-- Summary -->
+                <div *ngIf="clause.summary" class="clause-summary">
+                  <strong>Summary:</strong> {{ clause.summary }}
+                </div>
+
+                <!-- Key Differences -->
+                <div *ngIf="clause.key_differences && clause.key_differences.length > 0" class="clause-differences">
+                  <strong>Key Differences:</strong>
+                  <ul>
+                    <li *ngFor="let diff of clause.key_differences">{{ diff }}</li>
+                  </ul>
+                </div>
+
+                <!-- Risks -->
+                <div *ngIf="clause.risks && clause.risks.length > 0" class="clause-risks">
+                  <strong>⚠️ Risks:</strong>
+                  <ul>
+                    <li *ngFor="let risk of clause.risks">{{ risk }}</li>
+                  </ul>
+                </div>
+
+                <!-- Recommendations -->
+                <div *ngIf="clause.recommendations && clause.recommendations.length > 0" class="clause-recommendations">
+                  <strong>💡 Recommendations:</strong>
+                  <ul>
+                    <li *ngFor="let rec of clause.recommendations">{{ rec }}</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Full Contract Comparison (when no clause analysis) -->
+          <div *ngIf="!comparison.clause_analyses || comparison.clause_analyses.length === 0" class="full-comparison-note">
+            <p><em>Full contract comparison completed. Review critical findings above for key differences.</em></p>
+          </div>
+
+        </div>
+
+        <!-- Debug: Show raw results -->
+        <details class="debug-details">
+          <summary>View Raw Results (Debug)</summary>
+          <pre>{{ comparisonResults_v2 | json }}</pre>
+        </details>
+      </div>
+
+    </div>
+    <!-- End Comparison Tab -->
+
+  </div>
+  <!-- End Tab Content -->
+
+  <!-- Evidence Modal -->
+  <div *ngIf="showEvidenceModal" class="modal-overlay" (click)="closeEvidenceModal()">
+    <div class="modal-content" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>📄 Evidence: {{ selectedRuleName }}</h3>
+        <button class="close-button" (click)="closeEvidenceModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <p class="evidence-intro">The following excerpts from the contract led to this evaluation:</p>
+        <div class="evidence-list">
+          <div *ngFor="let item of selectedEvidence; let i = index" class="evidence-item">
+            <div class="evidence-number">{{ i + 1 }}</div>
+            <div class="evidence-text">{{ item }}</div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" (click)="closeEvidenceModal()">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Confirmation Modal -->
+  <div *ngIf="showConfirmationModal" class="modal-overlay" (click)="closeConfirmationModal()">
+    <div class="modal-content confirmation-modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>⚠️ {{ confirmationTitle }}</h3>
+        <button class="close-button" (click)="closeConfirmationModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <p class="confirmation-message">{{ confirmationMessage }}</p>
+
+        <!-- Replace operation - show both current and proposed text -->
+        <div *ngIf="!pendingInsertOperation" class="confirmation-preview">
+          <div class="preview-section">
+            <strong>Current Text:</strong>
+            <div class="preview-box original-preview">{{ confirmationOriginalText }}</div>
+          </div>
+          <div class="preview-arrow">↓</div>
+          <div class="preview-section">
+            <strong>Will be replaced with:</strong>
+            <div class="preview-box proposed-preview">{{ confirmationProposedText }}</div>
+          </div>
+        </div>
+
+        <!-- Insert operation - show original text that was searched for and proposed text to insert -->
+        <div *ngIf="pendingInsertOperation" class="confirmation-preview">
+          <div class="preview-section">
+            <strong>Text that was searched for (not found):</strong>
+            <div class="preview-box original-preview">{{ confirmationOriginalText }}</div>
+          </div>
+          <div class="preview-arrow">↓</div>
+          <div class="preview-section">
+            <strong>Text to insert:</strong>
+            <div class="preview-box proposed-preview">{{ confirmationProposedText }}</div>
+          </div>
+        </div>
+
+        <p class="confirmation-warning">
+          <strong>Note:</strong> This action will modify your document. Make sure you have a backup if needed.
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" (click)="closeConfirmationModal()">Cancel</button>
+        <button *ngIf="!pendingInsertOperation" class="btn btn-primary" (click)="confirmApplyRecommendation()">✓ Apply Fix</button>
+        <button *ngIf="pendingInsertOperation" class="btn btn-primary" (click)="confirmInsertAtCursor()">✓ Insert Text</button>
+      </div>
+    </div>
+  </div>
+
+</div>

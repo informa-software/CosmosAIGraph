@@ -373,6 +373,7 @@ def filter_files_list(files_list, suffix):
 async def vector_search_words(natural_language):
     try:
         ai_svc = AiService()
+        await ai_svc.initialize()
         resp = ai_svc.generate_embeddings(natural_language)
         embedding = resp.data[0].embedding
 

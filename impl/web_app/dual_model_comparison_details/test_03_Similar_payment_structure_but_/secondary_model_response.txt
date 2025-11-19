@@ -1,0 +1,60 @@
+================================================================================
+SECONDARY MODEL ANALYSIS: gpt-4.1-mini
+================================================================================
+
+Test Case: Similar payment structure but different terms
+Expected Similarity: high
+Processing Time: 13.174s
+Tokens Used: 838
+
+--------------------------------------------------------------------------------
+CONTRACT TEXT ANALYZED
+--------------------------------------------------------------------------------
+Client will pay Contractor within 45 days of invoice. Late payments incur 2% monthly interest.
+
+--------------------------------------------------------------------------------
+SIMILARITY ANALYSIS
+--------------------------------------------------------------------------------
+Score: 0.000
+
+--------------------------------------------------------------------------------
+DIFFERENCES IDENTIFIED
+--------------------------------------------------------------------------------
+
+1. MISSING - high
+   Location: entire clause
+   Library: Each party (the " Indemnifying Party ") shall indemnify, defend, and hold harmless the other party (the " Indemnified Party "), its affiliates, and their respective officers, directors, employees, and agents from and against any and all claims, demands, losses, liabilities, damages, costs, and expenses (including reasonable attorneys' fees and court costs) arising out of or relating to: Any breach of this Agreement by the Indemnifying Party; Any negligent acts or omissions or willful misconduct by the Indemnifying Party; Any infringement or alleged infringement of any intellectual property rights by the Indemnifying Party; Any violation of applicable laws or regulations by the Indemnifying Party. The Indemnified Party shall provide the Indemnifying Party with prompt written notice of any claim and shall cooperate with the Indemnifying Party in the defense of such claim.
+
+2. EXTRA - high
+   Location: entire clause
+   Contract: Client will pay Contractor within 45 days of invoice. Late payments incur 2% monthly interest.
+
+--------------------------------------------------------------------------------
+RISK ANALYSIS
+--------------------------------------------------------------------------------
+Overall Risk: high
+Risk Score: 0.90
+
+Identified Risks:
+
+1. LIABILITY - high
+   Description: Absence of mutual indemnification exposes parties to unmitigated liability risks arising from breaches, negligence, intellectual property infringement, or legal violations by the other party.
+   Impact: Potential for significant financial exposure and legal disputes without contractual obligation for indemnification.
+   Location: entire contract clause
+
+2. PAYMENT TERMS - medium
+   Description: Clause only addresses payment terms and late payment interest, lacking any indemnification or risk allocation provisions.
+   Impact: While payment terms are clear, absence of indemnity provisions leaves parties vulnerable to claims and liabilities unrelated to payment.
+   Location: contract clause
+
+--------------------------------------------------------------------------------
+RECOMMENDATIONS
+--------------------------------------------------------------------------------
+
+1. ADDITION - Priority: high
+   Add a mutual indemnification clause consistent with the standard library clause to allocate liability and protect both parties from claims arising from breaches, negligence, IP infringement, or legal violations.
+   Suggested Text:
+   Client will pay Contractor within 45 days of invoice. Late payments incur 2% monthly interest.
+
+Each party (the "Indemnifying Party") shall indemnify, defend, and hold harmless the other party (the "Indemnified Party"), its affiliates, and their respective officers, directors, employees, and agents from and against any and all claims, demands, losses, liabilities, damages, costs, and expenses (including reasonable attorneys' fees and court costs) arising out of or relating to: Any breach of this Agreement by the Indemnifying Party; Any negligent acts or omissions or willful misconduct by the Indemnifying Party; Any infringement or alleged infringement of any intellectual property rights by the Indemnifying Party; Any violation of applicable laws or regulations by the Indemnifying Party. The Indemnified Party shall provide the Indemnifying Party with prompt written notice of any claim and shall cooperate with the Indemnifying Party in the defense of such claim.
+   Rationale: Including a mutual indemnification clause is critical to manage and allocate legal risks between parties, which is completely absent in the current contract clause.

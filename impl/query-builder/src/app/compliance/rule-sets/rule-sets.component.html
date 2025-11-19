@@ -1,0 +1,203 @@
+<div class="rule-sets-container">
+  <!-- Header -->
+  <div class="page-header">
+    <div class="header-left">
+      <h2>Rule Sets</h2>
+      <p class="subtitle">Manage collections of compliance rules for different contract types</p>
+    </div>
+    <div class="header-right">
+      <button class="btn btn-outline" (click)="viewDashboard()">
+        📊 Dashboard
+      </button>
+      <button class="btn btn-outline" [routerLink]="['/compliance/rules']">
+        📋 Rules
+      </button>
+      <button class="btn btn-primary" (click)="createRuleSet()">
+        ➕ New Rule Set
+      </button>
+    </div>
+  </div>
+
+  <!-- Filters and Search -->
+  <div class="filters-section">
+    <div class="filter-group">
+      <label>
+        <input
+          type="checkbox"
+          [(ngModel)]="filterActiveOnly"
+          (change)="onFilterChange()"
+        />
+        Active Rule Sets Only
+      </label>
+    </div>
+
+    <div class="search-group">
+      <input
+        type="text"
+        [(ngModel)]="searchText"
+        (ngModelChange)="onSearchChange()"
+        placeholder="Search rule sets..."
+        class="form-input search-input"
+      />
+    </div>
+
+    <div class="actions-group">
+      <button
+        class="btn btn-sm btn-outline"
+        (click)="refresh()"
+        title="Refresh"
+      >
+        🔄
+      </button>
+    </div>
+  </div>
+
+  <!-- Summary Stats -->
+  <div class="stats-bar">
+    <div class="stat">
+      <span class="stat-label">Total Rule Sets:</span>
+      <span class="stat-value">{{ ruleSets.length }}</span>
+    </div>
+    <div class="stat">
+      <span class="stat-label">Filtered:</span>
+      <span class="stat-value">{{ filteredRuleSets.length }}</span>
+    </div>
+    <div class="stat" *ngIf="selectedRuleSetIds.size > 0">
+      <span class="stat-label">Selected:</span>
+      <span class="stat-value">{{ selectedRuleSetIds.size }}</span>
+      <button class="btn-link" (click)="clearSelection()">Clear</button>
+    </div>
+  </div>
+
+  <!-- Loading State -->
+  <div *ngIf="loading" class="loading-message">
+    <div class="spinner"></div>
+    <p>Loading rule sets...</p>
+  </div>
+
+  <!-- Error State -->
+  <div *ngIf="error && !loading" class="error-message">
+    <p>{{ error }}</p>
+    <button class="btn btn-sm btn-primary" (click)="refresh()">Retry</button>
+  </div>
+
+  <!-- Rule Sets Table -->
+  <div *ngIf="!loading && !error" class="table-container">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th style="width: 40px;">
+            <input
+              type="checkbox"
+              [checked]="selectedRuleSetIds.size === filteredRuleSets.length && filteredRuleSets.length > 0"
+              (change)="selectedRuleSetIds.size === filteredRuleSets.length ? clearSelection() : selectAll()"
+            />
+          </th>
+          <th>Name</th>
+          <th>Description</th>
+          <th>Suggested Contract Types</th>
+          <th class="text-center">Rules</th>
+          <th class="text-center">Status</th>
+          <th>Created</th>
+          <th class="text-center">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let ruleSet of filteredRuleSets" [class.selected]="isSelected(ruleSet.id)">
+          <td>
+            <input
+              type="checkbox"
+              [checked]="isSelected(ruleSet.id)"
+              (change)="toggleSelection(ruleSet.id)"
+            />
+          </td>
+          <td>
+            <strong>{{ ruleSet.name }}</strong>
+          </td>
+          <td>
+            <span class="description-text">{{ ruleSet.description || 'No description' }}</span>
+          </td>
+          <td>
+            <span class="contract-types">{{ formatContractTypes(ruleSet.suggested_contract_types) }}</span>
+          </td>
+          <td class="text-center">
+            <span [class]="'badge ' + getRuleCountBadgeClass(ruleSet.rule_count)">
+              {{ ruleSet.rule_count }} rules
+            </span>
+          </td>
+          <td class="text-center">
+            <span [class]="'badge ' + (ruleSet.is_active ? 'badge-success' : 'badge-secondary')">
+              {{ ruleSet.is_active ? 'Active' : 'Inactive' }}
+            </span>
+          </td>
+          <td>
+            <span class="date-text">{{ formatDate(ruleSet.created_date) }}</span>
+          </td>
+          <td class="text-center">
+            <div class="action-buttons">
+              <button
+                class="btn-icon"
+                (click)="viewRules(ruleSet)"
+                title="View Rules in this Rule Set"
+              >
+                👁️
+              </button>
+              <button
+                class="btn-icon"
+                (click)="editRuleSet(ruleSet)"
+                title="Edit"
+              >
+                ✏️
+              </button>
+              <button
+                class="btn-icon"
+                (click)="manageRules(ruleSet)"
+                title="Manage Rules"
+              >
+                🔧
+              </button>
+              <button
+                class="btn-icon"
+                (click)="cloneRuleSet(ruleSet)"
+                title="Clone"
+              >
+                📋
+              </button>
+              <button
+                class="btn-icon"
+                (click)="toggleActive(ruleSet)"
+                [title]="ruleSet.is_active ? 'Deactivate' : 'Activate'"
+              >
+                {{ ruleSet.is_active ? '🔴' : '🟢' }}
+              </button>
+              <button
+                class="btn-icon btn-danger"
+                (click)="deleteRuleSet(ruleSet)"
+                title="Delete"
+              >
+                🗑️
+              </button>
+            </div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- Empty State -->
+    <div *ngIf="filteredRuleSets.length === 0" class="empty-state">
+      <p>No rule sets found.</p>
+      <button class="btn btn-primary" (click)="createRuleSet()">
+        Create Your First Rule Set
+      </button>
+    </div>
+  </div>
+
+  <!-- Editor Dialog -->
+  <app-rule-set-editor
+    *ngIf="showEditor"
+    [ruleSet]="editingRuleSet"
+    [mode]="editorMode"
+    (save)="onEditorSave()"
+    (cancel)="onEditorCancel()"
+  ></app-rule-set-editor>
+</div>

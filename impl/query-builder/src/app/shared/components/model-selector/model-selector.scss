@@ -1,0 +1,162 @@
+.model-selector {
+  margin: 16px 0;
+
+  .model-selector-label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: #333;
+    font-size: 14px;
+  }
+
+  .model-options {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .model-option {
+    display: flex;
+    align-items: flex-start;
+    padding: 12px;
+    border: 2px solid #ddd;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+
+    &:hover:not(.disabled) {
+      border-color: #0066cc;
+      background-color: #f7faff;
+    }
+
+    &.selected {
+      border-color: #0066cc;
+      background-color: #e6f2ff;
+    }
+
+    &.disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      background-color: #f5f5f5;
+    }
+
+    input[type="radio"] {
+      margin-top: 2px;
+      margin-right: 12px;
+      cursor: pointer;
+      flex-shrink: 0;
+
+      &:disabled {
+        cursor: not-allowed;
+      }
+    }
+
+    .model-label {
+      flex: 1;
+      cursor: pointer;
+      margin: 0;
+
+      .model-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 4px;
+
+        .model-name {
+          font-weight: 600;
+          font-size: 16px;
+          color: #333;
+        }
+
+        .model-badge {
+          display: inline-block;
+          padding: 2px 8px;
+          font-size: 11px;
+          font-weight: 600;
+          text-transform: uppercase;
+          border-radius: 4px;
+          letter-spacing: 0.5px;
+        }
+
+        .model-badge {
+          &:first-of-type {
+            background-color: #4caf50;
+            color: white;
+          }
+
+          &:last-of-type {
+            background-color: #2196f3;
+            color: white;
+          }
+        }
+      }
+
+      .model-description {
+        margin: 4px 0;
+        font-size: 14px;
+        color: #666;
+        line-height: 1.4;
+      }
+
+      .model-pricing {
+        margin: 4px 0 0 0;
+        font-size: 12px;
+        color: #888;
+        font-style: italic;
+      }
+    }
+  }
+
+  // Adjust badge colors for specific badges
+  .model-badge {
+    &:contains("Recommended") {
+      background-color: #4caf50 !important;
+    }
+
+    &:contains("Cost Saver") {
+      background-color: #2196f3 !important;
+    }
+  }
+}
+
+// Make the selected option more prominent
+.model-option.selected {
+  .model-label {
+    .model-name {
+      color: #0066cc;
+    }
+  }
+}
+
+// Responsive adjustments
+@media (max-width: 768px) {
+  .model-selector {
+    .model-option {
+      padding: 10px;
+
+      .model-label {
+        .model-header {
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 4px;
+
+          .model-name {
+            font-size: 15px;
+          }
+
+          .model-badge {
+            font-size: 10px;
+          }
+        }
+
+        .model-description {
+          font-size: 13px;
+        }
+
+        .model-pricing {
+          font-size: 11px;
+        }
+      }
+    }
+  }
+}

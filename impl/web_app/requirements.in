@@ -6,6 +6,7 @@
 Faker
 Jinja2
 markdown
+xhtml2pdf
 azure-cosmos
 azure-identity
 azure-storage-blob
@@ -46,4 +47,8 @@ rdflib
 # For advanced string matching (Jaro-Winkler, Soundex, etc.)
 jellyfish
 
+azure-storage-blob>=12.19.0
+
 debugpy
+
+

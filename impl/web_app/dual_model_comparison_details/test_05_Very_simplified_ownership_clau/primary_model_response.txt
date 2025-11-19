@@ -1,0 +1,63 @@
+================================================================================
+PRIMARY MODEL ANALYSIS: gpt-4.1
+================================================================================
+
+Test Case: Very simplified ownership clause missing critical legal protections
+Expected Similarity: low
+Processing Time: 115.723s
+Tokens Used: 868
+
+--------------------------------------------------------------------------------
+CONTRACT TEXT ANALYZED
+--------------------------------------------------------------------------------
+All deliverables created under this agreement are owned by Client.
+
+--------------------------------------------------------------------------------
+SIMILARITY ANALYSIS
+--------------------------------------------------------------------------------
+Score: 0.050
+
+--------------------------------------------------------------------------------
+DIFFERENCES IDENTIFIED
+--------------------------------------------------------------------------------
+
+1. MISSING - high
+   Location: entire clause
+   Library: Each party (the "Indemnifying Party") shall indemnify, defend, and hold harmless the other party (the "Indemnified Party"), its affiliates, and their respective officers, directors, employees, and agents from and against any and all claims, demands, losses, liabilities, damages, costs, and expenses (including reasonable attorneys' fees and court costs) arising out of or relating to: Any breach of this Agreement by the Indemnifying Party; Any negligent acts or omissions or willful misconduct by the Indemnifying Party; Any infringement or alleged infringement of any intellectual property rights by the Indemnifying Party; Any violation of applicable laws or regulations by the Indemnifying Party. The Indemnified Party shall provide the Indemnifying Party with prompt written notice of any claim and shall cooperate with the Indemnifying Party in the defense of such claim.
+
+2. EXTRA - low
+   Location: entire clause
+   Contract: All deliverables created under this agreement are owned by Client.
+
+--------------------------------------------------------------------------------
+RISK ANALYSIS
+--------------------------------------------------------------------------------
+Overall Risk: high
+Risk Score: 0.95
+
+Identified Risks:
+
+1. LIABILITY - high
+   Description: Absence of any indemnification provision exposes both parties to unmitigated liability for breaches, negligence, IP infringement, or legal violations. No mechanism for defense or cost recovery.
+   Impact: If a claim arises, the party facing the claim bears full responsibility, including legal costs and damages, with no contractual recourse for indemnification.
+   Location: entire clause
+
+2. INTELLECTUAL PROPERTY - high
+   Description: No indemnity for IP infringement. If deliverables infringe third-party IP, Client may have no protection against claims.
+   Impact: Client could be liable for damages or injunctions relating to deliverables, with no right to seek indemnity from the provider.
+   Location: entire clause
+
+3. CONTRACT BREACH - medium
+   Description: No indemnity for breach of agreement. Parties cannot recover losses or costs from the other party in the event of breach.
+   Impact: Increases risk of unrecoverable losses in case of breach.
+   Location: entire clause
+
+--------------------------------------------------------------------------------
+RECOMMENDATIONS
+--------------------------------------------------------------------------------
+
+1. ADDITION - Priority: high
+   Add a mutual indemnification clause to allocate liability for breaches, negligence, IP infringement, and legal violations.
+   Suggested Text:
+   Each party (the "Indemnifying Party") shall indemnify, defend, and hold harmless the other party (the "Indemnified Party"), its affiliates, and their respective officers, directors, employees, and agents from and against any and all claims, demands, losses, liabilities, damages, costs, and expenses (including reasonable attorneys' fees and court costs) arising out of or relating to: Any breach of this Agreement by the Indemnifying Party; Any negligent acts or omissions or willful misconduct by the Indemnifying Party; Any infringement or alleged infringement of any intellectual property rights by the Indemnifying Party; Any violation of applicable laws or regulations by the Indemnifying Party. The Indemnified Party shall provide the Indemnifying Party with prompt written notice of any claim and shall cooperate with the Indemnifying Party in the defense of such claim.
+   Rationale: This is standard market practice and essential to protect both parties from significant financial and legal exposure.

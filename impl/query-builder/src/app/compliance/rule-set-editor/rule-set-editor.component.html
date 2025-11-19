@@ -1,0 +1,128 @@
+<div class="modal-overlay">
+  <div class="modal-dialog">
+    <!-- Header -->
+    <div class="modal-header">
+      <h3>{{ getTitle() }}</h3>
+      <button class="btn-close" (click)="onCancel()" [disabled]="saving">✕</button>
+    </div>
+
+    <!-- Body -->
+    <div class="modal-body">
+      <!-- Error Message -->
+      <div *ngIf="error" class="error-banner">
+        <span>⚠️ {{ error }}</span>
+      </div>
+
+      <!-- Form -->
+      <form class="rule-set-form" (ngSubmit)="onSave()">
+        <!-- Name Field -->
+        <div class="form-group">
+          <label for="name" class="required">Name</label>
+          <input
+            type="text"
+            id="name"
+            [(ngModel)]="name"
+            name="name"
+            class="form-input"
+            placeholder="Enter rule set name..."
+            maxlength="200"
+            required
+            [disabled]="saving"
+          />
+          <span class="help-text">
+            A descriptive name for this rule set (e.g., "Transportation Rules", "MSA Compliance")
+          </span>
+        </div>
+
+        <!-- Description Field -->
+        <div class="form-group">
+          <label for="description">Description</label>
+          <textarea
+            id="description"
+            [(ngModel)]="description"
+            name="description"
+            class="form-textarea"
+            placeholder="Enter a detailed description..."
+            rows="3"
+            [disabled]="saving"
+          ></textarea>
+          <span class="help-text">
+            Optional: Describe the purpose and scope of this rule set
+          </span>
+        </div>
+
+        <!-- Suggested Contract Types -->
+        <div class="form-group">
+          <label for="contract-types">Suggested Contract Types</label>
+          <input
+            type="text"
+            id="contract-types"
+            [(ngModel)]="suggestedContractTypesInput"
+            name="suggestedContractTypes"
+            class="form-input"
+            placeholder="Enter contract types separated by commas..."
+            [disabled]="saving"
+          />
+          <span class="help-text">
+            Comma-separated list (e.g., "MSA, NDA, SOW"). Can be run against any contract type.
+          </span>
+
+          <!-- Quick Add Buttons -->
+          <div class="contract-type-buttons">
+            <span class="label">Quick add:</span>
+            <button
+              *ngFor="let type of commonContractTypes"
+              type="button"
+              class="btn-chip"
+              (click)="addContractType(type)"
+              [disabled]="saving"
+            >
+              + {{ type }}
+            </button>
+          </div>
+        </div>
+
+        <!-- Active Status -->
+        <div class="form-group">
+          <label class="checkbox-label">
+            <input
+              type="checkbox"
+              [(ngModel)]="isActive"
+              name="isActive"
+              [disabled]="saving"
+            />
+            <span>Active</span>
+          </label>
+          <span class="help-text">
+            Only active rule sets can be used for evaluations
+          </span>
+        </div>
+
+        <!-- Info Note -->
+        <div class="info-note">
+          <strong>Note:</strong> Rules can be added to this rule set after creation using the "Manage Rules" button.
+        </div>
+      </form>
+    </div>
+
+    <!-- Footer -->
+    <div class="modal-footer">
+      <button
+        type="button"
+        class="btn btn-outline"
+        (click)="onCancel()"
+        [disabled]="saving"
+      >
+        Cancel
+      </button>
+      <button
+        type="button"
+        class="btn btn-primary"
+        (click)="onSave()"
+        [disabled]="saving || !isValid()"
+      >
+        {{ getSaveButtonText() }}
+      </button>
+    </div>
+  </div>
+</div>

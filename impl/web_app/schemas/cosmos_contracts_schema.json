@@ -62,9 +62,9 @@
           "description": "Original contract document filename"
         },
         {
-          "name": "text",
+          "name": "contract_text",
           "type": "string",
-          "description": "Full contract text content"
+          "description": "Full contract text content - supports FULLTEXTCONTAINS(c.contract_text, 'term') for full-text search (has full-text index)"
         },
         {
           "name": "embedding",
@@ -399,20 +399,27 @@
       "John's Company, LLC": "johns_company"
     }
   },
+  "critical_rules": {
+    "ALWAYS_QUERY_CONTRACTS_COLLECTION": "For contract data queries, ALWAYS use the 'contracts' collection. Entity collections (contractor_parties, contracting_parties, etc.) are for entity resolution ONLY and should NEVER be queried directly for contract data.",
+    "USE_WHERE_CLAUSES_ON_CONTRACTS": "Use WHERE clauses like 'c.contracting_party = value' or 'c.contractor_party = value' to filter contracts by entity. Do NOT query entity collections.",
+    "ENTITY_PLACEHOLDERS": "Use placeholders like :placeholder_name for entity values. These will be normalized automatically before query execution."
+  },
   "query_strategies": {
-    "ENTITY_FIRST": {
-      "description": "Query entity collection first, then batch retrieve contracts by IDs",
-      "use_when": "Single positive entity, no negations, no OR lists",
-      "collections": ["governing_law_states", "contractor_parties", "contracting_parties", "contract_types"],
-      "ru_cost": "~2 RUs (very low)",
-      "example": "Show all contracts governed by California"
-    },
     "CONTRACT_DIRECT": {
-      "description": "Direct SQL query on contracts collection with WHERE filters",
-      "use_when": "Multiple entities, negations, OR lists, complex filters",
+      "description": "Direct SQL query on contracts collection with WHERE filters - THIS IS THE PRIMARY STRATEGY",
+      "use_when": "ALL contract queries including entity filters, text search, date ranges, etc.",
       "collections": ["contracts"],
       "ru_cost": "~5-50 RUs (medium)",
-      "example": "Show contracts in California, Texas, or Florida but not with Microsoft"
+      "example": "SELECT TOP 50 * FROM c WHERE c.contracting_party = :party_name AND FULLTEXTCONTAINS(c.contract_text, 'term')",
+      "note": "This is the default and most common strategy. Use entity placeholders for automatic normalization."
+    },
+    "ENTITY_FIRST": {
+      "description": "INTERNAL OPTIMIZATION - Not for direct use. System uses this internally for simple single-entity lookups.",
+      "use_when": "DO NOT USE - This is handled automatically by the system for optimization",
+      "collections": ["governing_law_states", "contractor_parties", "contracting_parties", "contract_types"],
+      "ru_cost": "~2 RUs (very low)",
+      "example": "DO NOT USE - Use CONTRACT_DIRECT strategy instead",
+      "note": "NEVER generate queries against entity collections. Always query the contracts collection."
     },
     "CLAUSE_DIRECT": {
       "description": "Direct SQL query on contract_clauses collection with WHERE filters",

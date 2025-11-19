@@ -1,0 +1,59 @@
+================================================================================
+SECONDARY MODEL ANALYSIS: gpt-4.1-mini
+================================================================================
+
+Test Case: Basic confidentiality with longer term but missing exceptions
+Expected Similarity: medium
+Processing Time: 9.139s
+Tokens Used: 818
+
+--------------------------------------------------------------------------------
+CONTRACT TEXT ANALYZED
+--------------------------------------------------------------------------------
+The receiving party will keep confidential information secret and not disclose it
+        to third parties. This obligation lasts for 5 years after termination.
+
+--------------------------------------------------------------------------------
+SIMILARITY ANALYSIS
+--------------------------------------------------------------------------------
+Score: 0.050
+
+--------------------------------------------------------------------------------
+DIFFERENCES IDENTIFIED
+--------------------------------------------------------------------------------
+
+1. MISSING - high
+   Location: entire clause
+   Library: Each party (the " Indemnifying Party ") shall indemnify, defend, and hold harmless the other party (the " Indemnified Party "), its affiliates, and their respective officers, directors, employees, and agents from and against any and all claims, demands, losses, liabilities, damages, costs, and expenses (including reasonable attorneys' fees and court costs) arising out of or relating to: Any breach of this Agreement by the Indemnifying Party; Any negligent acts or omissions or willful misconduct by the Indemnifying Party; Any infringement or alleged infringement of any intellectual property rights by the Indemnifying Party; Any violation of applicable laws or regulations by the Indemnifying Party. The Indemnified Party shall provide the Indemnifying Party with prompt written notice of any claim and shall cooperate with the Indemnifying Party in the defense of such claim.
+
+2. EXTRA - high
+   Location: entire clause
+   Contract: The receiving party will keep confidential information secret and not disclose it to third parties. This obligation lasts for 5 years after termination.
+
+--------------------------------------------------------------------------------
+RISK ANALYSIS
+--------------------------------------------------------------------------------
+Overall Risk: high
+Risk Score: 0.85
+
+Identified Risks:
+
+1. LIABILITY - high
+   Description: Absence of indemnification provisions exposes parties to unmitigated risks related to breaches, negligence, intellectual property infringement, and legal violations.
+   Impact: Potential for significant financial loss and legal exposure without contractual indemnity obligations.
+   Location: entire clause
+
+2. CONTRACTUAL SCOPE - high
+   Description: The contract clause addresses confidentiality only and does not cover indemnification, resulting in a gap in risk allocation.
+   Impact: Lack of mutual indemnification may lead to disputes and insufficient protection for parties against third-party claims.
+   Location: entire clause
+
+--------------------------------------------------------------------------------
+RECOMMENDATIONS
+--------------------------------------------------------------------------------
+
+1. ADDITION - Priority: high
+   Add a mutual indemnification clause consistent with the standard library clause to allocate risks and liabilities appropriately between parties.
+   Suggested Text:
+   Each party (the "Indemnifying Party") shall indemnify, defend, and hold harmless the other party (the "Indemnified Party"), its affiliates, and their respective officers, directors, employees, and agents from and against any and all claims, demands, losses, liabilities, damages, costs, and expenses (including reasonable attorneys' fees and court costs) arising out of or relating to: Any breach of this Agreement by the Indemnifying Party; Any negligent acts or omissions or willful misconduct by the Indemnifying Party; Any infringement or alleged infringement of any intellectual property rights by the Indemnifying Party; Any violation of applicable laws or regulations by the Indemnifying Party. The Indemnified Party shall provide the Indemnifying Party with prompt written notice of any claim and shall cooperate with the Indemnifying Party in the defense of such claim.
+   Rationale: Including a mutual indemnification clause is critical to protect both parties from liabilities arising from breaches, negligence, IP infringement, or legal violations, which the current contract clause does not address.

@@ -1,0 +1,361 @@
+<div class="results-viewer-container">
+  <!-- Header -->
+  <div class="page-header">
+    <div class="header-left">
+      <h2>Compliance Results</h2>
+      <p class="subtitle">View and analyze compliance evaluation results</p>
+    </div>
+    <div class="header-right">
+      <button class="btn btn-outline" (click)="loadAllResults()" *ngIf="viewMode === 'all'">
+        🔄 Refresh
+      </button>
+      <button class="btn btn-outline" (click)="exportResults()">
+        📥 Export CSV
+      </button>
+    </div>
+  </div>
+
+  <!-- View Mode Selector -->
+  <div class="view-mode-selector">
+    <button
+      class="mode-btn"
+      [class.active]="viewMode === 'all'"
+      (click)="changeViewMode('all')"
+    >
+      📊 All Results
+    </button>
+    <button
+      class="mode-btn"
+      [class.active]="viewMode === 'contract'"
+      (click)="changeViewMode('contract')"
+    >
+      📄 By Contract
+    </button>
+    <button
+      class="mode-btn"
+      [class.active]="viewMode === 'rule'"
+      (click)="changeViewMode('rule')"
+    >
+      📜 By Rule
+    </button>
+  </div>
+
+  <!-- Contract Selection (Contract Mode) -->
+  <div class="selection-section" *ngIf="viewMode === 'contract'">
+    <div class="form-group">
+      <label for="contract-select">Select Contract:</label>
+      <select
+        id="contract-select"
+        [(ngModel)]="selectedContractId"
+        class="form-select"
+        (change)="loadContractResults()"
+      >
+        <option value="">-- Choose a contract --</option>
+        <option *ngFor="let contract of availableContracts" [value]="contract.id">
+          {{ contract.title }}
+        </option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Rule Selection (Rule Mode) -->
+  <div class="selection-section" *ngIf="viewMode === 'rule'">
+    <div class="form-group">
+      <label for="rule-select">Select Rule:</label>
+      <select
+        id="rule-select"
+        [(ngModel)]="selectedRuleId"
+        class="form-select"
+        (change)="loadRuleResults()"
+      >
+        <option value="">-- Choose a rule --</option>
+        <option *ngFor="let rule of availableRules" [value]="rule.id">
+          {{ rule.name }}
+        </option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Filters -->
+  <div class="filters-section" *ngIf="allResults.length > 0">
+    <div class="filter-group">
+      <label for="result-filter">Filter by Result:</label>
+      <select
+        id="result-filter"
+        [(ngModel)]="resultFilter"
+        (change)="applyFilters()"
+        class="form-select"
+      >
+        <option value="">All Results</option>
+        <option *ngFor="let option of RESULT_OPTIONS" [value]="option.value">
+          {{ option.label }}
+        </option>
+      </select>
+    </div>
+
+    <div class="filter-group">
+      <label for="search">Search:</label>
+      <input
+        id="search"
+        type="text"
+        [(ngModel)]="searchQuery"
+        (input)="applyFilters()"
+        class="form-control"
+        placeholder="Search rule name, explanation, or evidence..."
+      />
+    </div>
+
+    <div class="filter-group">
+      <button class="btn btn-sm btn-outline" (click)="resultFilter = ''; searchQuery = ''; applyFilters()">
+        Clear Filters
+      </button>
+    </div>
+  </div>
+
+  <!-- Loading State -->
+  <div *ngIf="loading" class="loading-state">
+    <div class="spinner"></div>
+    <p>Loading results...</p>
+  </div>
+
+  <!-- Summary Stats -->
+  <div *ngIf="!loading && filteredResults.length > 0" class="summary-stats">
+    <div class="stat-card">
+      <div class="stat-label">Total Results</div>
+      <div class="stat-value">{{ filteredResults.length }}</div>
+    </div>
+    <div class="stat-card pass">
+      <div class="stat-label">Pass</div>
+      <div class="stat-value">{{ getResultCounts().pass }}</div>
+    </div>
+    <div class="stat-card fail">
+      <div class="stat-label">Fail</div>
+      <div class="stat-value">{{ getResultCounts().fail }}</div>
+    </div>
+    <div class="stat-card partial">
+      <div class="stat-label">Partial</div>
+      <div class="stat-value">{{ getResultCounts().partial }}</div>
+    </div>
+    <div class="stat-card na">
+      <div class="stat-label">N/A</div>
+      <div class="stat-value">{{ getResultCounts().not_applicable }}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Pass Rate</div>
+      <div class="stat-value">{{ getPassRate() }}%</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Avg Confidence</div>
+      <div class="stat-value">{{ getAverageConfidence() }}</div>
+    </div>
+  </div>
+
+  <!-- Results Table -->
+  <div *ngIf="!loading && filteredResults.length > 0" class="results-table-container">
+    <table class="results-table">
+      <thead>
+        <tr>
+          <th class="col-result">Result</th>
+          <th class="col-contract" *ngIf="viewMode !== 'contract'">Contract</th>
+          <th class="col-rule" *ngIf="viewMode !== 'rule'">Rule</th>
+          <th class="col-confidence">Confidence</th>
+          <th class="col-date">Evaluated</th>
+          <th class="col-explanation">Explanation</th>
+          <th class="col-actions">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let result of filteredResults">
+          <td class="col-result">
+            <span class="result-badge badge-{{ getResultColor(result.evaluation_result) }}">
+              {{ getResultIcon(result.evaluation_result) }}
+              {{ result.evaluation_result | uppercase }}
+            </span>
+          </td>
+          <td class="col-contract" *ngIf="viewMode !== 'contract'">
+            <div class="contract-display">
+              <a (click)="viewContract(result.contract_id)" class="contract-link">
+                {{ getContractTitle(result.contract_id) }}
+              </a>
+              <div class="contract-id-small">{{ result.contract_id }}</div>
+            </div>
+          </td>
+          <td class="col-rule" *ngIf="viewMode !== 'rule'">
+            <a (click)="viewRule(result.rule_id)" class="rule-link">
+              {{ result.rule_name }}
+            </a>
+          </td>
+          <td class="col-confidence">
+            <div class="confidence-bar">
+              <div
+                class="confidence-fill"
+                [style.width.%]="result.confidence * 100"
+                [class]="'fill-' + (result.confidence >= 0.8 ? 'high' : result.confidence >= 0.6 ? 'medium' : 'low')"
+              ></div>
+              <span class="confidence-text">{{ (result.confidence * 100).toFixed(0) }}%</span>
+            </div>
+          </td>
+          <td class="col-date">
+            {{ formatDate(result.evaluated_date) }}
+          </td>
+          <td class="col-explanation">
+            <div class="explanation-preview">
+              {{ result.explanation.substring(0, 100) }}{{ result.explanation.length > 100 ? '...' : '' }}
+            </div>
+          </td>
+          <td class="col-actions">
+            <button
+              class="btn-icon"
+              (click)="viewResultDetails(result)"
+              title="View Details"
+            >
+              👁️
+            </button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Empty State -->
+  <div *ngIf="!loading && filteredResults.length === 0 && allResults.length > 0" class="empty-state">
+    <div style="font-size: 4rem; margin-bottom: 1rem;">🔍</div>
+    <h3>No Results Match Filters</h3>
+    <p>Try adjusting your filters or search query.</p>
+    <button class="btn btn-outline" (click)="resultFilter = ''; searchQuery = ''; applyFilters()">
+      Clear Filters
+    </button>
+  </div>
+
+  <!-- No Data State -->
+  <div *ngIf="!loading && allResults.length === 0 && viewMode === 'all'" class="empty-state">
+    <div style="font-size: 4rem; margin-bottom: 1rem;">📊</div>
+    <h3>No Results Available</h3>
+    <p>No compliance evaluations have been performed yet.</p>
+    <button class="btn btn-primary" (click)="router.navigate(['/compliance/evaluate'])">
+      ▶️ Start Evaluation
+    </button>
+  </div>
+
+  <!-- Waiting for Selection -->
+  <div *ngIf="!loading && viewMode === 'contract' && !selectedContractId && allResults.length === 0" class="empty-state">
+    <div style="font-size: 4rem; margin-bottom: 1rem;">🔎</div>
+    <h3>Select a Contract</h3>
+    <p>Choose a contract from the dropdown above to view its compliance results.</p>
+  </div>
+
+  <div *ngIf="!loading && viewMode === 'rule' && !selectedRuleId && allResults.length === 0" class="empty-state">
+    <div style="font-size: 4rem; margin-bottom: 1rem;">🔎</div>
+    <h3>Select a Rule</h3>
+    <p>Choose a rule from the dropdown above to view its compliance results.</p>
+  </div>
+
+  <!-- No Results for Selection -->
+  <div *ngIf="!loading && viewMode === 'contract' && selectedContractId && allResults.length === 0" class="empty-state">
+    <div style="font-size: 4rem; margin-bottom: 1rem;">📋</div>
+    <h3>No Results Available</h3>
+    <p>The selected contract has not been evaluated for compliance yet.</p>
+    <button class="btn btn-primary" (click)="router.navigate(['/compliance/evaluate'])">
+      ▶️ Evaluate This Contract
+    </button>
+  </div>
+
+  <div *ngIf="!loading && viewMode === 'rule' && selectedRuleId && allResults.length === 0" class="empty-state">
+    <div style="font-size: 4rem; margin-bottom: 1rem;">📜</div>
+    <h3>No Results Available</h3>
+    <p>This compliance rule has not been executed for any contracts yet.</p>
+    <button class="btn btn-primary" (click)="router.navigate(['/compliance/evaluate'])">
+      ▶️ Start Evaluation
+    </button>
+  </div>
+</div>
+
+<!-- Detail Modal -->
+<div class="modal-overlay" *ngIf="showDetailModal" (click)="closeDetailModal()">
+  <div class="modal-content" (click)="$event.stopPropagation()" *ngIf="selectedResult">
+    <div class="modal-header">
+      <h3>Evaluation Result Details</h3>
+      <button class="modal-close" (click)="closeDetailModal()">×</button>
+    </div>
+
+    <div class="modal-body">
+      <!-- Result Summary -->
+      <div class="detail-section">
+        <h4>Summary</h4>
+        <div class="detail-grid">
+          <div class="detail-item">
+            <span class="detail-label">Result:</span>
+            <span class="result-badge badge-{{ getResultColor(selectedResult.evaluation_result) }}">
+              {{ getResultIcon(selectedResult.evaluation_result) }}
+              {{ selectedResult.evaluation_result | uppercase }}
+            </span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Confidence:</span>
+            <span class="detail-value">{{ (selectedResult.confidence * 100).toFixed(1) }}%</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Evaluated:</span>
+            <span class="detail-value">{{ formatDate(selectedResult.evaluated_date) }}</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Rule Version:</span>
+            <span class="detail-value">{{ formatDate(selectedResult.rule_version_date) }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Contract & Rule Info -->
+      <div class="detail-section">
+        <h4>Context</h4>
+        <div class="detail-grid">
+          <div class="detail-item">
+            <span class="detail-label">Contract:</span>
+            <span class="detail-value">
+              <a (click)="viewContract(selectedResult.contract_id); closeDetailModal()" class="link">
+                {{ getContractTitle(selectedResult.contract_id) }}
+              </a>
+              <div class="contract-id-small">{{ selectedResult.contract_id }}</div>
+            </span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Rule:</span>
+            <span class="detail-value">
+              <a (click)="viewRule(selectedResult.rule_id); closeDetailModal()" class="link">
+                {{ selectedResult.rule_name }}
+              </a>
+            </span>
+          </div>
+        </div>
+        <div class="detail-item full-width">
+          <span class="detail-label">Rule Description:</span>
+          <p class="detail-value">{{ selectedResult.rule_description }}</p>
+        </div>
+      </div>
+
+      <!-- Explanation -->
+      <div class="detail-section">
+        <h4>Explanation</h4>
+        <p class="explanation-text">{{ selectedResult.explanation }}</p>
+      </div>
+
+      <!-- Evidence -->
+      <div class="detail-section">
+        <h4>Evidence ({{ selectedResult.evidence.length }} items)</h4>
+        <div class="evidence-list">
+          <div class="evidence-item" *ngFor="let evidence of selectedResult.evidence; let i = index">
+            <span class="evidence-number">{{ i + 1 }}.</span>
+            <span class="evidence-text">{{ evidence }}</span>
+          </div>
+        </div>
+        <div *ngIf="selectedResult.evidence.length === 0" class="no-evidence">
+          No evidence provided
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-outline" (click)="closeDetailModal()">Close</button>
+    </div>
+  </div>
+</div>

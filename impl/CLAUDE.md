@@ -193,10 +193,14 @@ docker compose -f docker-compose.yml down
 ### Web Application (Python/FastAPI)
 - **AiService**: Azure OpenAI integration for completions and embeddings
 - **CosmosNoSQLService**: CosmosDB client for document operations and vector search
+  - ⚠️ **CRITICAL**: See `web_app/COSMOSDB_SERVICE_PATTERNS.md` for correct usage patterns
+  - Must use `query_items()`, `parameterized_query()`, `upsert_item()` (NOT `query_documents()`, `get_document()`, `upsert_document()`)
+  - Must call `set_container()` before every operation
 - **RAGDataService**: RAG (Retrieval Augmented Generation) orchestration
 - **AiConversation**: Conversation state management with context
 - **ContractEntitiesService**: Contract entity extraction and processing
 - **OntologyService**: OWL ontology management and SPARQL generation
+- **ClauseLibraryService**: Clause library management with AI-powered comparison and vector search
 
 ### API Endpoints
 

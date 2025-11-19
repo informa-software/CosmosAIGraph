@@ -31,6 +31,9 @@ from src.services.ai_service import AiService
 from src.services.config_service import ConfigService
 from src.services.cosmos_nosql_service import CosmosNoSQLService
 from src.services.contract_entities_service import ContractEntitiesService
+from src.services.compliance_rules_service import ComplianceRulesService
+from src.services.evaluation_job_service import EvaluationJobService
+from src.services.compliance_evaluation_service import ComplianceEvaluationService
 from src.util.counter import Counter
 from src.util.fs import FS
 
@@ -88,13 +91,31 @@ async def load_contracts(dbname, cname, contracts_dir, max_docs):
     try:
         # Initialize services
         ai_svc = AiService()
+        await ai_svc.initialize()
         opts = dict()
         nosql_svc = CosmosNoSQLService(opts)
         await nosql_svc.initialize()
         
         # Initialize contract entities service
         await ContractEntitiesService.initialize(force_reinitialize=True)
-        
+
+        # Initialize compliance services
+        rules_svc = ComplianceRulesService(nosql_svc)
+        job_svc = EvaluationJobService(nosql_svc)
+        compliance_svc = ComplianceEvaluationService(nosql_svc, rules_svc, job_svc, ai_svc)
+
+        # Check if there are active compliance rules
+        try:
+            active_rules = await rules_svc.list_rules(active_only=True)
+            compliance_enabled = len(active_rules) > 0
+            if compliance_enabled:
+                logging.info(f"Compliance evaluation enabled: {len(active_rules)} active rules found")
+            else:
+                logging.info("Compliance evaluation disabled: No active rules found")
+        except Exception as e:
+            logging.warning(f"Could not check compliance rules: {str(e)}")
+            compliance_enabled = False
+
         # Set up database and containers
         nosql_svc.set_db(dbname)
         
@@ -121,11 +142,13 @@ async def load_contracts(dbname, cname, contracts_dir, max_docs):
                 
                 # Process the contract
                 await process_contract(
-                    nosql_svc, 
-                    ai_svc, 
-                    contract_data, 
+                    nosql_svc,
+                    ai_svc,
+                    contract_data,
                     cname,
-                    load_counter
+                    load_counter,
+                    compliance_svc,
+                    compliance_enabled
                 )
                 
             except Exception as e:
@@ -157,10 +180,11 @@ async def load_contracts(dbname, cname, contracts_dir, max_docs):
         await nosql_svc.close()
 
 
-async def process_contract(nosql_svc, ai_svc, contract_data, cname, load_counter):
+async def process_contract(nosql_svc, ai_svc, contract_data, cname, load_counter, compliance_svc=None, compliance_enabled=False):
     """
     Process a single contract JSON file and create parent, clause, and chunk documents.
     Handles both preprocessed (with embeddings) and non-preprocessed files.
+    Optionally evaluates compliance rules if enabled.
     """
     # Extract the unique identifier - clean it for use in document IDs
     raw_id = contract_data.get("imageQuestDocumentId", str(uuid.uuid4()))
@@ -225,6 +249,46 @@ async def process_contract(nosql_svc, ai_svc, contract_data, cname, load_counter
         chunk_docs,
         load_counter
     )
+
+    # Evaluate compliance rules if enabled
+    if compliance_enabled and compliance_svc:
+        try:
+            contract_id = parent_doc.get("id", "")
+            contract_text = parent_doc.get("contract_text", "")
+
+            if contract_text:
+                logging.info(f"Evaluating compliance rules for contract: {contract_id}")
+
+                # Evaluate contract with create_job=False to avoid job tracking overhead during batch loading
+                result = await compliance_svc.evaluate_contract(
+                    contract_id=contract_id,
+                    contract_text=contract_text,
+                    rules=None,  # Use all active rules
+                    create_job=False  # Don't create jobs during batch loading
+                )
+
+                # Log summary
+                summary = result.get("summary", {})
+                logging.info(
+                    f"Compliance evaluation completed for {contract_id}: "
+                    f"Pass={summary.get('pass', 0)}, "
+                    f"Fail={summary.get('fail', 0)}, "
+                    f"Partial={summary.get('partial', 0)}, "
+                    f"N/A={summary.get('not_applicable', 0)}"
+                )
+                load_counter.increment("compliance_evaluations_completed")
+            else:
+                logging.warning(f"Contract {contract_id} has no text for compliance evaluation")
+                load_counter.increment("compliance_evaluations_skipped")
+
+        except Exception as e:
+            logging.error(f"Compliance evaluation failed for contract {contract_id}: {str(e)}")
+            logging.debug(traceback.format_exc())
+            load_counter.increment("compliance_evaluations_failed")
+            # Don't raise - contract loading should succeed even if compliance evaluation fails
+
+    # Return the contract document ID for reference
+    return parent_doc.get("id", "")
 
 
 def create_parent_contract_doc(contract_data, contract_id):
@@ -702,10 +766,11 @@ async def preprocess_contracts(input_dir, output_dir):
     
     # Create output directory if it doesn't exist
     os.makedirs(output_dir, exist_ok=True)
-    
+
     # Initialize AI service for embeddings
     ai_svc = AiService()
-    
+    await ai_svc.initialize()
+
     # Get contract files
     files_list = FS.list_files_in_dir(input_dir)
     contract_files = [f for f in files_list if f.endswith(".json")]

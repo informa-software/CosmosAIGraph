@@ -1,0 +1,33 @@
+<div class="model-selector">
+  <label class="model-selector-label">AI Model Selection</label>
+
+  <div class="model-options">
+    <div *ngFor="let model of models"
+         class="model-option"
+         [class.selected]="selectedModel === model.value"
+         [class.disabled]="disabled">
+
+      <input
+        type="radio"
+        [id]="'model-' + model.value"
+        [name]="'model-selection'"
+        [value]="model.value"
+        [checked]="selectedModel === model.value"
+        [disabled]="disabled"
+        (change)="onModelChange(model.value)">
+
+      <label [for]="'model-' + model.value" class="model-label">
+        <div class="model-header">
+          <span class="model-name">{{ model.label }}</span>
+          <span *ngIf="model.badge" class="model-badge">{{ model.badge }}</span>
+        </div>
+        <p *ngIf="showDescription" class="model-description">
+          {{ model.description }}
+        </p>
+        <p *ngIf="showDescription && model.pricing" class="model-pricing">
+          {{ model.pricing }}
+        </p>
+      </label>
+    </div>
+  </div>
+</div>

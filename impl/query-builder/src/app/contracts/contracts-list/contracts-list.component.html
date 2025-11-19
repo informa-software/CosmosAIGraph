@@ -1,0 +1,474 @@
+<div class="contracts-container" (click)="closeAllDropdowns()">
+  <!-- Page Header -->
+  <div class="page-header">
+    <div class="header-left">
+      <h2>Contracts</h2>
+      <p class="subtitle">Browse and filter all contracts in the system</p>
+    </div>
+    <div class="header-right">
+      <button class="btn btn-outline" (click)="loadContracts()">
+        🔄 Refresh
+      </button>
+      <button class="btn btn-primary" (click)="openUploadModal()" style="margin-left: 0.5rem;">
+        ⬆️ Upload Contract
+      </button>
+    </div>
+  </div>
+
+  <div class="main-content">
+    <!-- Left Filter Panel -->
+    <aside class="filter-panel">
+      <div class="filter-header">
+        <h3>Filters</h3>
+        <button class="btn-link" (click)="clearFilters(); $event.stopPropagation()">Clear All</button>
+      </div>
+
+      <div class="filter-group">
+        <label>Contractor Party</label>
+        <div class="dropdown" [class.open]="isDropdownOpen('contractor')">
+          <button class="btn-dropdown" (click)="toggleDropdown('contractor', $event)">
+            {{ filters.contractor_party.length > 0 ? filters.contractor_party.length + ' selected' : 'All Contractors' }}
+            <span class="dropdown-arrow">▼</span>
+          </button>
+          <div class="dropdown-content" (click)="$event.stopPropagation()">
+            <div class="checkbox-item">
+              <input
+                type="checkbox"
+                [checked]="filters.contractor_party.length === 0"
+                (change)="toggleContractorParty('Any', $event)">
+              <label>Any</label>
+            </div>
+            <div *ngFor="let party of contractorParties" class="checkbox-item">
+              <input
+                type="checkbox"
+                [checked]="isContractorPartySelected(party)"
+                (change)="toggleContractorParty(party, $event)">
+              <label>{{ party }}</label>
+            </div>
+          </div>
+        </div>
+        <div class="selected-badges" *ngIf="filters.contractor_party.length > 0">
+          <span *ngFor="let party of filters.contractor_party" class="badge">
+            {{ party }}
+          </span>
+        </div>
+      </div>
+
+      <div class="filter-group">
+        <label>Contracting Party</label>
+        <div class="dropdown" [class.open]="isDropdownOpen('contracting')">
+          <button class="btn-dropdown" (click)="toggleDropdown('contracting', $event)">
+            {{ filters.contracting_party.length > 0 ? filters.contracting_party.length + ' selected' : 'All Contracting Parties' }}
+            <span class="dropdown-arrow">▼</span>
+          </button>
+          <div class="dropdown-content" (click)="$event.stopPropagation()">
+            <div class="checkbox-item">
+              <input
+                type="checkbox"
+                [checked]="filters.contracting_party.length === 0"
+                (change)="toggleContractingParty('Any', $event)">
+              <label>Any</label>
+            </div>
+            <div *ngFor="let party of contractingParties" class="checkbox-item">
+              <input
+                type="checkbox"
+                [checked]="isContractingPartySelected(party)"
+                (change)="toggleContractingParty(party, $event)">
+              <label>{{ party }}</label>
+            </div>
+          </div>
+        </div>
+        <div class="selected-badges" *ngIf="filters.contracting_party.length > 0">
+          <span *ngFor="let party of filters.contracting_party" class="badge">
+            {{ party }}
+          </span>
+        </div>
+      </div>
+
+      <div class="filter-group">
+        <label>Governing Law State</label>
+        <div class="dropdown" [class.open]="isDropdownOpen('state')">
+          <button class="btn-dropdown" (click)="toggleDropdown('state', $event)">
+            {{ filters.governing_law_state.length > 0 ? filters.governing_law_state.length + ' selected' : 'All States' }}
+            <span class="dropdown-arrow">▼</span>
+          </button>
+          <div class="dropdown-content" (click)="$event.stopPropagation()">
+            <div class="checkbox-item">
+              <input
+                type="checkbox"
+                [checked]="filters.governing_law_state.length === 0"
+                (change)="toggleGoverningLawState('Any', $event)">
+              <label>Any</label>
+            </div>
+            <div *ngFor="let state of governingLawStates" class="checkbox-item">
+              <input
+                type="checkbox"
+                [checked]="isGoverningLawStateSelected(state)"
+                (change)="toggleGoverningLawState(state, $event)">
+              <label>{{ state }}</label>
+            </div>
+          </div>
+        </div>
+        <div class="selected-badges" *ngIf="filters.governing_law_state.length > 0">
+          <span *ngFor="let state of filters.governing_law_state" class="badge">
+            {{ state }}
+          </span>
+        </div>
+      </div>
+
+      <div class="filter-group">
+        <label>Contract Type</label>
+        <div class="dropdown" [class.open]="isDropdownOpen('type')">
+          <button class="btn-dropdown" (click)="toggleDropdown('type', $event)">
+            {{ filters.contract_type.length > 0 ? filters.contract_type.length + ' selected' : 'All Types' }}
+            <span class="dropdown-arrow">▼</span>
+          </button>
+          <div class="dropdown-content" (click)="$event.stopPropagation()">
+            <div class="checkbox-item">
+              <input
+                type="checkbox"
+                [checked]="filters.contract_type.length === 0"
+                (change)="toggleContractType('Any', $event)">
+              <label>Any</label>
+            </div>
+            <div *ngFor="let type of contractTypes" class="checkbox-item">
+              <input
+                type="checkbox"
+                [checked]="isContractTypeSelected(type)"
+                (change)="toggleContractType(type, $event)">
+              <label>{{ type }}</label>
+            </div>
+          </div>
+        </div>
+        <div class="selected-badges" *ngIf="filters.contract_type.length > 0">
+          <span *ngFor="let type of filters.contract_type" class="badge">
+            {{ type }}
+          </span>
+        </div>
+      </div>
+
+      <div class="filter-stats">
+        <div class="stat-item">
+          <span class="stat-label">Total Contracts:</span>
+          <span class="stat-value">{{ totalContracts }}</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Showing:</span>
+          <span class="stat-value">{{ filteredContracts.length }}</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Right Contract List -->
+    <main class="contract-list-area">
+      <!-- Loading State -->
+      <div *ngIf="loading" class="loading-state">
+        <div class="spinner"></div>
+        <p>Loading contracts...</p>
+      </div>
+
+      <!-- Error State -->
+      <div *ngIf="error && !loading" class="error-state">
+        <div class="error-icon">⚠️</div>
+        <h3>Error Loading Contracts</h3>
+        <p>{{ error }}</p>
+        <button class="btn btn-primary" (click)="loadContracts()">Try Again</button>
+      </div>
+
+      <!-- Contract Table -->
+      <div *ngIf="!loading && !error" class="contracts-table-container">
+        <table class="contracts-table">
+          <thead>
+            <tr>
+              <th (click)="sort('filename')" class="sortable">
+                Filename
+                <span class="sort-indicator" *ngIf="sortColumn === 'filename'">
+                  {{ sortDirection === 'asc' ? '▲' : '▼' }}
+                </span>
+              </th>
+              <th (click)="sort('contractor_party')" class="sortable">
+                Contractor Party
+                <span class="sort-indicator" *ngIf="sortColumn === 'contractor_party'">
+                  {{ sortDirection === 'asc' ? '▲' : '▼' }}
+                </span>
+              </th>
+              <th (click)="sort('contracting_party')" class="sortable">
+                Contracting Party
+                <span class="sort-indicator" *ngIf="sortColumn === 'contracting_party'">
+                  {{ sortDirection === 'asc' ? '▲' : '▼' }}
+                </span>
+              </th>
+              <th (click)="sort('governing_law_state')" class="sortable">
+                State
+                <span class="sort-indicator" *ngIf="sortColumn === 'governing_law_state'">
+                  {{ sortDirection === 'asc' ? '▲' : '▼' }}
+                </span>
+              </th>
+              <th (click)="sort('contract_type')" class="sortable">
+                Type
+                <span class="sort-indicator" *ngIf="sortColumn === 'contract_type'">
+                  {{ sortDirection === 'asc' ? '▲' : '▼' }}
+                </span>
+              </th>
+              <th (click)="sort('effective_date')" class="sortable">
+                Effective Date
+                <span class="sort-indicator" *ngIf="sortColumn === 'effective_date'">
+                  {{ sortDirection === 'asc' ? '▲' : '▼' }}
+                </span>
+              </th>
+              <th class="details-col">Details</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let contract of filteredContracts">
+              <td class="filename-col">{{ contract.filename }}</td>
+              <td>{{ contract.contractor_party || '-' }}</td>
+              <td>{{ contract.contracting_party || '-' }}</td>
+              <td>{{ contract.governing_law_state || '-' }}</td>
+              <td>
+                <span class="contract-type-badge">{{ contract.contract_type || '-' }}</span>
+              </td>
+              <td>{{ contract.effective_date || '-' }}</td>
+              <td class="details-col">
+                <button
+                  class="btn-icon"
+                  (click)="openContractDetails(contract)"
+                  title="View Contract Details"
+                >
+                  📄
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <!-- Empty State -->
+        <div *ngIf="filteredContracts.length === 0" class="empty-state">
+          <div class="empty-icon">📄</div>
+          <h3>No Contracts Found</h3>
+          <p>No contracts match your current filters.</p>
+          <button class="btn btn-outline" (click)="clearFilters()">Clear Filters</button>
+        </div>
+
+        <!-- Pagination -->
+        <div *ngIf="filteredContracts.length > 0" class="pagination">
+          <button
+            class="btn btn-sm btn-outline"
+            (click)="previousPage()"
+            [disabled]="currentPage === 1"
+          >
+            ← Previous
+          </button>
+
+          <div class="page-numbers">
+            <button
+              *ngFor="let page of pageNumbers"
+              class="page-btn"
+              [class.active]="page === currentPage"
+              (click)="goToPage(page)"
+            >
+              {{ page }}
+            </button>
+          </div>
+
+          <button
+            class="btn btn-sm btn-outline"
+            (click)="nextPage()"
+            [disabled]="currentPage === totalPages"
+          >
+            Next →
+          </button>
+
+          <span class="page-info">
+            Page {{ currentPage }} of {{ totalPages }} ({{ totalContracts }} total)
+          </span>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- Contract Details Dialog -->
+<div *ngIf="showDetailsDialog" class="modal" (click)="closeDetailsDialog()">
+  <div class="modal-content contract-details-modal" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3>📄 Contract Details</h3>
+      <button class="btn-close" (click)="closeDetailsDialog()">✕</button>
+    </div>
+
+    <div class="modal-body" *ngIf="selectedContract">
+      <!-- Two Column Layout -->
+      <div class="details-layout">
+        <!-- Left: PDF Viewer -->
+        <div class="pdf-viewer-section">
+          <h4>Contract Document</h4>
+          <div class="pdf-container">
+            <iframe
+              [src]="contractPdfUrl"
+              type="application/pdf"
+              width="100%"
+              height="100%"
+              title="Contract PDF"
+            >
+              <p>
+                PDF cannot be displayed.
+                <a [href]="contractPdfUrl" target="_blank">Download PDF</a>
+              </p>
+            </iframe>
+          </div>
+        </div>
+
+        <!-- Right: Contract Attributes & Compliance Summary -->
+        <div class="info-section">
+          <!-- Contract Attributes -->
+          <div class="info-panel">
+            <h4>Contract Information</h4>
+            <div class="attribute-row">
+              <span class="attribute-label">Filename:</span>
+              <span class="attribute-value">{{ selectedContract.filename }}</span>
+            </div>
+            <div class="attribute-row">
+              <span class="attribute-label">Contractor Party:</span>
+              <span class="attribute-value">{{ selectedContract.contractor_party || 'N/A' }}</span>
+            </div>
+            <div class="attribute-row">
+              <span class="attribute-label">Contracting Party:</span>
+              <span class="attribute-value">{{ selectedContract.contracting_party || 'N/A' }}</span>
+            </div>
+            <div class="attribute-row">
+              <span class="attribute-label">Governing Law State:</span>
+              <span class="attribute-value">{{ selectedContract.governing_law_state || 'N/A' }}</span>
+            </div>
+            <div class="attribute-row">
+              <span class="attribute-label">Contract Type:</span>
+              <span class="attribute-value">
+                <span class="contract-type-badge">{{ selectedContract.contract_type || 'N/A' }}</span>
+              </span>
+            </div>
+            <div class="attribute-row">
+              <span class="attribute-label">Effective Date:</span>
+              <span class="attribute-value">{{ formatDate(selectedContract.effective_date) }}</span>
+            </div>
+            <div class="attribute-row">
+              <span class="attribute-label">Expiration Date:</span>
+              <span class="attribute-value">{{ formatDate(selectedContract.expiration_date) }}</span>
+            </div>
+            <div class="attribute-row">
+              <span class="attribute-label">Contract Value:</span>
+              <span class="attribute-value">{{ selectedContract.contract_value || 'N/A' }}</span>
+            </div>
+          </div>
+
+          <!-- Compliance Summary -->
+          <div class="info-panel">
+            <h4>Compliance Summary</h4>
+
+            <!-- Loading State -->
+            <div *ngIf="loadingCompliance" class="loading-indicator">
+              <div class="spinner-sm"></div>
+              <span>Loading compliance results...</span>
+            </div>
+
+            <!-- Compliance Results -->
+            <div *ngIf="!loadingCompliance && complianceResults">
+              <div *ngIf="complianceResults.summary.total === 0" class="empty-compliance">
+                <p>No compliance evaluations have been run for this contract.</p>
+                <a routerLink="/compliance/evaluate" [queryParams]="{contract_id: selectedContract.id, contract_name: selectedContract.filename}">
+                  Evaluate Contract
+                </a>
+              </div>
+
+              <div *ngIf="complianceResults.summary.total > 0" class="compliance-summary">
+                <div class="summary-stat">
+                  <span class="stat-label">Total Rules Evaluated:</span>
+                  <span class="stat-value">{{ complianceResults.summary.total }}</span>
+                </div>
+                <div class="summary-stat">
+                  <span class="stat-label">Pass:</span>
+                  <span class="stat-value pass">{{ complianceResults.summary.pass }}</span>
+                </div>
+                <div class="summary-stat">
+                  <span class="stat-label">Fail:</span>
+                  <span class="stat-value fail">{{ complianceResults.summary.fail }}</span>
+                </div>
+                <div class="summary-stat">
+                  <span class="stat-label">Partial:</span>
+                  <span class="stat-value partial">{{ complianceResults.summary.partial }}</span>
+                </div>
+                <div class="summary-stat">
+                  <span class="stat-label">Not Applicable:</span>
+                  <span class="stat-value na">{{ complianceResults.summary.not_applicable }}</span>
+                </div>
+
+                <div class="compliance-actions">
+                  <a routerLink="/compliance/results" [queryParams]="{contract_id: selectedContract.id}">
+                    View Full Results
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Upload Contract Modal -->
+<div *ngIf="showUploadModal" class="modal" (click)="closeUploadModal()">
+  <div class="modal-content upload-modal" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3>⬆️ Upload Contract</h3>
+      <button class="btn-close" (click)="closeUploadModal()">✕</button>
+    </div>
+
+    <div class="modal-body">
+      <!-- Upload Area -->
+      <div
+        class="upload-area"
+        [class.dragging]="isDraggingFile"
+        (drop)="onFileDrop($event)"
+        (dragover)="onDragOver($event)"
+        (dragleave)="onDragLeave($event)"
+      >
+        <!-- No File Selected -->
+        <div *ngIf="!selectedFile" class="upload-placeholder">
+          <div class="upload-icon">📁</div>
+          <p class="upload-instruction">Drag and drop a PDF contract here</p>
+          <p class="upload-or">or</p>
+          <button class="btn btn-primary" (click)="fileInput.click()">
+            Choose File
+          </button>
+          <input
+            #fileInput
+            type="file"
+            accept=".pdf"
+            (change)="onFileSelected($event)"
+            style="display: none;"
+          />
+          <p class="upload-hint">Maximum file size: 2MB • PDF only</p>
+        </div>
+
+        <!-- File Selected -->
+        <div *ngIf="selectedFile" class="upload-file-selected">
+          <div class="file-info">
+            <div class="file-icon">📄</div>
+            <div class="file-details">
+              <p class="file-name">{{ selectedFile.name }}</p>
+              <p class="file-size">{{ formatFileSize(selectedFile.size) }}</p>
+            </div>
+          </div>
+          <div class="upload-actions">
+            <button class="btn btn-primary" (click)="uploadFile()">
+              Upload
+            </button>
+            <button class="btn btn-outline" (click)="selectedFile = null">
+              Cancel
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+

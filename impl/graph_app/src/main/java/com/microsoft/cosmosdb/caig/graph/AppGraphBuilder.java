@@ -364,7 +364,7 @@ public class AppGraphBuilder {
         return """
         select c.id, c.doctype, c.contractor_party, c.contracting_party,
                c.effective_date, c.expiration_date, c.contract_type,
-               c.contract_value, c.governing_law, c.filename, c.clause_ids
+               c.contract_value, c.governing_law, c.filename, c.governing_law_state, c.clause_ids
         from c
         where c.doctype = 'contract_parent'
         offset 0 limit 999999

@@ -1,0 +1,173 @@
+{
+  "test_date": "2025-10-29T14:08:29.947024",
+  "primary_model": "gpt-4.1",
+  "secondary_model": "gpt-4.1-mini",
+  "comparisons": [
+    {
+      "test_case": "Simplified version with key elements but missing some protections",
+      "expected_similarity": "high",
+      "primary": {
+        "model": "gpt-4.1",
+        "elapsed_time": 35.13081908226013,
+        "tokens": 1388,
+        "similarity_score": 0.55,
+        "risk_level": "high",
+        "risk_count": 5,
+        "recommendation_count": 5
+      },
+      "secondary": {
+        "model": "gpt-4.1-mini",
+        "elapsed_time": 22.4183669090271,
+        "tokens": 1403,
+        "similarity_score": 0.55,
+        "risk_level": "high",
+        "risk_count": 5,
+        "recommendation_count": 3
+      },
+      "differences": {
+        "time_diff": 12.712452173233032,
+        "time_pct": 36.18603979447888,
+        "token_diff": -15,
+        "token_pct": -1.080691642651297,
+        "similarity_diff": 0.0
+      }
+    },
+    {
+      "test_case": "Basic confidentiality with longer term but missing exceptions",
+      "expected_similarity": "medium",
+      "primary": {
+        "model": "gpt-4.1",
+        "elapsed_time": 46.49589824676514,
+        "tokens": 1079,
+        "similarity_score": 0.05,
+        "risk_level": "high",
+        "risk_count": 3,
+        "recommendation_count": 2
+      },
+      "secondary": {
+        "model": "gpt-4.1-mini",
+        "elapsed_time": 9.13862657546997,
+        "tokens": 818,
+        "similarity_score": 0.05,
+        "risk_level": "high",
+        "risk_count": 2,
+        "recommendation_count": 1
+      },
+      "differences": {
+        "time_diff": 37.357271671295166,
+        "time_pct": 80.34530588705043,
+        "token_diff": 261,
+        "token_pct": 24.18906394810009,
+        "similarity_diff": 0.0
+      }
+    },
+    {
+      "test_case": "Similar payment structure but different terms",
+      "expected_similarity": "high",
+      "primary": {
+        "model": "gpt-4.1",
+        "elapsed_time": 12.035900115966797,
+        "tokens": 874,
+        "similarity_score": 0.05,
+        "risk_level": "high",
+        "risk_count": 3,
+        "recommendation_count": 1
+      },
+      "secondary": {
+        "model": "gpt-4.1-mini",
+        "elapsed_time": 13.174267530441284,
+        "tokens": 838,
+        "similarity_score": 0.0,
+        "risk_level": "high",
+        "risk_count": 2,
+        "recommendation_count": 1
+      },
+      "differences": {
+        "time_diff": -1.1383674144744873,
+        "time_pct": -9.458099548070624,
+        "token_diff": 36,
+        "token_pct": 4.118993135011442,
+        "similarity_diff": 0.05
+      }
+    },
+    {
+      "test_case": "Has key concepts but missing important details",
+      "expected_similarity": "medium",
+      "primary": {
+        "model": "gpt-4.1",
+        "elapsed_time": 21.872892379760742,
+        "tokens": 1145,
+        "similarity_score": 0.15,
+        "risk_level": "high",
+        "risk_count": 3,
+        "recommendation_count": 2
+      },
+      "secondary": {
+        "model": "gpt-4.1-mini",
+        "elapsed_time": 12.708388566970825,
+        "tokens": 1067,
+        "similarity_score": 0.05,
+        "risk_level": "high",
+        "risk_count": 3,
+        "recommendation_count": 2
+      },
+      "differences": {
+        "time_diff": 9.164503812789917,
+        "time_pct": 41.89891146389924,
+        "token_diff": 78,
+        "token_pct": 6.812227074235808,
+        "similarity_diff": 0.09999999999999999
+      }
+    },
+    {
+      "test_case": "Very simplified ownership clause missing critical legal protections",
+      "expected_similarity": "low",
+      "primary": {
+        "model": "gpt-4.1",
+        "elapsed_time": 115.72332215309143,
+        "tokens": 868,
+        "similarity_score": 0.05,
+        "risk_level": "high",
+        "risk_count": 3,
+        "recommendation_count": 1
+      },
+      "secondary": {
+        "model": "gpt-4.1-mini",
+        "elapsed_time": 11.764573574066162,
+        "tokens": 901,
+        "similarity_score": 0.0,
+        "risk_level": "high",
+        "risk_count": 3,
+        "recommendation_count": 1
+      },
+      "differences": {
+        "time_diff": 103.95874857902527,
+        "time_pct": 89.83387846530823,
+        "token_diff": -33,
+        "token_pct": -3.8018433179723505,
+        "similarity_diff": 0.05
+      }
+    }
+  ],
+  "summary": {
+    "primary": {
+      "avg_time": 46.25176639556885,
+      "total_tokens": 5354,
+      "avg_tokens": 1070.8,
+      "avg_similarity": 0.17
+    },
+    "secondary": {
+      "avg_time": 13.840844631195068,
+      "total_tokens": 5027,
+      "avg_tokens": 1005.4,
+      "avg_similarity": 0.13
+    },
+    "differences": {
+      "time_diff": 32.41092176437378,
+      "time_pct": 70.07499235203028,
+      "token_diff": 327,
+      "token_pct": 6.107583115427718,
+      "similarity_diff": 0.04000000000000001
+    }
+  }
+}

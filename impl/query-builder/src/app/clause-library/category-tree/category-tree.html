@@ -1,0 +1,85 @@
+<div class="category-tree-container">
+  <!-- Header -->
+  <div class="tree-header">
+    <h3>Categories</h3>
+    <div class="tree-actions">
+      <button
+        class="btn-icon"
+        (click)="clearSelection()"
+        title="Show All"
+        [disabled]="!selectedCategoryId">
+        🏠
+      </button>
+      <button
+        class="btn-icon"
+        (click)="expandAll()"
+        title="Expand All">
+        ⬇️
+      </button>
+      <button
+        class="btn-icon"
+        (click)="collapseAll()"
+        title="Collapse All">
+        ⬆️
+      </button>
+    </div>
+  </div>
+
+  <!-- Loading State -->
+  <div *ngIf="isLoading" class="loading-container">
+    <div class="spinner"></div>
+    <p>Loading categories...</p>
+  </div>
+
+  <!-- Tree View -->
+  <div *ngIf="!isLoading" class="tree-content">
+    <ng-container *ngTemplateOutlet="treeNodeTemplate; context: { nodes: treeNodes }"></ng-container>
+  </div>
+
+  <!-- Empty State -->
+  <div *ngIf="!isLoading && treeNodes.length === 0" class="empty-state">
+    <p>No categories available</p>
+  </div>
+</div>
+
+<!-- Recursive Tree Node Template -->
+<ng-template #treeNodeTemplate let-nodes="nodes">
+  <div class="tree-nodes">
+    <div *ngFor="let node of nodes" class="tree-node-wrapper">
+      <!-- Node Row -->
+      <div
+        class="tree-node"
+        [class.selected]="isSelected(node)"
+        [class.has-children]="node.children.length > 0"
+        [ngStyle]="getIndentStyle(node.level)">
+
+        <!-- Expand/Collapse Toggle -->
+        <button
+          *ngIf="node.children.length > 0"
+          class="expand-toggle"
+          (click)="toggleNode(node)"
+          type="button">
+          <span *ngIf="node.isExpanded">▼</span>
+          <span *ngIf="!node.isExpanded">▶</span>
+        </button>
+
+        <!-- Empty space for leaf nodes -->
+        <span *ngIf="node.children.length === 0" class="expand-placeholder"></span>
+
+        <!-- Category Info -->
+        <div class="category-info" (click)="selectCategory(node)">
+          <span class="category-icon">{{ getIcon(node.category) }}</span>
+          <span class="category-name">{{ node.category.name }}</span>
+          <span class="clause-count" *ngIf="node.category.clause_count > 0">
+            ({{ node.category.clause_count }})
+          </span>
+        </div>
+      </div>
+
+      <!-- Children (Recursive) -->
+      <div *ngIf="node.isExpanded && node.children.length > 0" class="tree-children">
+        <ng-container *ngTemplateOutlet="treeNodeTemplate; context: { nodes: node.children }"></ng-container>
+      </div>
+    </div>
+  </div>
+</ng-template>
