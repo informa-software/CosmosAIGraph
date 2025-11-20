@@ -9,7 +9,7 @@ import { Subscription } from 'rxjs';
   imports: [CommonModule],
   template: `
     <div class="toast-container">
-      <div *ngFor="let toast of toasts" 
+      <div *ngFor="let toast of toasts"
            class="toast"
            [class.toast-error]="toast.type === 'error'"
            [class.toast-success]="toast.type === 'success'"
@@ -23,8 +23,15 @@ import { Subscription } from 'rxjs';
           <strong class="toast-title">{{ toast.title }}</strong>
           <button (click)="removeToast(toast)" class="toast-close">×</button>
         </div>
-        <div *ngIf="toast.message" class="toast-body">
-          {{ toast.message }}
+        <div *ngIf="toast.message || toast.action" class="toast-body">
+          <div *ngIf="toast.message" class="toast-message">
+            {{ toast.message }}
+          </div>
+          <button *ngIf="toast.action"
+                  class="toast-action-btn"
+                  (click)="handleAction(toast)">
+            {{ toast.action.label }}
+          </button>
         </div>
       </div>
     </div>
@@ -96,6 +103,31 @@ import { Subscription } from 'rxjs';
       font-size: 13px;
       margin-left: 28px;
       color: #666;
+    }
+
+    .toast-message {
+      margin-bottom: 8px;
+    }
+
+    .toast-action-btn {
+      background: #007bff;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      padding: 6px 12px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.2s;
+      margin-top: 8px;
+    }
+
+    .toast-action-btn:hover {
+      background: #0056b3;
+    }
+
+    .toast-action-btn:active {
+      background: #004085;
     }
 
     .toast-error {
@@ -170,6 +202,13 @@ export class ToastComponent implements OnInit, OnDestroy {
         clearTimeout(this.timeouts.get(toast.id));
         this.timeouts.delete(toast.id);
       }
+    }
+  }
+
+  handleAction(toast: Toast): void {
+    if (toast.action && toast.action.callback) {
+      toast.action.callback();
+      this.removeToast(toast);
     }
   }
 

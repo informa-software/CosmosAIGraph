@@ -285,7 +285,7 @@ export class ContractWorkbenchComponent implements OnInit {
         // Check for completed jobs and show notifications
         event.jobs.forEach(job => {
           if (job.status === JobStatus.COMPLETED && job.result_id) {
-            this.showJobCompletedNotification(job.job_id, job.result_id);
+            this.showJobCompletedNotification(job.job_id, job.result_id, job.job_type);
           } else if (job.status === JobStatus.FAILED) {
             this.showJobFailedNotification(job.job_id);
           }
@@ -308,18 +308,20 @@ export class ContractWorkbenchComponent implements OnInit {
   /**
    * Show notification when job is completed
    */
-  showJobCompletedNotification(jobId: string, resultId: string): void {
+  showJobCompletedNotification(jobId: string, resultId: string, jobType: JobType): void {
     // Only show notification once per job
     if (this.currentJobId === jobId) {
-      this.toastService.success(
-        'Analysis Complete!',
-        'Your batch job has finished. Click to view results.'
-      );
-
-      // Navigate to results viewer after a short delay
-      setTimeout(() => {
-        this.viewJobResult(resultId);
-      }, 1000);
+      // Show toast with action button - user must click to navigate
+      this.toastService.show({
+        type: 'success',
+        title: 'Analysis Complete!',
+        message: 'Your batch job has finished.',
+        duration: 10000,  // Longer duration for action toasts (10 seconds)
+        action: {
+          label: 'View Results',
+          callback: () => this.viewJobResult(resultId, jobType)
+        }
+      });
 
       // Clear current job
       this.currentJobId = null;

@@ -33,8 +33,10 @@ import { Contract } from '../contract-workbench/models/contract.models';
         <!-- Job List -->
         <div *ngIf="jobs.length > 0" class="job-list">
           <div *ngFor="let job of jobs" class="job-card">
-            <!-- Job Header -->
-            <div class="job-card-header">
+            <!-- Job Header (clickable for completed jobs) -->
+            <div class="job-card-header"
+                 [class.clickable]="job.status === 'completed' || job.status === 'failed' || job.status === 'cancelled'"
+                 (click)="(job.status === 'completed' || job.status === 'failed' || job.status === 'cancelled') && toggleJobExpansion(job.job_id)">
               <div class="job-info">
                 <span class="job-type-icon">{{ getJobTypeIcon(job.job_type) }}</span>
                 <div class="job-details">
@@ -44,9 +46,14 @@ import { Contract } from '../contract-workbench/models/contract.models';
               </div>
               <div class="job-header-actions">
                 <span class="badge" [ngClass]="getJobStatusBadgeClass(job.status)">{{ job.status }}</span>
+                <!-- Expansion indicator for completed jobs -->
+                <span *ngIf="job.status === 'completed' || job.status === 'failed' || job.status === 'cancelled'"
+                      class="expansion-indicator">
+                  {{ isJobExpanded(job.job_id) ? '▼' : '▶' }}
+                </span>
                 <button
                   *ngIf="job.status === 'completed' || job.status === 'failed' || job.status === 'cancelled'"
-                  (click)="deleteJob(job.job_id)"
+                  (click)="deleteJob(job.job_id); $event.stopPropagation()"
                   class="btn-delete-job"
                   title="Delete this job">🗑️</button>
               </div>
@@ -67,8 +74,8 @@ import { Contract } from '../contract-workbench/models/contract.models';
               </div>
             </div>
 
-            <!-- Job Details - 2 Column Layout -->
-            <div class="job-details-grid">
+            <!-- Job Details - 2 Column Layout (only show for expanded completed jobs or active jobs) -->
+            <div *ngIf="shouldShowFullDetails(job)" class="job-details-grid">
               <!-- Left Column: Job-Specific Details -->
               <div class="job-details-left">
                 <!-- Contract Upload Details -->
@@ -141,8 +148,8 @@ import { Contract } from '../contract-workbench/models/contract.models';
               </div>
             </div>
 
-            <!-- Action Buttons -->
-            <div class="job-actions">
+            <!-- Action Buttons (only show for expanded completed jobs or active jobs) -->
+            <div *ngIf="shouldShowFullDetails(job)" class="job-actions">
               <button
                 *ngIf="canCancelJob(job.status)"
                 (click)="cancelJob(job.job_id)"
@@ -230,6 +237,19 @@ import { Contract } from '../contract-workbench/models/contract.models';
       justify-content: space-between;
       align-items: center;
       margin-bottom: 1rem;
+      transition: background-color 0.2s;
+    }
+
+    .job-card-header.clickable {
+      cursor: pointer;
+      border-radius: 4px;
+      padding: 0.5rem;
+      margin: -0.5rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .job-card-header.clickable:hover {
+      background-color: #f5f5f5;
     }
 
     .job-info {
@@ -257,6 +277,13 @@ import { Contract } from '../contract-workbench/models/contract.models';
       display: flex;
       align-items: center;
       gap: 0.5rem;
+    }
+
+    .expansion-indicator {
+      font-size: 0.9rem;
+      color: #666;
+      margin-left: 0.5rem;
+      user-select: none;
     }
 
     .badge {
@@ -450,9 +477,11 @@ export class JobsPageComponent implements OnInit, OnDestroy {
   activeJobCount = 0;
   contracts: Contract[] = [];
   contractsMap: Map<string, Contract> = new Map();
+  expandedJobs: Set<string> = new Set();  // Track which jobs are expanded
 
-  // Expose enum to template
+  // Expose enums to template
   JobType = JobType;
+  JobStatus = JobStatus;
 
   constructor(
     private jobService: JobService,
@@ -767,5 +796,37 @@ export class JobsPageComponent implements OnInit, OnDestroy {
 
     // Always display in seconds
     return `${seconds}s`;
+  }
+
+  /**
+   * Toggle job expansion state (for accordion behavior)
+   */
+  toggleJobExpansion(jobId: string): void {
+    if (this.expandedJobs.has(jobId)) {
+      this.expandedJobs.delete(jobId);
+    } else {
+      this.expandedJobs.add(jobId);
+    }
+  }
+
+  /**
+   * Check if a job is expanded
+   */
+  isJobExpanded(jobId: string): boolean {
+    return this.expandedJobs.has(jobId);
+  }
+
+  /**
+   * Check if a job should show full details
+   * In-progress jobs always show full details
+   * Completed jobs show full details only when expanded
+   */
+  shouldShowFullDetails(job: BatchJob): boolean {
+    // Always show full details for active jobs
+    if (job.status === JobStatus.QUEUED || job.status === JobStatus.PROCESSING) {
+      return true;
+    }
+    // For completed/failed/cancelled jobs, show only when expanded
+    return this.isJobExpanded(job.job_id);
   }
 }

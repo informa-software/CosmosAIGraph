@@ -243,7 +243,9 @@ class BackgroundWorker:
                 logger.warning(f"Prompt too long ({len(llm_prompt)} chars), truncating to {max_prompt_chars}")
                 llm_prompt = llm_prompt[:max_prompt_chars] + "\n... [TRUNCATED FOR LENGTH]" + llm_prompt[-2000:]
 
-        llm_response = ai_service.get_completion_for_contracts(
+        # Run LLM call in thread pool to avoid blocking the event loop
+        llm_response = await asyncio.to_thread(
+            ai_service.get_completion_for_contracts,
             user_prompt=llm_prompt,
             system_prompt=system_prompt,
             max_tokens=6000,
@@ -506,8 +508,9 @@ Please provide a comprehensive answer based on the contracts above, following th
         # Track start time
         start_time = time.time()
 
-        # Send to LLM
-        llm_response = ai_service.get_completion_for_contracts(
+        # Run LLM call in thread pool to avoid blocking the event loop
+        llm_response = await asyncio.to_thread(
+            ai_service.get_completion_for_contracts,
             user_prompt=user_prompt,
             system_prompt=system_prompt,
             max_tokens=4000,
